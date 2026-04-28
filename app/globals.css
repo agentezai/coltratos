@@ -1,26 +1,319 @@
 @import "tailwindcss";
 
+/* =============================================================
+   COLTRATOS · Design Tokens
+   Owned by the `design-system` spec. The bundle authored at
+   docs/design-system/source/project/colors_and_type.css is the
+   read-only historical source. Production tokens (this file) are
+   kept 1:1 with the bundle's `:root` block (RN-002 / RN-003 /
+   NFR-04). Adding or renaming a token MUST update both surfaces
+   below — the parity test (src/__tests__/token-parity.test.ts)
+   fails until they agree.
+   ============================================================= */
+
+/* ---- Brand font: Geist (self-hosted, full static family + variable) ----
+   Variable file is preloaded in app/layout.tsx; static weights cover
+   browsers without variable-font support. ADR-016 documents the choice.
+   JetBrains Mono is loaded via next/font/google in app/layout.tsx and
+   exposed here via the `--font-mono` CSS variable. */
+@font-face {
+  font-family: "Geist";
+  src: url("/fonts/Geist-VariableFont_wght.ttf") format("truetype-variations");
+  font-weight: 100 900;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face { font-family: "Geist"; src: url("/fonts/Geist-Thin.ttf")       format("truetype"); font-weight: 100; font-style: normal; font-display: swap; }
+@font-face { font-family: "Geist"; src: url("/fonts/Geist-ExtraLight.ttf") format("truetype"); font-weight: 200; font-style: normal; font-display: swap; }
+@font-face { font-family: "Geist"; src: url("/fonts/Geist-Light.ttf")      format("truetype"); font-weight: 300; font-style: normal; font-display: swap; }
+@font-face { font-family: "Geist"; src: url("/fonts/Geist-Regular.ttf")    format("truetype"); font-weight: 400; font-style: normal; font-display: swap; }
+@font-face { font-family: "Geist"; src: url("/fonts/Geist-Medium.ttf")     format("truetype"); font-weight: 500; font-style: normal; font-display: swap; }
+@font-face { font-family: "Geist"; src: url("/fonts/Geist-SemiBold.ttf")   format("truetype"); font-weight: 600; font-style: normal; font-display: swap; }
+@font-face { font-family: "Geist"; src: url("/fonts/Geist-Bold.ttf")       format("truetype"); font-weight: 700; font-style: normal; font-display: swap; }
+@font-face { font-family: "Geist"; src: url("/fonts/Geist-ExtraBold.ttf")  format("truetype"); font-weight: 800; font-style: normal; font-display: swap; }
+@font-face { font-family: "Geist"; src: url("/fonts/Geist-Black.ttf")      format("truetype"); font-weight: 900; font-style: normal; font-display: swap; }
+
+/* =============================================================
+   Tailwind v4 @theme — generates utility classes from token names.
+   Naming convention (Tailwind v4): `--color-*`, `--font-*`,
+   `--radius-*`, `--shadow-*`, `--spacing-*`. Tokens that don't fit
+   the Tailwind taxonomy (semantic fg/border, motion, layout) live
+   only in the `:root` block below. ADR-017 documents the dual layer.
+   ============================================================= */
+@theme {
+  /* Brand · Navy */
+  --color-navy-500: #3a5590;
+  --color-navy-600: #2a4075;
+  --color-navy-700: #1a2f5c;
+  --color-navy-800: #102448;
+  --color-navy-900: #0b1a3a;
+  --color-navy-950: #060f24;
+
+  /* Brand · Graphite (neutral warm-cool) */
+  --color-graphite-50:  #f8fafc;
+  --color-graphite-100: #f1f5f9;
+  --color-graphite-200: #e2e8f0;
+  --color-graphite-300: #cbd5e1;
+  --color-graphite-400: #94a3b8;
+  --color-graphite-500: #64748b;
+  --color-graphite-600: #475569;
+  --color-graphite-700: #334155;
+  --color-graphite-800: #1e293b;
+  --color-graphite-900: #0f172a;
+
+  /* Accent · Royal Blue */
+  --color-blue-50:  #eff6ff;
+  --color-blue-100: #dbeafe;
+  --color-blue-200: #bfdbfe;
+  --color-blue-400: #60a5fa;
+  --color-blue-500: #3b82f6;
+  --color-blue-600: #2563eb;
+  --color-blue-700: #1d4ed8;
+  --color-blue-800: #1e40af;
+
+  /* Brand Green / Semáforo · Elegible */
+  --color-green-50:  #ecfdf5;
+  --color-green-100: #d1fae5;
+  --color-green-200: #a7f3d0;
+  --color-green-400: #34d399;
+  --color-green-500: #22c55e;
+  --color-green-600: #16a34a;
+  --color-green-700: #15803d;
+
+  /* Semáforo · Amber */
+  --color-amber-50:  #fffbeb;
+  --color-amber-100: #fef3c7;
+  --color-amber-200: #fde68a;
+  --color-amber-400: #fbbf24;
+  --color-amber-500: #f59e0b;
+  --color-amber-600: #d97706;
+  --color-amber-700: #b45309;
+
+  /* Semáforo · Red */
+  --color-red-50:  #fef2f2;
+  --color-red-100: #fee2e2;
+  --color-red-200: #fecaca;
+  --color-red-400: #f87171;
+  --color-red-500: #ef4444;
+  --color-red-600: #dc2626;
+  --color-red-700: #b91c1c;
+
+  /* Tints (icon wells) */
+  --color-tint-blue:   #e7eeff;
+  --color-tint-green:  #e4f7ec;
+  --color-tint-amber:  #fff2d6;
+  --color-tint-red:    #fde6e6;
+  --color-tint-violet: #ece9fe;
+  --color-tint-sky:    #e0f2fe;
+
+  /* Type families */
+  --font-display: "Geist", ui-sans-serif, system-ui, -apple-system, "Segoe UI", Helvetica, Arial, sans-serif;
+  --font-sans:    "Geist", ui-sans-serif, system-ui, -apple-system, "Segoe UI", Helvetica, Arial, sans-serif;
+  --font-mono:    "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+
+  /* Radii */
+  --radius-xs: 4px;
+  --radius-sm: 6px;
+  --radius-md: 8px;
+  --radius-lg: 12px;
+  --radius-xl: 16px;
+  --radius-2xl: 20px;
+
+  /* Shadows */
+  --shadow-xs: 0 1px 2px rgba(15, 23, 42, 0.04);
+  --shadow-sm: 0 1px 2px rgba(15, 23, 42, 0.04), 0 1px 3px rgba(15, 23, 42, 0.05);
+  --shadow-md: 0 4px 10px -2px rgba(15, 23, 42, 0.06), 0 2px 4px -1px rgba(15, 23, 42, 0.04);
+  --shadow-lg: 0 12px 28px -8px rgba(15, 23, 42, 0.12), 0 4px 10px -2px rgba(15, 23, 42, 0.05);
+  --shadow-xl: 0 24px 48px -12px rgba(15, 23, 42, 0.18);
+}
+
+/* =============================================================
+   :root — Bundle-original token names. Mirrors lines 30–199 of
+   docs/design-system/source/project/colors_and_type.css 1:1.
+   Used by raw CSS, third-party widgets, modal layers, and any
+   `style={{ background: 'var(--token)' }}` consumer.
+   ============================================================= */
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  /* ---------- BRAND · Navy ---------- */
+  --navy-950: #060f24;
+  --navy-900: #0b1a3a;
+  --navy-800: #102448;
+  --navy-700: #1a2f5c;
+  --navy-600: #2a4075;
+  --navy-500: #3a5590;
+
+  /* ---------- BRAND · Graphite ---------- */
+  --graphite-900: #0f172a;
+  --graphite-800: #1e293b;
+  --graphite-700: #334155;
+  --graphite-600: #475569;
+  --graphite-500: #64748b;
+  --graphite-400: #94a3b8;
+  --graphite-300: #cbd5e1;
+  --graphite-200: #e2e8f0;
+  --graphite-100: #f1f5f9;
+  --graphite-50:  #f8fafc;
+
+  /* ---------- ACCENT · Royal Blue ---------- */
+  --blue-50:   #eff6ff;
+  --blue-100:  #dbeafe;
+  --blue-200:  #bfdbfe;
+  --blue-400:  #60a5fa;
+  --blue-500:  #3b82f6;
+  --blue-600:  #2563eb;
+  --blue-700:  #1d4ed8;
+  --blue-800:  #1e40af;
+
+  /* ---------- BRAND GREEN / Semáforo · Elegible ---------- */
+  --green-50:  #ecfdf5;
+  --green-100: #d1fae5;
+  --green-200: #a7f3d0;
+  --green-400: #34d399;
+  --green-500: #22c55e;
+  --green-600: #16a34a;
+  --green-700: #15803d;
+
+  /* ---------- SEMÁFORO · Amber ---------- */
+  --amber-50:  #fffbeb;
+  --amber-100: #fef3c7;
+  --amber-200: #fde68a;
+  --amber-400: #fbbf24;
+  --amber-500: #f59e0b;
+  --amber-600: #d97706;
+  --amber-700: #b45309;
+
+  /* ---------- SEMÁFORO · Red ---------- */
+  --red-50:   #fef2f2;
+  --red-100:  #fee2e2;
+  --red-200:  #fecaca;
+  --red-400:  #f87171;
+  --red-500:  #ef4444;
+  --red-600:  #dc2626;
+  --red-700:  #b91c1c;
+
+  /* ---------- TINTS (icon wells) ---------- */
+  --tint-blue:   #e7eeff;
+  --tint-green:  #e4f7ec;
+  --tint-amber:  #fff2d6;
+  --tint-red:    #fde6e6;
+  --tint-violet: #ece9fe;
+  --tint-sky:    #e0f2fe;
+
+  /* ---------- SURFACES ---------- */
+  --surface-canvas:   #f5f7fb;
+  --surface-card:     #ffffff;
+  --surface-raised:   #ffffff;
+  --surface-sunken:   #f8fafc;
+  --surface-dark:     var(--navy-900);
+  --surface-dark-alt: var(--navy-800);
+
+  /* ---------- SEMANTIC TEXT ---------- */
+  --fg-1: var(--graphite-900);
+  --fg-2: var(--graphite-700);
+  --fg-3: var(--graphite-500);
+  --fg-4: var(--graphite-400);
+  --fg-inverse: #ffffff;
+  --fg-on-dark-2: #c7d2e3;
+  --fg-on-dark-3: #8596b5;
+  --fg-brand: var(--blue-600);
+  --fg-success: var(--green-600);
+  --fg-warning: var(--amber-600);
+  --fg-danger:  var(--red-600);
+
+  /* ---------- SEMANTIC BORDERS ---------- */
+  --border-hairline:   #eef1f6;
+  --border-subtle:     var(--graphite-200);
+  --border-default:    var(--graphite-300);
+  --border-strong:     var(--graphite-400);
+  --border-brand:      var(--blue-600);
+  --border-on-dark:    rgba(255, 255, 255, 0.08);
+
+  /* ---------- SHADOWS ---------- */
+  --shadow-xs: 0 1px 2px rgba(15, 23, 42, 0.04);
+  --shadow-sm: 0 1px 2px rgba(15, 23, 42, 0.04), 0 1px 3px rgba(15, 23, 42, 0.05);
+  --shadow-md: 0 4px 10px -2px rgba(15, 23, 42, 0.06), 0 2px 4px -1px rgba(15, 23, 42, 0.04);
+  --shadow-lg: 0 12px 28px -8px rgba(15, 23, 42, 0.12), 0 4px 10px -2px rgba(15, 23, 42, 0.05);
+  --shadow-xl: 0 24px 48px -12px rgba(15, 23, 42, 0.18);
+  --shadow-focus: 0 0 0 4px rgba(37, 99, 235, 0.18);
+  --shadow-focus-danger: 0 0 0 4px rgba(239, 68, 68, 0.18);
+  --shadow-inset-hairline: inset 0 0 0 1px var(--border-subtle);
+
+  /* ---------- RADII ---------- */
+  --radius-xs: 4px;
+  --radius-sm: 6px;
+  --radius-md: 8px;
+  --radius-lg: 12px;
+  --radius-xl: 16px;
+  --radius-2xl: 20px;
+  --radius-pill: 999px;
+
+  /* ---------- SPACING (4pt scale) ---------- */
+  --space-0: 0;
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 20px;
+  --space-6: 24px;
+  --space-8: 32px;
+  --space-10: 40px;
+  --space-12: 48px;
+  --space-16: 64px;
+  --space-20: 80px;
+
+  /* ---------- LAYOUT ---------- */
+  --app-sidebar-w: 244px;
+  --app-header-h: 72px;
+  --app-content-max: 1280px;
+  --app-gutter: 32px;
+
+  /* ---------- TYPE · FAMILIES ---------- */
+  --font-display: "Geist", ui-sans-serif, system-ui, -apple-system, "Segoe UI", Helvetica, Arial, sans-serif;
+  --font-sans:    "Geist", ui-sans-serif, system-ui, -apple-system, "Segoe UI", Helvetica, Arial, sans-serif;
+  --font-mono:    "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+
+  /* ---------- TYPE · SCALE (desktop-first) ---------- */
+  --fs-display-xl: 56px;
+  --fs-display-lg: 44px;
+  --fs-display-md: 36px;
+  --fs-h1: 30px;
+  --fs-h2: 24px;
+  --fs-h3: 20px;
+  --fs-h4: 18px;
+  --fs-body-lg: 16px;
+  --fs-body:    14px;
+  --fs-sm:      13px;
+  --fs-xs:      12px;
+  --fs-micro:   11px;
+
+  /* ---------- TYPE · LINE HEIGHT / WEIGHT ---------- */
+  --lh-tight:   1.1;
+  --lh-snug:    1.25;
+  --lh-normal:  1.5;
+  --lh-relaxed: 1.65;
+
+  --fw-regular: 400;
+  --fw-medium:  500;
+  --fw-semibold: 600;
+  --fw-bold:    700;
+  --fw-extra:   800;
+
+  /* ---------- MOTION ---------- */
+  --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-in-out: cubic-bezier(0.65, 0, 0.35, 1);
+  --dur-fast: 120ms;
+  --dur-base: 180ms;
+  --dur-slow: 280ms;
 }
 
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
-}
-
+/* =============================================================
+   Body / typography defaults
+   ============================================================= */
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  background: var(--surface-canvas);
+  color: var(--fg-1);
+  font-family: var(--font-sans);
+  font-size: var(--fs-body);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 }

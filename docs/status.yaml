@@ -31,16 +31,20 @@ features:
     action_type: FEATURE
     profile: code
   project-bootstrap:
-    status: confirmed
+    status: shipped
     created: "2026-04-27"
     approved_at: "2026-04-27"
     run_completed_at: "2026-04-28"
     verified_at: "2026-04-28"
+    shipped_at: "2026-04-28"
+    shipped_via: "initial commit 34952bd on main, tag bootstrap-baseline (no PR — foundational baseline)"
     action_type: FEATURE
     profile: code
   design-system:
-    status: approved
+    status: in-review
     created: "2026-04-28"
     approved_at: "2026-04-28"
+    run_completed_at: "2026-04-28"
+    branch: "feat/design-system"
     action_type: FEATURE
     profile: code

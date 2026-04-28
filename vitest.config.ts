@@ -1,14 +1,10 @@
 import { defineConfig } from "vitest/config";
-import { resolve } from "node:path";
+import tsconfigPaths from "vite-tsconfig-paths";
 
 export default defineConfig({
-  resolve: {
-    alias: {
-      // Mirror tsconfig paths so vitest-resolved imports match tsc-resolved imports.
-      "@": resolve(__dirname, "./src"),
-      "@/types": resolve(__dirname, "./src/types/index.ts"),
-    },
-  },
+  // Honor tsconfig.json paths (@/* and @/types) so vitest resolves
+  // imports the same way tsc does.
+  plugins: [tsconfigPaths()],
   test: {
     // Non-globals: import describe/it/expect explicitly (RN-006).
     globals: false,
@@ -22,6 +18,7 @@ export default defineConfig({
     projects: [
       // Project 1: standard runtime tests.
       {
+        plugins: [tsconfigPaths()],
         test: {
           name: "unit",
           include: ["**/*.test.ts", "**/*.test.tsx"],
@@ -30,6 +27,7 @@ export default defineConfig({
       },
       // Project 2: type-level tests (compile-only; no runtime assertions).
       {
+        plugins: [tsconfigPaths()],
         test: {
           name: "types",
           include: ["**/*.test-d.ts"],

@@ -1,0 +1,18 @@
+=== Final 4-gate run ===
+
+--- npm run typecheck ---
+exit 0
+
+--- npm run lint ---
+exit 0
+
+--- npm run build ---
+exit 0; routes: /, /_not-found, /design-system, /icon.svg (all prerendered static)
+
+--- npm run test ---
+Test Files  6 passed (6)
+Tests       7 passed (7)
+Type Errors no errors
+Duration    1.74s
+
+Total wall clock: 10.1s on developer machine

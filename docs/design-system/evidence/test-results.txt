@@ -1,0 +1,26 @@
+
+> coltratos@0.1.0 test
+> vitest run --reporter=verbose
+
+The plugin "vite-tsconfig-paths" is detected. Vite now supports tsconfig paths resolution natively via the resolve.tsconfigPaths option. You can remove the plugin and set resolve.tsconfigPaths: true in your Vite config instead.
+The plugin "vite-tsconfig-paths" is detected. Vite now supports tsconfig paths resolution natively via the resolve.tsconfigPaths option. You can remove the plugin and set resolve.tsconfigPaths: true in your Vite config instead.
+The plugin "vite-tsconfig-paths" is detected. Vite now supports tsconfig paths resolution natively via the resolve.tsconfigPaths option. You can remove the plugin and set resolve.tsconfigPaths: true in your Vite config instead.
+Testing types with tsc and vue-tsc is an experimental feature.
+Breaking changes might not follow SemVer, please pin Vitest's version when using it.
+
+ RUN  v4.1.5 /Users/carlosvilla/Documents/Proyectos/AI/coltratos
+
+ ✓ |types| src/components/ui/__tests__/icon.test-d.ts > Icon name registry (REQ-011) > IconName equals the 28-entry registry exactly 1ms
+ ✓ |unit| src/__tests__/rsc-purity.test.ts > RSC purity (NFR-05) > only src/components/shell/sidebar.tsx carries "use client" 3ms
+ ✓ |unit| src/__tests__/token-parity.test.ts > Token parity vs design-system bundle (NFR-04) > every bundle token is defined in app/globals.css :root 4ms
+ ✓ |unit| tests/bootstrap.test.ts > project-bootstrap smoke test > vitest is installed and runs (REQ-006) 1ms
+ ✓ |unit| tests/bootstrap.test.ts > project-bootstrap smoke test > the @/types path alias is wired but the barrel does not yet exist (REQ-013) 8ms
+ ✓ |unit| src/__tests__/design-system-page.test.tsx > /design-system page smoke (REQ-012) > renders all 5 primitives + COLTRATOS wordmark 64ms
+ ✓ |types|  TS  src/components/ui/__tests__/icon.test-d.ts > Icon name registry (REQ-011) > IconName equals the 28-entry registry exactly
+
+ Test Files  6 passed (6)
+      Tests  7 passed (7)
+Type Errors  no errors
+   Start at  11:53:21
+   Duration  1.74s (transform 140ms, setup 0ms, import 266ms, tests 84ms, environment 497ms, typecheck 930ms)
+

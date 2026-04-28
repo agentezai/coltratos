@@ -5,3 +5,23 @@
 When saving notes to auto memory, prefer domain-specific observations.
 Project conventions are managed in `.nybo/memory/domains/*.md`.
 Use the nybo-curate skill to add new conventions to the project memory.
+
+## Agent routing
+
+When the user requests work that maps to a phase agent, delegate to that
+subagent via the Agent tool. Do NOT run the corresponding skill inline.
+
+| User intent                                        | subagent_type  |
+| -------------------------------------------------- | -------------- |
+| /nybo-plan, "plan a feature", "spec X"             | nybo-planning  |
+| /nybo-run, "implement", "execute the spec"         | nybo-executor  |
+| /nybo-curate, "save convention", "extract skill"   | nybo-curator   |
+| "run the gate", "guardian report" (manual run)     | nybo-guardian  |
+| "triage this bug", paste a stack trace             | nybo-triage    |
+
+The subagent loads the corresponding skill itself. The orchestrator's job
+is to (1) pick the right subagent, (2) pass the user's request verbatim,
+(3) relay the subagent's final summary back to the user.
+
+For non-phase questions (code reading, generic Q&A, one-off edits), do not
+route to a subagent — answer directly in the main conversation.
