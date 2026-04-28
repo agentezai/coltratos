@@ -1,0 +1,7 @@
+conventions:
+  - id: default
+    description: Follow project conventions
+  - id: file-size
+    description: Keep generated files under 500 lines
+  - id: mermaid
+    description: Use Mermaid for flow/sequence diagrams in specs

@@ -1,0 +1,8 @@
+name: coltratos
+description: >-
+  A SaaS platform that analyzes Colombian public procurement contract documents
+  (pliegos) to determine if companies are eligible to bid.. Colombian SMBs and
+  procurement consultants who need to quickly assess their eligibility for
+  government contracts.. 20 paying users each running ≥5 analyses/month with p95
+  latency <60s and eligibility verdicts matching expert manual review on ≥85% of
+  requisitos.

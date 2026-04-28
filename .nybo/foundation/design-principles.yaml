@@ -1,0 +1,5 @@
+designPrinciples:
+  - name: Clarity
+    description: Keep code and specs clear
+  - name: Consistency
+    description: Match existing patterns

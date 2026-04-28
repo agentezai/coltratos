@@ -1,0 +1,52 @@
+<!doctype html><html lang="es"><head><meta charset="utf-8"><title>Brand · Iconography</title>
+<link rel="stylesheet" href="../colors_and_type.css">
+<style>
+  body{margin:0;padding:28px;font-family:var(--font-sans);color:var(--fg-1);background:#fff}
+  h3{margin:0 0 14px;font-size:12px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--fg-3)}
+  .grid{display:grid;grid-template-columns:repeat(8,1fr);gap:18px;margin-bottom:28px}
+  .cell{display:flex;flex-direction:column;align-items:center;gap:8px;padding:14px 6px;border:1px solid var(--border-hairline);border-radius:10px}
+  .cell svg{width:24px;height:24px;stroke:var(--graphite-700);fill:none;stroke-width:1.75;stroke-linecap:round;stroke-linejoin:round}
+  .cell span{font-size:11px;color:var(--fg-3);font-family:var(--font-mono)}
+  .wells{display:flex;gap:14px;align-items:center;margin-bottom:8px}
+  .well{width:44px;height:44px;border-radius:999px;display:flex;align-items:center;justify-content:center}
+  .well svg{width:20px;height:20px;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+  .wb{background:var(--tint-blue)}.wb svg{stroke:#2563eb}
+  .wg{background:var(--tint-green)}.wg svg{stroke:#16a34a}
+  .wa{background:var(--tint-amber)}.wa svg{stroke:#b45309}
+  .wr{background:var(--tint-red)}.wr svg{stroke:#b91c1c}
+  .wv{background:var(--tint-violet)}.wv svg{stroke:#6d28d9}
+  .ws{background:var(--tint-sky)}.ws svg{stroke:#0369a1}
+  .lead{font-size:13px;color:var(--fg-3);margin:0 0 18px;max-width:62ch}
+</style></head>
+<body>
+  <h3>Tinted icon wells</h3>
+  <p class="lead">Pastel circular wells (44×44) backing icons in KPI cards and feature lists. Icon hue matches the well, deeper ramp.</p>
+  <div class="wells">
+    <span class="well wb"><svg viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5-5 5 5M12 5v12"/></svg></span>
+    <span class="well wg"><svg viewBox="0 0 24 24"><path d="m9 12 2 2 4-4"/><circle cx="12" cy="12" r="9"/></svg></span>
+    <span class="well wa"><svg viewBox="0 0 24 24"><path d="M10.3 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0zM12 9v4M12 17h.01"/></svg></span>
+    <span class="well wr"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="m15 9-6 6M9 9l6 6"/></svg></span>
+    <span class="well wv"><svg viewBox="0 0 24 24"><path d="M12 3 4 7v6c0 5 3.5 8 8 9 4.5-1 8-4 8-9V7l-8-4z"/></svg></span>
+    <span class="well ws"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg></span>
+  </div>
+
+  <h3>Icon set · Lucide subset (1.75–2px stroke, round caps)</h3>
+  <div class="grid">
+    <div class="cell"><svg viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5-5 5 5M12 5v12"/></svg><span>upload</span></div>
+    <div class="cell"><svg viewBox="0 0 24 24"><path d="M14 3v5h5M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/></svg><span>file-text</span></div>
+    <div class="cell"><svg viewBox="0 0 24 24"><path d="M3 3v18h18M7 14l4-4 4 4 5-5"/></svg><span>chart</span></div>
+    <div class="cell"><svg viewBox="0 0 24 24"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9M10 21a2 2 0 0 0 4 0"/></svg><span>bell</span></div>
+    <div class="cell"><svg viewBox="0 0 24 24"><rect x="2" y="6" width="20" height="14" rx="2"/><path d="M2 10h20"/></svg><span>credit-card</span></div>
+    <div class="cell"><svg viewBox="0 0 24 24"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/></svg><span>users</span></div>
+    <div class="cell"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.6 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.6a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09A1.65 1.65 0 0 0 15 4.6a1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9c.13.31.2.65.2 1z"/></svg><span>settings</span></div>
+    <div class="cell"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg><span>search</span></div>
+    <div class="cell"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="m9 12 2 2 4-4"/></svg><span>check-circle</span></div>
+    <div class="cell"><svg viewBox="0 0 24 24"><path d="M10.3 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0zM12 9v4M12 17h.01"/></svg><span>alert</span></div>
+    <div class="cell"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="m15 9-6 6M9 9l6 6"/></svg><span>x-circle</span></div>
+    <div class="cell"><svg viewBox="0 0 24 24"><path d="M21 12s-4-7-9-7-9 7-9 7 4 7 9 7 9-7 9-7z"/><circle cx="12" cy="12" r="3"/></svg><span>eye</span></div>
+    <div class="cell"><svg viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3"/></svg><span>download</span></div>
+    <div class="cell"><svg viewBox="0 0 24 24"><path d="M3 6h18M7 12h10M10 18h4"/></svg><span>filter</span></div>
+    <div class="cell"><svg viewBox="0 0 24 24"><path d="m6 9 6 6 6-6"/></svg><span>chev-down</span></div>
+    <div class="cell"><svg viewBox="0 0 24 24"><path d="M12 3v3M12 18v3M5.6 5.6l2.1 2.1M16.3 16.3l2.1 2.1M3 12h3M18 12h3M5.6 18.4l2.1-2.1M16.3 7.7l2.1-2.1"/></svg><span>sparkles</span></div>
+  </div>
+</body></html>

@@ -1,0 +1,60 @@
+<!doctype html><html lang="es"><head><meta charset="utf-8"><title>Components · KPI cards</title>
+<link rel="stylesheet" href="../colors_and_type.css">
+<style>
+  body{margin:0;padding:28px;background:var(--surface-canvas);font-family:var(--font-sans);color:var(--fg-1)}
+  .grid{display:grid;grid-template-columns:repeat(4,1fr);gap:18px}
+  .kpi{background:#fff;border:1px solid var(--border-hairline);border-radius:14px;padding:20px;box-shadow:var(--shadow-sm)}
+  .kpi .top{display:flex;align-items:center;justify-content:space-between;margin-bottom:18px}
+  .kpi .well{width:42px;height:42px;border-radius:999px;display:flex;align-items:center;justify-content:center}
+  .kpi svg{width:20px;height:20px;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+  .well-blue{background:var(--tint-blue)}.well-blue svg{stroke:#2563eb}
+  .well-green{background:var(--tint-green)}.well-green svg{stroke:#16a34a}
+  .well-amber{background:var(--tint-amber)}.well-amber svg{stroke:#b45309}
+  .well-violet{background:var(--tint-violet)}.well-violet svg{stroke:#6d28d9}
+  .num{font-size:32px;font-weight:700;letter-spacing:-0.02em;line-height:1.1;color:var(--graphite-900);font-family:var(--font-display)}
+  .lbl{font-size:13px;color:var(--fg-3);margin-top:4px}
+  .delta{margin-top:10px;font-size:12px;font-weight:600;display:inline-flex;align-items:center;gap:4px}
+  .up{color:#15803d}.down{color:#b91c1c}
+  .trend{margin-top:12px;height:28px;display:flex;align-items:flex-end;gap:3px}
+  .trend i{flex:1;background:#dbeafe;border-radius:2px}
+</style></head>
+<body>
+<div class="grid">
+  <div class="kpi">
+    <div class="top">
+      <div class="well well-blue"><svg viewBox="0 0 24 24"><path d="M14 3v5h5M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/></svg></div>
+      <span class="delta up">↑ 12%</span>
+    </div>
+    <div class="num">147</div>
+    <div class="lbl">Análisis realizados</div>
+    <div class="trend"><i style="height:30%"></i><i style="height:50%"></i><i style="height:40%"></i><i style="height:65%"></i><i style="height:55%"></i><i style="height:80%"></i><i style="height:100%"></i></div>
+  </div>
+  <div class="kpi">
+    <div class="top">
+      <div class="well well-green"><svg viewBox="0 0 24 24"><path d="m9 12 2 2 4-4"/><circle cx="12" cy="12" r="9"/></svg></div>
+      <span class="delta up">↑ 4 pts</span>
+    </div>
+    <div class="num">68%</div>
+    <div class="lbl">Tasa de elegibilidad</div>
+    <div class="trend"><i style="height:50%;background:#a7f3d0"></i><i style="height:60%;background:#a7f3d0"></i><i style="height:55%;background:#a7f3d0"></i><i style="height:80%;background:#a7f3d0"></i><i style="height:75%;background:#a7f3d0"></i><i style="height:95%;background:#a7f3d0"></i><i style="height:88%;background:#a7f3d0"></i></div>
+  </div>
+  <div class="kpi">
+    <div class="top">
+      <div class="well well-amber"><svg viewBox="0 0 24 24"><rect x="2" y="6" width="20" height="14" rx="2"/><path d="M2 10h20M7 15h3"/></svg></div>
+      <span class="delta down">−5</span>
+    </div>
+    <div class="num">23</div>
+    <div class="lbl">Créditos restantes</div>
+    <div class="trend"><i style="height:80%;background:#fde68a"></i><i style="height:75%;background:#fde68a"></i><i style="height:70%;background:#fde68a"></i><i style="height:60%;background:#fde68a"></i><i style="height:50%;background:#fde68a"></i><i style="height:40%;background:#fde68a"></i><i style="height:30%;background:#fde68a"></i></div>
+  </div>
+  <div class="kpi">
+    <div class="top">
+      <div class="well well-violet"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg></div>
+      <span class="delta up">↑ 38h</span>
+    </div>
+    <div class="num">112 h</div>
+    <div class="lbl">Tiempo ahorrado</div>
+    <div class="trend"><i style="height:20%;background:#ddd6fe"></i><i style="height:40%;background:#ddd6fe"></i><i style="height:55%;background:#ddd6fe"></i><i style="height:60%;background:#ddd6fe"></i><i style="height:70%;background:#ddd6fe"></i><i style="height:88%;background:#ddd6fe"></i><i style="height:100%;background:#ddd6fe"></i></div>
+  </div>
+</div>
+</body></html>

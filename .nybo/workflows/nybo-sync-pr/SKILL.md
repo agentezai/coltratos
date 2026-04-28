@@ -1,0 +1,252 @@
+---
+name: nybo-sync-pr
+description: >-
+  Retroactively link a merged pull request to a spec whose status.yaml lacks
+  pr_url or carries a stale branch name. Uses gh + git log + reasoning to find
+  the matching PR, confirms with the user, rewrites status.yaml (pr_url,
+  pr_number, branch, and — if merged — status: shipped + shipped_at). Runs
+  either on one feature or scans all specs lacking pr_url. Triggers on
+  "sync PR", "link PR", "nybo-sync-pr", or a spec stuck in PR Ready without
+  a link.
+---
+
+# nybo-sync-pr
+
+Backfills PR metadata on specs that shipped before PR tracking was wired up,
+or whose `branch:` field drifted from the actual PR head branch. Closes the
+"Verified / PR Ready card with no link" gap.
+
+**Usage:**
+
+```
+/nybo-sync-pr                    # scan all docs/*/status.yaml lacking pr_url
+/nybo-sync-pr <feature>          # target one spec
+/nybo-sync-pr <feature> --pr 3   # explicit assignment (skip discovery)
+/nybo-sync-pr <feature> --pr https://github.com/owner/repo/pull/3
+/nybo-sync-pr <feature> --force  # re-sync even if pr_url already set
+```
+
+---
+
+## 1. Resolve input
+
+- If `<feature>` is given: read `docs/<feature>/status.yaml`.
+- If no `<feature>`: enumerate every `docs/*/status.yaml`; keep specs where
+  `pr_url` is absent (or `--force`).
+- If `--pr <n-or-url>` is passed: skip discovery (section 2), go to section 3.
+
+If the spec's `status.yaml` is missing, emit a warning and skip — do not fail
+the whole run.
+
+---
+
+## 2. Discovery — find the matching merged PR
+
+Work through these heuristics in order. Stop at the first **high-confidence**
+match; otherwise collect candidates from multiple heuristics and present them
+in section 4.
+
+### 2a. Exact branch match (high confidence)
+
+```
+gh pr list --state merged --head "<status.yaml .branch>" \
+  --json number,url,headRefName,mergedAt,title,body,state
+```
+
+- Exactly one hit → high confidence, proceed.
+- Zero hits → branch may be stale or deleted; continue to 2b.
+- Multiple hits → rare (branch reused); medium confidence, surface all.
+
+### 2b. Spec slug in PR title (high-to-medium confidence)
+
+```
+gh pr list --state merged --search "<spec-slug> in:title" \
+  --json number,url,headRefName,mergedAt,title,body,state --limit 20
+```
+
+Use the spec's directory name as the slug (e.g., `fix-dashboard-verified-column`).
+Score each hit by whether the title *starts with* the slug, *contains* it as a
+whole word, or merely mentions it.
+
+### 2c. Merge-commit grep (medium confidence, works offline after `gh` fetch)
+
+```
+git log --all --grep "Merge pull request.*<spec-slug>" --oneline
+```
+
+Extract `#N` from matches, then `gh pr view <N> --json ...` for each. Handles
+branches already deleted on origin.
+
+### 2d. Semantic fallback (low confidence — always confirm with user)
+
+If none of the above yield a hit:
+
+```
+gh pr list --state merged --limit 50 \
+  --json number,url,headRefName,mergedAt,title,body,state
+```
+
+Read spec intention from `docs/<feature>/spec.md` (or the `notes:` field in
+status.yaml if spec.md is absent) and reason about which PR titles/bodies
+describe the same work. Propose the top 1–3 candidates with your reasoning.
+
+---
+
+## 3. Explicit assignment
+
+If the user passed `--pr <value>`:
+
+- If numeric: `gh pr view <N> --json number,url,headRefName,mergedAt,state,title`
+- If URL: extract number from `/pull/(\d+)$`, same view call.
+
+If `gh pr view` returns a non-zero status, report the failure and exit
+without writing — never invent PR metadata.
+
+---
+
+## 4. Confirm with the user
+
+For each spec, show:
+
+```
+Spec: <feature>
+Current status:  <status>
+Current branch:  <branch>
+Current pr_url:  <pr_url or "—">
+
+Candidate:
+  PR #<N> — <title>
+  Branch:     <headRefName>
+  State:      <MERGED|OPEN|CLOSED>
+  Merged at:  <mergedAt or "—">
+  URL:        <url>
+  Confidence: <high|medium|low>   via <heuristic>
+  [alternate candidates, if any]
+
+Apply? (y / n / skip)
+```
+
+- **y**: proceed to section 5.
+- **n**: show next alternate candidate if any; else ask the user to provide
+  an explicit `--pr <n>`.
+- **skip**: leave this spec untouched, move to the next.
+
+Always confirm when:
+- Confidence is `low`.
+- Multiple candidates tied at the same confidence level.
+- The spec already has a different `pr_url` set (`--force` was passed).
+
+For `high` confidence single matches under the trust level `autonomous`,
+you *may* apply without prompt — but print the resolution. The skill is
+always safe to be interactive; batch-apply is not a goal.
+
+---
+
+## 5. Apply — write to status.yaml
+
+Read `docs/<feature>/status.yaml`, update these fields (preserve all others):
+
+```yaml
+pr_url: <url>
+pr_number: <number>
+branch: <headRefName>   # corrects stale branch if different
+```
+
+Then, branching on the PR `state`:
+
+- **MERGED**:
+  - `status: shipped`
+  - `shipped_at: <mergedAt>`
+  - `pr_status: merged`
+- **OPEN**:
+  - `pr_status: open`
+  - Do **not** advance status — sync-pr's job is linkage, not premature shipping.
+- **CLOSED** (not merged):
+  - `pr_status: closed`
+  - Do **not** advance status. Print a warning so the user knows the linked
+    PR was abandoned — they may want to pick a different candidate.
+
+Write the YAML back. Other fields (`task_count`, `domains_referenced`,
+`notes`, dates, etc.) must be preserved verbatim.
+
+---
+
+## 6. Log the event
+
+Append one entry per synced spec to `.nybo/events.jsonl`:
+
+```json
+{
+  "timestamp": "<ISO now>",
+  "type": "pr_synced",
+  "actor": "<human|agent>",
+  "details": {
+    "spec": "<feature>",
+    "pr_number": <N>,
+    "pr_state": "MERGED|OPEN|CLOSED",
+    "branch_before": "<old>",
+    "branch_after": "<new>",
+    "status_before": "<old>",
+    "status_after": "<new>",
+    "confidence": "high|medium|low",
+    "heuristic": "branch|title|commit|semantic|explicit",
+    "trigger": "sync-pr"
+  }
+}
+```
+
+---
+
+## 7. Confirm to the user
+
+Report a one-line summary per spec handled:
+
+```
+✓ <feature>  →  PR #<N> ({MERGED|OPEN|CLOSED}, merged 2026-04-22)  status: pr-ready → shipped
+⚠ <feature>  →  PR candidate found with LOW confidence, left unchanged (run with --pr <n> to force)
+— <feature>  →  already synced, skipped
+```
+
+---
+
+## Idempotency
+
+- If `pr_url` is already set and matches the discovered candidate → report
+  "already synced", skip without writing.
+- If `pr_url` is set but doesn't match, stop and ask — never silently
+  re-assign (user may have deliberately linked an alternate PR). `--force`
+  overrides after explicit consent.
+
+---
+
+## What this skill does NOT do
+
+- **Create a PR** — that's `/nybo-pr`. This skill only links existing ones.
+- **Unlink** an already-assigned PR — edit `status.yaml` by hand for now.
+- **Modify the PR itself** — only local `status.yaml` + events.jsonl are touched.
+- **Advance status on OPEN PRs** — use `/nybo-pr` or `/nybo-curate` for that
+  transition; `/nybo-sync-pr` refuses to guess whether the PR is also the
+  trigger for "PR Ready".
+
+---
+
+## Failure modes (degrade gracefully)
+
+| Condition | Behavior |
+|---|---|
+| `gh` not installed | Skip `gh` heuristics; fall back to `git log` only; warn. |
+| `gh` not authenticated | Same as above. Print: "gh not authenticated; run `gh auth login`." |
+| No network / origin unreachable | Rely on `git log` local history. |
+| No candidates found across all heuristics | Report "no candidates", suggest `--pr <n>` or leaving the spec alone. |
+| User rejects all candidates | Exit the spec, move on. No write. |
+
+Never write a partial status.yaml. Either all fields update or none.
+
+---
+
+## File locations
+
+- **Input:** `docs/<feature>/status.yaml`, `docs/<feature>/spec.md` (for semantic fallback)
+- **Output:** `docs/<feature>/status.yaml`, `.nybo/events.jsonl`
+- **Git domain rules:** `.nybo/memory/domains/git.md` (branch naming, PR targets)
+- **Dependencies:** `gh` CLI (primary), `git` (local history fallback)

@@ -1,0 +1,3 @@
+-- Supabase seed file — coltratos
+-- Empty in v1. Domain-model T3 will write the first migration; future seed
+-- data lands here only if a downstream spec requires fixtures for local dev.

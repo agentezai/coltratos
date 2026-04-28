@@ -1,0 +1,157 @@
+---
+name: nybo-simplify
+description: >-
+  After a feature ships, review its changed code for reuse, quality, and
+  efficiency by spawning three parallel subagents. Aggregate findings and
+  offer approval-gated patches. Claude-only (uses the Task tool to fan out
+  reviews). Triggers on "simplify", "review this feature", "tidy",
+  "post-ship review", "/nybo-simplify".
+---
+
+# nybo-simplify
+
+Post-ship code review for a recently-shipped feature. Spawn three parallel subagent reviews — **reuse**, **quality**, **efficiency** — aggregate their findings into a prioritized list, and offer approval-gated patches for the items the human accepts.
+
+**Usage:**
+- `/nybo-simplify` — review the feature identified by the current branch or the most recently shipped spec
+- `/nybo-simplify <feature>` — review a specific spec
+- `/nybo-simplify <feature> focus on memory efficiency` — bias the reviews toward one concern; the free-text "focus on …" is passed to each subagent
+
+---
+
+## 1. Load context
+
+- Resolve the feature:
+  - If arg given, use `docs/<feature>/`.
+  - Else parse the current branch (`feat/<feature>` / `fix/<feature>`) and check `docs/<feature>/status.yaml`.
+  - Else pick the most recent spec in `docs/<feature>/status.yaml` with `status: shipped` or `status: pr-ready`.
+- Read `docs/<feature>/spec/spec.md` for intention + scope (so reviewers know what the feature was meant to do).
+- Read `docs/<feature>/status.yaml` for `branch` and `pr_url`.
+- Get the changed file list:
+  - If `pr_number` exists: `gh pr diff <pr_number> --name-only`
+  - Else: `git diff --name-only master...<branch>`
+- Read `.nybo/memory/CORE.md` and any domain files listed under `domains_referenced:` in `status.yaml` — reviewers apply project conventions, not generic advice.
+- Parse the optional `focus on …` suffix from the user prompt. If present, pass it verbatim to each subagent as an additional lens.
+
+If no changed files resolve, stop: "No changed files found for `<feature>`. Is the spec shipped? Is the branch pushed?"
+
+---
+
+## 2. Spawn three parallel review subagents
+
+Use the **Task tool** to launch three subagents **in parallel** (one tool-use block with three calls). Do not run them sequentially — parallelism is the point.
+
+Each subagent receives:
+- The feature name and one-line intention
+- The full list of changed files with their current content
+- The relevant domain conventions from `.nybo/memory/domains/*.md`
+- The optional user focus string (verbatim)
+- A review lens (below)
+- Instructions to return findings as a JSON array with: `{ id, severity (low|medium|high), file, lines, finding, suggested_patch }`
+
+### Subagent A — reuse-reviewer
+
+Lens: *"Is any of this new code a reimplementation of something that already exists in the codebase? Could it use an existing helper, service, util, or project skill from `.nybo/skills/`?"*
+
+Returns findings like: `{ finding: "New function parseYamlSafe duplicates parseYaml in src/services/yaml-util.ts", suggested_patch: "Replace with import from yaml-util" }`
+
+### Subagent B — quality-reviewer
+
+Lens: *"Does this code follow project conventions from `.nybo/memory/domains/*.md`? Are error paths handled? Are names clear? Are there dead branches, commented-out blocks, or TODOs that slipped in?"*
+
+Returns findings like: `{ finding: "CLI command handler at src/cli/commands/foo.ts:42 does not wrap service call in try-catch (violates cli convention)", suggested_patch: "Wrap in try-catch; chalk.red + process.exit(1) on fatal" }`
+
+### Subagent C — efficiency-reviewer
+
+Lens: *"Is there obvious algorithmic waste — repeated I/O, O(n²) where O(n) would work, unnecessary awaits in loops, allocations in hot paths? Focus on real gains, not microbenchmarks."*
+
+Returns findings like: `{ finding: "src/services/foo.ts:88 reads the same JSON file inside a for loop of N specs", suggested_patch: "Hoist readFileSync above the loop" }`
+
+---
+
+## 3. Aggregate findings
+
+Collect all three JSON arrays into a single list. Deduplicate items that point at the same `file:lines` with similar `finding` text (merge into one row, keep the highest severity).
+
+Group the output into sections:
+
+```
+## Findings (<feature>)
+
+### High severity
+1. [reuse] src/services/foo.ts:40-55 — New parseDate duplicates toIsoDate in src/util/date.ts
+   → Replace with import from date.ts
+
+### Medium severity
+2. [quality] src/cli/commands/bar.ts:88 — Missing try-catch around service call
+   → Wrap in try-catch per cli convention
+...
+
+### Low severity
+...
+```
+
+Each row must have a **stable id** (reuse original ids from subagent output; renumber if needed so ids are unique in the aggregate). The human will answer by id.
+
+---
+
+## 4. Checkpoint — human picks what to patch
+
+Present the aggregated findings and ask:
+
+> Reviewed `<feature>` — **N findings** across reuse / quality / efficiency. Which should I patch?
+>
+> - `all` — apply every suggested patch
+> - `high` — apply high-severity only
+> - `<id1>, <id2>, …` — apply specific items by id
+> - `none` — skip patching, finding list stays as reference
+
+Wait for the human's reply. **Never auto-apply patches** — this skill is always approval-gated. If the human says `none`, proceed to step 6.
+
+---
+
+## 5. Apply accepted patches
+
+For each accepted finding:
+- Re-read the `suggested_patch` from the aggregated list.
+- Apply it using Edit/Write. Keep each patch as a **single commit** with message: `[UPD] <feature>: simplify — <short finding title> (<reuse|quality|efficiency>)`.
+- After each commit, run the project's lint + test pre-commit checks (`npm run lint`, `npm run test`). If any fail, stop and ask the human whether to continue or roll back the last patch.
+
+Do not combine unrelated patches into a single commit — this makes the cleanup PR reviewable per-finding.
+
+---
+
+## 6. Record outcome
+
+- Append a `simplify_run` event to `.nybo/events.jsonl`:
+  ```json
+  {"timestamp":"<ISO>","type":"simplify_run","actor":"agent","details":{"spec":"<feature>","findings_total":N,"findings_applied":M,"focus":"<focus or null>"}}
+  ```
+- If patches were applied, push the branch and open a PR per `/nybo-pr` conventions. PR title: `[UPD] <feature>: post-ship simplify (M patches)`.
+- If no patches were applied, leave findings in the conversation only — do not write files.
+
+---
+
+## 7. Next Steps
+
+- `/nybo-verify` — If patches were applied, re-run verification on the simplify commits.
+- `/nybo-pr` — If PR was opened in step 6, remind reviewer this is a simplify follow-up.
+- `/nybo-curate` — If a finding revealed a reusable pattern, consider extracting it as a project skill.
+
+---
+
+## Notes on behavior
+
+- **Claude-only skill.** Uses the Task tool (and its ability to spawn parallel subagents), which is a Claude Code feature. Registered in the workflow registry with `targets: ["claude"]`, so it is not emitted to Cursor / Copilot / Windsurf.
+- **Always interactive.** Never apply patches without the human choosing which ones. Findings are informational until explicitly accepted.
+- **Focus arg is best-effort.** The free-text focus is passed to each subagent, but reviewers still return findings across their full lens — the focus biases priority, not scope.
+- **Scope is the shipped feature.** Do not review files untouched by the feature. The changed-file list from the PR or `git diff` is the boundary.
+
+---
+
+## File Locations
+
+- **Spec context:** `docs/<feature>/spec/spec.md`, `docs/<feature>/status.yaml`
+- **Project conventions:** `.nybo/memory/CORE.md`, `.nybo/memory/domains/*.md`
+- **Reusable patterns:** `.nybo/skills/*.md` (reuse-reviewer cross-references these)
+- **Event log:** `.nybo/events.jsonl`

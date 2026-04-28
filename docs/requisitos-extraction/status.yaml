@@ -1,0 +1,8 @@
+status: approved
+created: "2026-04-26"
+approved_at: "2026-04-26"
+action_type: FEATURE
+profile: code
+updated: "2026-04-27"
+revision_count: 2
+last_revision: "Apply 5 cross-spec edits owed to semaforo-aggregation T0 + reconcile ModelMetadata duplication + fix eligibility-matching dead reference. Adds: categoria denormalization onto Requisito (REQ-006); tiered is_habilitante classifier (REQ-019, RN-016) with structural-first via HABILITANTE_HEADING_PATTERNS, LLM fallback, manual reserved for v1.1+; is_habilitante_source emission; Zod .refine() narrowing categoria at the payload boundary (REQ-021, RN-015); ≥80%-structural acceptance test (REQ-020). REQ-003 changed to import ModelMetadata from @/types (canonical). Dead-name §18 fixed. New TC-019-023, RN-015-016. T0 fully shipped via domain-model rev 4+5."

@@ -1,0 +1,11 @@
+version: 0.1.2
+edition: lite
+mode: greenfield
+adapters:
+  active:
+    - claude
+memory:
+  core_max_lines: 50
+trust:
+  level: architect
+  auto_evaluate: false

@@ -1,0 +1,8 @@
+status: approved
+created: "2026-04-26"
+approved_at: "2026-04-26"
+action_type: FEATURE
+profile: code
+updated: "2026-04-27"
+revision_count: 3
+last_revision: "Add process.env.* + @anthropic-ai/sdk to NFR-03 grep (closes parity gap with requisitos-extraction REQ-017 and semaforo-aggregation REQ-013); converge logger detection from regex /log(ger)?/i to enumeration (pino, winston, bunyan, @logtape/, in-house placeholder); fix residual claude-extraction → requisitos-extraction stale references (RN-012, §293, §311 Mermaid, 00-overview, use-cases UC-03); fix three Documento leftovers (RN-001 file_hash, RN-008 redefine list, Tradeoffs caching); fix verify.md documento_id → pliego_id. No functional changes; tightens cross-spec purity-grep parity and closes the vocabulary-audit findings."

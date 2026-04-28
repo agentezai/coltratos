@@ -1,0 +1,46 @@
+features:
+  domain-model:
+    status: approved
+    created: "2026-04-25"
+    approved_at: "2026-04-25"
+    updated: "2026-04-27"
+    revision_count: 5
+    last_revision: "Apply semaforo-aggregation T0 (9 items) + categoria immutability (RN-016) + UC-03 RLS fix. Schema: 3 columns on requisito (categoria narrow + is_habilitante + is_habilitante_source) + 2 CHECKs; semaforo_rules_version on analisis; new semaforo.ts and habilitante-patterns.ts under src/types/domain/. REQ-018-022, RN-016-018, TC-026-031 added. UC-03 rewritten against analisis."
+  pdf-ingestion:
+    status: approved
+    created: "2026-04-26"
+    approved_at: "2026-04-26"
+    action_type: FEATURE
+    profile: code
+    updated: "2026-04-27"
+    revision_count: 3
+    last_revision: "Add process.env.* + @anthropic-ai/sdk to NFR-03 (cross-spec purity-grep parity); converge logger detection to enumeration; fix residual claude-extraction → requisitos-extraction stale references; fix three Documento leftovers + verify.md documento_id. No functional changes."
+  requisitos-extraction:
+    status: approved
+    created: "2026-04-26"
+    approved_at: "2026-04-26"
+    action_type: FEATURE
+    profile: code
+    updated: "2026-04-27"
+    revision_count: 2
+    last_revision: "5 cross-spec edits from semaforo-aggregation T0 + ModelMetadata import reconciliation + eligibility-matching dead-name fix. Tiered is_habilitante classifier (structural-first, LLM-fallback), categoria narrowing at Zod boundary, ≥80%-structural acceptance test. T0 fully shipped via domain-model rev 4+5."
+  semaforo-aggregation:
+    status: approved
+    created: "2026-04-27"
+    approved_at: "2026-04-27"
+    action_type: FEATURE
+    profile: code
+  project-bootstrap:
+    status: confirmed
+    created: "2026-04-27"
+    approved_at: "2026-04-27"
+    run_completed_at: "2026-04-28"
+    verified_at: "2026-04-28"
+    action_type: FEATURE
+    profile: code
+  design-system:
+    status: approved
+    created: "2026-04-28"
+    approved_at: "2026-04-28"
+    action_type: FEATURE
+    profile: code

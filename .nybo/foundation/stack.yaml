@@ -1,0 +1,9 @@
+frontend: Next.js
+backend: Node.js
+database: Supabase
+auth: Supabase Auth
+hosting: Vercel
+styling: Tailwind CSS
+language: TypeScript
+runtime: Node.js
+appKind: fullstack

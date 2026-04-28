@@ -1,0 +1,92 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <title>COLTRATOS · Web App · UI Kit</title>
+  <meta name="viewport" content="width=1280">
+  <link rel="icon" href="../../assets/logo/coltratos-mark.svg">
+  <link rel="stylesheet" href="../../colors_and_type.css">
+  <link rel="stylesheet" href="app.css">
+</head>
+<body>
+  <div id="root"></div>
+
+  <script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+  <script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+  <script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+
+  <script type="text/babel" src="shell.jsx"></script>
+  <script type="text/babel" src="pages-core.jsx"></script>
+  <script type="text/babel" src="pages-account.jsx"></script>
+  <script type="text/babel" src="pages-extras.jsx"></script>
+
+  <script type="text/babel">
+    const { useState } = React;
+
+    const App = () => {
+      // map nav id → (page label, component, screen-label suffix)
+      const ROUTES = {
+        dashboard:    { c: PageDashboard,     label: "01 Dashboard" },
+        subir:        { c: PageSubir,         label: "02 Subir pliego" },
+        procesando:   { c: PageProcesamiento, label: "03 Análisis en progreso" },
+        resultado:    { c: PageResultado,     label: "04 Resultado del análisis" },
+        analisis:     { c: PageHistorial,     label: "05 Mis análisis" },
+        alertas:      { c: PageAlertas,       label: "06 Alertas" },
+        creditos:     { c: PageCreditos,      label: "07 Créditos" },
+        equipo:       { c: PageEquipo,        label: "08 Mi equipo" },
+        config:       { c: PageConfig,        label: "09 Configuración" },
+      };
+      const [route, setRoute] = useState("dashboard");
+      const Page = ROUTES[route].c;
+
+      // demo affordance: when user clicks "Subir pliego" CTA on dashboard, show subir;
+      // also expose a tiny route picker for designers
+      return (
+        <div className="app" data-screen-label={ROUTES[route].label}>
+          <Sidebar active={route} onNavigate={setRoute}/>
+          <div className="main">
+            <Topbar/>
+            <Page/>
+            <RoutePicker route={route} setRoute={setRoute} routes={ROUTES}/>
+          </div>
+        </div>
+      );
+    };
+
+    /* tiny floating route picker so the designer can hop directly to the
+       "in-flight" pages (procesando / resultado) that aren't on the sidebar */
+    const RoutePicker = ({ route, setRoute, routes }) => {
+      const [open, setOpen] = useState(false);
+      return (
+        <div style={{position:"fixed", right:24, bottom:24, zIndex:50}}>
+          {open && (
+            <div className="card" style={{padding:8, marginBottom:8, minWidth:240, boxShadow:"var(--shadow-lg)"}}>
+              {Object.entries(routes).map(([k,v])=>(
+                <button key={k}
+                  onClick={()=>{setRoute(k); setOpen(false)}}
+                  className={"nav-item "+(route===k?"active":"")}
+                  style={{
+                    color: route===k ? "var(--blue-700)" : "var(--graphite-700)",
+                    background: route===k ? "var(--blue-50)" : "transparent",
+                    boxShadow:"none",
+                    fontSize:13
+                  }}>
+                  {v.label}
+                </button>
+              ))}
+            </div>
+          )}
+          <button className="btn btn-secondary"
+            style={{boxShadow:"var(--shadow-lg)", borderRadius:999, padding:"10px 16px"}}
+            onClick={()=>setOpen(!open)}>
+            <Icon name="sparkles" size={14}/> Ir a pantalla
+            <Icon name="chev-down" size={14} style={{transform: open?"rotate(180deg)":"none", transition:"transform 180ms"}}/>
+          </button>
+        </div>
+      );
+    };
+
+    ReactDOM.createRoot(document.getElementById("root")).render(<App/>);
+  </script>
+</body>
+</html>

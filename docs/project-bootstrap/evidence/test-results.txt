@@ -1,0 +1,19 @@
+
+> coltratos@0.1.0 test
+> vitest run --reporter=verbose
+
+Testing types with tsc and vue-tsc is an experimental feature.
+Breaking changes might not follow SemVer, please pin Vitest's version when using it.
+
+ RUN  v4.1.5 /Users/carlosvilla/Documents/Proyectos/AI/coltratos
+
+ ✓ |unit| tests/bootstrap.test.ts > project-bootstrap smoke test > vitest is installed and runs (REQ-006) 1ms
+ ✓ |unit| tests/bootstrap.test.ts > project-bootstrap smoke test > the @/types path alias is wired but the barrel does not yet exist (REQ-013) 4ms
+
+ Test Files  1 passed (1)
+      Tests  2 passed (2)
+Type Errors  no errors
+   Start at  11:04:36
+   Duration  119ms (transform 17ms, setup 0ms, import 24ms, tests 6ms, environment 0ms)
+
+TEST_EXIT: 0

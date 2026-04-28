@@ -1,0 +1,306 @@
+schemaVersion: '1.1'
+generatedAt: '2026-04-25T17:42:18.813Z'
+suggestions:
+  - id: fs-001
+    title: Authentication & session management
+    description: Set up Supabase Auth for user login, registration, and session handling.
+    discoveryContext: >-
+      Business outcome: Secure access to a-saas-platform so only authorized
+      users can interact with protected resources.
+
+      Who benefits: All users who need to log in; admins who manage access
+      control.
+
+      Constraints & edge cases: Sessions should expire after inactivity.
+      Password reset flow required. Consider brute-force protection and account
+      lockout policy.
+
+      Scope: Login, registration, session lifecycle, and password reset.
+      Role-based permissions and OAuth providers are out of scope for this
+      feature.
+    category: suggested
+    priority: 1
+    status: pending
+    createdAt: '2026-04-25T17:42:00.025Z'
+    origin: scan
+  - id: fs-002
+    title: Database schema & migrations
+    description: Define the initial schema for Supabase and set up a migration workflow.
+    discoveryContext: >-
+      Business outcome: Establish a stable, versioned data foundation that all
+      other features build on.
+
+      Who benefits: The entire development team — every feature depends on a
+      correct schema.
+
+      Constraints & edge cases: Migrations must be reversible. Avoid breaking
+      changes to existing tables once data exists. Index columns used in
+      frequent queries.
+
+      Scope: Initial schema for core entities, migration tooling setup, and seed
+      data for development. Data archival and multi-tenancy are out of scope.
+    category: suggested
+    priority: 2
+    status: pending
+    createdAt: '2026-04-25T17:42:00.025Z'
+    origin: scan
+  - id: fs-003
+    title: Core UI layout & routing
+    description: >-
+      Scaffold the Next.js app shell: navigation, routing, and shared layout
+      components.
+    discoveryContext: >-
+      Business outcome: Give users a navigable app structure so they can reach
+      every section without dead ends.
+
+      Who benefits: All users; sets the UX foundation every subsequent screen
+      builds on.
+
+      Constraints & edge cases: Protected routes must redirect unauthenticated
+      users to login. Layout must be responsive for mobile and desktop.
+
+      Scope: App shell, navigation, route definitions, and shared layout
+      components (header, sidebar). Individual page content is out of scope
+      here.
+    category: suggested
+    priority: 3
+    status: pending
+    createdAt: '2026-04-25T17:42:00.025Z'
+    origin: scan
+  - id: fs-004
+    title: REST API layer with error handling
+    description: >-
+      Create the Node.js API foundation: route structure, middleware, and
+      consistent error responses.
+    discoveryContext: >-
+      Business outcome: Provide a reliable, predictable API surface that
+      frontend and external clients can depend on.
+
+      Who benefits: Frontend developers and any future API consumers.
+
+      Constraints & edge cases: All endpoints must return a consistent error
+      shape. Auth middleware must be applied to protected routes. Rate limiting
+      needed on public endpoints.
+
+      Scope: Route structure, auth middleware, validation layer, and error
+      response format. Business-logic endpoints for specific features are out of
+      scope.
+    category: suggested
+    priority: 4
+    status: pending
+    createdAt: '2026-04-25T17:42:00.025Z'
+    origin: scan
+  - id: fs-005
+    title: Usuario management
+    description: >-
+      Build CRUD operations for Usuario: A user account representing an empresa
+      or procurement consultant with authentication and profile information.
+    discoveryContext: >-
+      Business outcome: Allow users to manage Usuario records so core workflows
+      in a-saas-platform can function end to end.
+
+      Who benefits: Users who create or interact with Usuario data as part of
+      their primary workflow.
+
+      Constraints & edge cases: Deletes should be soft where data history
+      matters. List views need pagination. Access should be scoped by user role
+      or ownership.
+
+      Scope: Full CRUD for Usuario including list, detail, create, edit, and
+      delete. Bulk operations and import/export are out of scope for this
+      feature.
+    category: suggested
+    priority: 5
+    status: pending
+    createdAt: '2026-04-25T17:42:00.025Z'
+    origin: scan
+    sourceEntities:
+      - Usuario
+  - id: fs-006
+    title: Empresa management
+    description: >-
+      Build CRUD operations for Empresa: A company profile storing financial,
+      technical, legal, and experience qualifications for bid eligibility
+      comparison.
+    discoveryContext: >-
+      Business outcome: Allow users to manage Empresa records so core workflows
+      in a-saas-platform can function end to end.
+
+      Who benefits: Users who create or interact with Empresa data as part of
+      their primary workflow.
+
+      Constraints & edge cases: Deletes should be soft where data history
+      matters. List views need pagination. Access should be scoped by user role
+      or ownership.
+
+      Scope: Full CRUD for Empresa including list, detail, create, edit, and
+      delete. Bulk operations and import/export are out of scope for this
+      feature.
+    category: suggested
+    priority: 6
+    status: pending
+    createdAt: '2026-04-25T17:42:00.025Z'
+    origin: scan
+    sourceEntities:
+      - Empresa
+  - id: fs-007
+    title: Pliego management
+    description: >-
+      Build CRUD operations for Pliego: An uploaded public procurement contract
+      document (PDF) from SECOP II awaiting segmentation and analysis.
+    discoveryContext: >-
+      Business outcome: Allow users to manage Pliego records so core workflows
+      in a-saas-platform can function end to end.
+
+      Who benefits: Users who create or interact with Pliego data as part of
+      their primary workflow.
+
+      Constraints & edge cases: Deletes should be soft where data history
+      matters. List views need pagination. Access should be scoped by user role
+      or ownership.
+
+      Scope: Full CRUD for Pliego including list, detail, create, edit, and
+      delete. Bulk operations and import/export are out of scope for this
+      feature.
+    category: suggested
+    priority: 7
+    status: pending
+    createdAt: '2026-04-25T17:42:00.025Z'
+    origin: scan
+    sourceEntities:
+      - Pliego
+  - id: fs-008
+    title: Analisis management
+    description: >-
+      Build CRUD operations for Analisis: A completed evaluation of a pliego
+      against an empresa profile, producing eligibility verdicts per requisito
+      and overall semáforo.
+    discoveryContext: >-
+      Business outcome: Allow users to manage Analisis records so core workflows
+      in a-saas-platform can function end to end.
+
+      Who benefits: Users who create or interact with Analisis data as part of
+      their primary workflow.
+
+      Constraints & edge cases: Deletes should be soft where data history
+      matters. List views need pagination. Access should be scoped by user role
+      or ownership.
+
+      Scope: Full CRUD for Analisis including list, detail, create, edit, and
+      delete. Bulk operations and import/export are out of scope for this
+      feature.
+    category: suggested
+    priority: 8
+    status: pending
+    createdAt: '2026-04-25T17:42:00.025Z'
+    origin: scan
+    sourceEntities:
+      - Analisis
+  - id: fs-009
+    title: Requisito management
+    description: >-
+      Build CRUD operations for Requisito: A single extracted requirement from a
+      pliego section (jurídico, financiero, técnico, experiencia) with a
+      matching status and semáforo.
+    discoveryContext: >-
+      Business outcome: Allow users to manage Requisito records so core
+      workflows in a-saas-platform can function end to end.
+
+      Who benefits: Users who create or interact with Requisito data as part of
+      their primary workflow.
+
+      Constraints & edge cases: Deletes should be soft where data history
+      matters. List views need pagination. Access should be scoped by user role
+      or ownership.
+
+      Scope: Full CRUD for Requisito including list, detail, create, edit, and
+      delete. Bulk operations and import/export are out of scope for this
+      feature.
+    category: suggested
+    priority: 9
+    status: pending
+    createdAt: '2026-04-25T17:42:00.025Z'
+    origin: scan
+    sourceEntities:
+      - Requisito
+  - id: fs-010
+    title: Seccion management
+    description: >-
+      Build CRUD operations for Seccion: A categorized segment of a pliego
+      (jurídico, financiero, técnico, experiencia) containing related
+      requisitos.
+    discoveryContext: >-
+      Business outcome: Allow users to manage Seccion records so core workflows
+      in a-saas-platform can function end to end.
+
+      Who benefits: Users who create or interact with Seccion data as part of
+      their primary workflow.
+
+      Constraints & edge cases: Deletes should be soft where data history
+      matters. List views need pagination. Access should be scoped by user role
+      or ownership.
+
+      Scope: Full CRUD for Seccion including list, detail, create, edit, and
+      delete. Bulk operations and import/export are out of scope for this
+      feature.
+    category: suggested
+    priority: 10
+    status: pending
+    createdAt: '2026-04-25T17:42:00.025Z'
+    origin: scan
+    sourceEntities:
+      - Seccion
+  - id: fs-011
+    title: Semaforo management
+    description: >-
+      Build CRUD operations for Semaforo: A color-coded eligibility status
+      (verde/amarillo/rojo) indicating whether an empresa meets, partially
+      meets, or fails a requisito or overall análisis.
+    discoveryContext: >-
+      Business outcome: Allow users to manage Semaforo records so core workflows
+      in a-saas-platform can function end to end.
+
+      Who benefits: Users who create or interact with Semaforo data as part of
+      their primary workflow.
+
+      Constraints & edge cases: Deletes should be soft where data history
+      matters. List views need pagination. Access should be scoped by user role
+      or ownership.
+
+      Scope: Full CRUD for Semaforo including list, detail, create, edit, and
+      delete. Bulk operations and import/export are out of scope for this
+      feature.
+    category: suggested
+    priority: 11
+    status: pending
+    createdAt: '2026-04-25T17:42:00.025Z'
+    origin: scan
+    sourceEntities:
+      - Semaforo
+  - id: fs-012
+    title: PromptCache management
+    description: >-
+      Build CRUD operations for PromptCache: Cached Claude API prompt and
+      context used for requisito extraction to reduce latency and cost across
+      repeated analyses.
+    discoveryContext: >-
+      Business outcome: Allow users to manage PromptCache records so core
+      workflows in a-saas-platform can function end to end.
+
+      Who benefits: Users who create or interact with PromptCache data as part
+      of their primary workflow.
+
+      Constraints & edge cases: Deletes should be soft where data history
+      matters. List views need pagination. Access should be scoped by user role
+      or ownership.
+
+      Scope: Full CRUD for PromptCache including list, detail, create, edit, and
+      delete. Bulk operations and import/export are out of scope for this
+      feature.
+    category: suggested
+    priority: 12
+    status: pending
+    createdAt: '2026-04-25T17:42:00.025Z'
+    origin: scan
+    sourceEntities:
+      - PromptCache

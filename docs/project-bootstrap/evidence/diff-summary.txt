@@ -1,0 +1,35 @@
+=== git state ===
+Repo has NO commits yet (master branch, no HEAD). All files added during /nybo-run project-bootstrap are net-new.
+
+--- counts (excluding node_modules) ---
+Untracked entries (top-level):
+  count: 19
+
+--- top-level entries (excluding node_modules + .next + coverage) ---
+?? .claude/
+?? .github/
+?? .gitignore
+?? .nybo/
+?? AGENTS.md
+?? CLAUDE.md
+?? app/
+?? docs/
+?? eslint.config.mjs
+?? package-lock.json
+?? package.json
+?? postcss.config.mjs
+?? public/
+?? src/
+?? supabase/
+?? tests/
+?? tsconfig.json
+?? vitest.config.ts
+
+--- branch ---
+fatal: ambiguous argument 'HEAD': unknown revision or path not in the working tree.
+Use '--' to separate paths from revisions, like this:
+'git <command> [<revision>...] -- [<file>...]'
+HEAD
+
+--- node_modules size ---
+557M	node_modules

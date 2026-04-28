@@ -1,0 +1,34 @@
+entities:
+  - name: Usuario
+    description: >-
+      A user account representing an empresa or procurement consultant with
+      authentication and profile information.
+  - name: Empresa
+    description: >-
+      A company profile storing financial, technical, legal, and experience
+      qualifications for bid eligibility comparison.
+  - name: Pliego
+    description: >-
+      An uploaded public procurement contract document (PDF) from SECOP II
+      awaiting segmentation and analysis.
+  - name: Analisis
+    description: >-
+      A completed evaluation of a pliego against an empresa profile, producing
+      eligibility verdicts per requisito and overall semáforo.
+  - name: Requisito
+    description: >-
+      A single extracted requirement from a pliego section (jurídico,
+      financiero, técnico, experiencia) with a matching status and semáforo.
+  - name: Seccion
+    description: >-
+      A categorized segment of a pliego (jurídico, financiero, técnico,
+      experiencia) containing related requisitos.
+  - name: Semaforo
+    description: >-
+      A color-coded eligibility status (verde/amarillo/rojo) indicating whether
+      an empresa meets, partially meets, or fails a requisito or overall
+      análisis.
+  - name: PromptCache
+    description: >-
+      Cached Claude API prompt and context used for requisito extraction to
+      reduce latency and cost across repeated analyses.

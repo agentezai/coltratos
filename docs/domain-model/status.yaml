@@ -1,0 +1,8 @@
+status: approved
+action_type: FEATURE
+profile: code
+created: "2026-04-25"
+approved_at: "2026-04-25"
+updated: "2026-04-27"
+revision_count: 5
+last_revision: "Apply semaforo-aggregation T0 (9 items) + introduce requisito.categoria immutability (RN-016) + fix UC-03 RLS contradiction. Schema additions: 3 columns on requisito (categoria narrow + is_habilitante + is_habilitante_source) + 2 CHECKs; semaforo_rules_version on analisis; new src/types/domain/semaforo.ts; new src/types/domain/habilitante-patterns.ts. Added REQ-018-022, RN-016-018, TC-026-031. Updated REQ-016 with categoria='general' Zod-rejection rule. UC-03 rewritten against analisis (empresa-scoped). Stale claude-extraction refs renamed throughout."

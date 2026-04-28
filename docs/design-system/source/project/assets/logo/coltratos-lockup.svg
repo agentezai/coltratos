@@ -1,0 +1,10 @@
+<svg width="240" height="56" viewBox="0 0 240 56" xmlns="http://www.w3.org/2000/svg" fill="none">
+  <defs>
+    <linearGradient id="cg-lockup" x1="8" y1="8" x2="48" y2="48" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#4ade80"></stop>
+      <stop offset="1" stop-color="#16a34a"></stop>
+    </linearGradient>
+  </defs>
+  <path d="M28 6&#xA;           a22 22 0 1 0 0 44&#xA;           a22 22 0 0 0 19.05 -11&#xA;           L37 33.5&#xA;           a11 11 0 1 1 0 -11&#xA;           L47.05 17&#xA;           A22 22 0 0 0 28 6 Z" fill="url(#cg-lockup)"></path>
+  <text x="68" y="37" font-family="Plus Jakarta Sans, Inter, system-ui, sans-serif" font-size="24" font-weight="800" letter-spacing="0.06em" fill="var(--coltratos-wordmark-fill, #ffffff)">COLTRATOS</text>
+</svg>

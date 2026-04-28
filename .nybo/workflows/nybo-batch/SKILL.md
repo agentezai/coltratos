@@ -1,0 +1,190 @@
+---
+name: nybo-batch
+description: >-
+  Decompose a wide change into 5–30 independent units, get approval, then
+  spawn one Agent per unit in an isolated git worktree to implement, test,
+  and open a draft PR. Claude-only (uses the Task tool for per-unit agents
+  and git worktrees for isolation). Triggers on "batch", "decompose",
+  "parallel PRs", "/nybo-batch".
+---
+
+# nybo-batch
+
+Parallelize a wide change — rename, cross-file refactor, multi-file cleanup, codemod-style transformation — by decomposing it into **5–30 independent units**, getting human approval on the plan, then spawning **one Agent per unit in an isolated git worktree**. Each Agent implements its unit, runs tests, and opens a **draft PR**. Reuses `nybo-worktree` primitives for isolation.
+
+**Usage:**
+- `/nybo-batch <description>` — decompose the change, present the plan, wait for approval, then spawn
+- `/nybo-batch <description> --dry-run` — plan only; do not spawn agents
+- `/nybo-batch <description> --cap <n>` — override the default unit cap (default 30)
+
+**Golden rule:** no worktrees are created and no agents are spawned before the human approves the plan. Decomposition and approval are hard gates before any spawn.
+
+---
+
+## 1. Load context
+
+- Read `.nybo/memory/CORE.md` and any domain files referenced in `domains.yaml` — decomposition must respect project conventions.
+- Read the current branch and confirm the working tree is clean (`git status --porcelain`). If dirty, stop: "Commit or stash before `/nybo-batch` — the worktree base branch must be clean."
+- Identify the change description from the user prompt.
+- Parse flags: `--dry-run` (boolean), `--cap <n>` (number; default 30).
+
+---
+
+## 2. Research phase (autonomous)
+
+Before decomposing, scan the codebase for everything the change touches. This is the input to decomposition.
+
+- Use **Glob** and **Grep** to enumerate files affected by the change (e.g. a rename touches every import; a codemod touches every matching pattern).
+- Read representative files to understand existing patterns — do not rely on the description alone.
+- Produce a short research summary (file count, categories of change, any gotchas).
+
+If the change turns out to be **too small** (<3 units after research), stop: "This change is too small to batch — run it as a single task instead."
+
+---
+
+## 3. Decompose into units
+
+Break the change into a flat list of **independent** units. Each unit must:
+
+- Be implementable without waiting on another unit (independence is the point of batching).
+- Fit in one PR of ~20–200 lines.
+- Have a clear verifiable outcome (one file renamed, one module migrated, one helper extracted, …).
+- Name the files it will touch (so units don't overlap).
+
+Group related units into **categories** only for display — the unit list is flat.
+
+**Hard unit cap:** default **30**. If decomposition produces more, either:
+- Coarsen: merge adjacent units until count ≤ cap, OR
+- Stop and ask the user: "This change decomposes into N > cap units. Re-scope or raise the cap with `--cap <n>`?"
+
+Never proceed with >cap units silently.
+
+Produce a plan like:
+
+```
+## Batch plan — <description>
+
+**Base branch:** feat/<slug>-batch  (created off <current-branch>)
+**Unit count:** 12 / 30
+**Estimated total effort:** ~3 hours across 12 parallel agents
+
+### Units
+
+| # | Unit | Files | Tests expected |
+|---|------|-------|----------------|
+| 1 | Rename foo to bar in auth module | src/auth/*.ts (6) | yes — existing auth.test.ts |
+| 2 | Rename foo to bar in api module  | src/api/*.ts (4)  | yes — existing api.test.ts |
+| … | … | … | … |
+```
+
+---
+
+## 4. Checkpoint — approval gate (HARD)
+
+Present the plan and ask:
+
+> **Plan: N units.** Approve to spawn N parallel worktree agents (each will open a draft PR)?
+>
+> - `yes` — spawn all N
+> - `yes <ids>` — spawn only the listed ids (e.g. `yes 1,3,5`)
+> - `no` — abort
+> - `edit` — revise the plan and re-present
+
+**Do not proceed without an explicit yes.** Approval is per-run; never cache across sessions.
+
+If `--dry-run` was set, **stop here** after presenting the plan. Emit a `batch_planned` event and exit without spawning.
+
+---
+
+## 5. Spawn worktree agents
+
+For each approved unit:
+
+1. **Create a worktree** following `nybo-worktree` enter-mode conventions:
+   ```bash
+   git worktree add ../<repo>-batch-<n>-<slug> -b feat/<slug>-batch-<n> <base-branch>
+   ```
+   Keep the short slug stable across worktrees so human reviewers can correlate PRs.
+
+2. **Spawn an Agent** (via the Task tool) per unit with a minimal, self-contained brief:
+   - The unit description + file list
+   - Project conventions from `.nybo/memory/domains/*.md` relevant to those files
+   - Instructions to: implement, run lint + tests, commit using project `commit-convention`, push the branch, open a **draft** PR via `gh pr create --draft`
+   - The unit's PR title convention: `[UPD] <slug>-batch-<n>: <unit title>` (matches the branch for reviewer traceability)
+
+3. **Launch units in batches of 5–10 parallel Task calls** (one tool-use block per batch). Claude Code's Task tool runs them concurrently, but too-many-at-once can saturate a machine; tune by observing.
+
+Each Agent runs independently — there is no shared state. If a unit Agent fails, that PR simply isn't opened; others proceed.
+
+---
+
+## 6. Collect outcomes
+
+After all Agents return, summarize:
+
+```
+## Batch run — <description>
+
+- Approved: 12
+- PRs opened (draft): 11
+- Failed / no PR: 1 (unit 7 — test failure: see worktree logs at ../repo-batch-7-slug)
+- Total wall clock: 18 min
+
+### Draft PRs
+- #101 [UPD] <slug>-batch-1: …
+- #102 [UPD] <slug>-batch-2: …
+- …
+```
+
+For failed units, keep the worktree in place so the human can inspect. For successful units, leave the worktree until the PR merges (cleanup happens via `/nybo-worktree exit`).
+
+---
+
+## 7. Record outcome
+
+Append a `batch_run` event to `.nybo/events.jsonl`:
+
+```json
+{"timestamp":"<ISO>","type":"batch_run","actor":"agent","details":{"description":"<short>","units_planned":N,"units_spawned":M,"prs_opened":K,"dry_run":false}}
+```
+
+If `--dry-run`, the event type is `batch_planned` (no spawned units).
+
+---
+
+## 8. Next Steps
+
+- **Review draft PRs.** Each PR is draft by default; human promotes to ready when satisfied.
+- **`/nybo-worktree list`** to see all active batch worktrees.
+- **`/nybo-worktree exit`** in each worktree directory after the PR merges (or if abandoning).
+- **`/nybo-simplify`** — if any unit's PR exposes a reuse opportunity, run simplify on the merged batch parent.
+
+---
+
+## Hard safety guards
+
+- ❌ No worktree is created before step 4 approval.
+- ❌ No Agent is spawned before step 4 approval.
+- ❌ No PR is auto-promoted from draft to ready — always human.
+- ❌ No unit may exceed the cap; coarsen or escalate to the user.
+- ❌ Never run batch on a dirty working tree — the base branch must be clean.
+- ✅ On any uncertainty during decomposition, ask the human instead of guessing.
+
+---
+
+## Notes on behavior
+
+- **Claude-only skill.** Uses the Task tool for per-unit agents. Registered in the workflow registry with `targets: ["claude"]`.
+- **Always approval-gated.** The plan is inert until the human explicitly approves in step 4.
+- **Independence is mandatory.** If units have dependencies, batch is the wrong tool — use sequential implementation.
+- **Worktrees, not branches off current.** Each unit gets its own working directory. This prevents concurrent-edit collisions on the main working tree.
+- **Draft PRs, not ready.** Reviewers see a batch landing as a cluster of draft PRs, review each, promote when satisfied.
+
+---
+
+## File Locations
+
+- **Worktree primitives:** `.nybo/workflows/nybo-worktree/SKILL.md`
+- **Project conventions:** `.nybo/memory/CORE.md`, `.nybo/memory/domains/*.md`
+- **Event log:** `.nybo/events.jsonl`
+- **Git domain rules:** `.nybo/memory/domains/git.md` (branch naming, PR target)

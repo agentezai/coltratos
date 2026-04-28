@@ -1,0 +1,13 @@
+domains:
+  - name: auth
+    description: auth domain
+  - name: empresa-profile
+    description: empresa-profile domain
+  - name: pliego-upload
+    description: pliego-upload domain
+  - name: requisito-extraction
+    description: requisito-extraction domain
+  - name: eligibility-matching
+    description: eligibility-matching domain
+  - name: analytics
+    description: analytics domain

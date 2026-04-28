@@ -1,0 +1,48 @@
+=== Final 4-gate run ===
+
+added 428 packages, and audited 429 packages in 11s
+
+159 packages are looking for funding
+  run `npm fund` for details
+
+2 moderate severity vulnerabilities
+
+To address all issues (including breaking changes), run:
+  npm audit fix --force
+
+Run `npm audit` for details.
+
+> coltratos@0.1.0 typecheck
+> tsc --noEmit
+
+
+> coltratos@0.1.0 lint
+> eslint
+
+  Collecting page data using 5 workers ...
+  Generating static pages using 5 workers (0/4) ...
+  Generating static pages using 5 workers (1/4) 
+  Generating static pages using 5 workers (2/4) 
+  Generating static pages using 5 workers (3/4) 
+✓ Generating static pages using 5 workers (4/4) in 226ms
+  Finalizing page optimization ...
+
+Route (app)
+┌ ○ /
+└ ○ /_not-found
+
+
+○  (Static)  prerendered as static content
+
+
+ RUN  v4.1.5 /Users/carlosvilla/Documents/Proyectos/AI/coltratos
+
+
+ Test Files  1 passed (1)
+      Tests  2 passed (2)
+Type Errors  no errors
+   Start at  10:59:09
+   Duration  107ms (transform 14ms, setup 0ms, import 20ms, tests 6ms, environment 0ms)
+
+( npm ci 2>&1 && npm run typecheck 2>&1 && npm run lint 2>&1 && npm run build)  18.24s user 10.17s system 138% cpu 20.564 total
+EXIT: 0

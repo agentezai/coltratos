@@ -1,0 +1,31 @@
+=== Coverage summary ===
+
+Statements: 0/0 (no source code — bootstrap spec deliberately writes zero domain code, per RN-010)
+Branches:   0/0
+Functions:  0/0
+Lines:      0/0
+
+Note: vitest reports 'Unknown%' because there are no source files under coverage (only tests/bootstrap.test.ts exists).
+Coverage gates apply once domain-model T1 lands the first src/types/domain/primitives.ts file.
+
+=== Coverage run output (excerpt) ===
+
+ Test Files  1 passed (1)
+      Tests  2 passed (2)
+Type Errors  no errors
+   Start at  11:04:37
+   Duration  136ms (transform 14ms, setup 0ms, import 22ms, tests 7ms, environment 0ms)
+
+ % Coverage report from v8
+----------|---------|----------|---------|---------|-------------------
+File      | % Stmts | % Branch | % Funcs | % Lines | Uncovered Line #s 
+----------|---------|----------|---------|---------|-------------------
+All files |       0 |        0 |       0 |       0 |                   
+----------|---------|----------|---------|---------|-------------------
+
+=============================== Coverage summary ===============================
+Statements   : Unknown% ( 0/0 )
+Branches     : Unknown% ( 0/0 )
+Functions    : Unknown% ( 0/0 )
+Lines        : Unknown% ( 0/0 )
+================================================================================

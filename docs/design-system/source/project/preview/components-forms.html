@@ -1,0 +1,65 @@
+<!doctype html><html lang="es"><head><meta charset="utf-8"><title>Components · Forms</title>
+<link rel="stylesheet" href="../colors_and_type.css">
+<style>
+  body{margin:0;padding:28px;background:#fff;font-family:var(--font-sans);color:var(--fg-1)}
+  .grid{display:grid;grid-template-columns:1fr 1fr;gap:20px;max-width:780px}
+  .field{display:flex;flex-direction:column;gap:6px}
+  .label{font-size:13px;font-weight:600;color:var(--graphite-800)}
+  .hint{font-size:12px;color:var(--fg-3)}
+  .input,.select,.textarea{font-family:inherit;font-size:14px;padding:11px 14px;border:1px solid var(--graphite-300);border-radius:8px;background:#fff;color:var(--fg-1);outline:none;transition:all 180ms ease}
+  .input:focus,.select:focus,.textarea:focus{border-color:#2563eb;box-shadow:0 0 0 4px rgba(37,99,235,.18)}
+  .input.error{border-color:#ef4444}
+  .input.error:focus{box-shadow:0 0 0 4px rgba(239,68,68,.18)}
+  .input.disabled{background:var(--graphite-50);color:var(--fg-3)}
+  .err{font-size:12px;color:#b91c1c}
+  .ok{font-size:12px;color:#15803d}
+  .with-icon{position:relative}
+  .with-icon svg{position:absolute;left:12px;top:50%;transform:translateY(-50%);width:16px;height:16px;stroke:#94a3b8;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+  .with-icon .input{padding-left:38px}
+  .toggle{position:relative;width:38px;height:22px;background:var(--graphite-300);border-radius:999px;cursor:pointer}
+  .toggle.on{background:#2563eb}
+  .toggle:after{content:"";position:absolute;width:18px;height:18px;border-radius:999px;background:#fff;top:2px;left:2px;transition:left 180ms ease;box-shadow:0 1px 3px rgba(0,0,0,.2)}
+  .toggle.on:after{left:18px}
+  .ck{width:18px;height:18px;border-radius:5px;border:1.5px solid var(--graphite-400);display:inline-flex;align-items:center;justify-content:center}
+  .ck.checked{background:#2563eb;border-color:#2563eb}
+  .ck.checked svg{stroke:#fff}
+  .ck svg{width:11px;height:11px;fill:none;stroke-width:3;stroke-linecap:round;stroke-linejoin:round;stroke:transparent}
+  .row{display:flex;align-items:center;gap:10px}
+</style></head>
+<body>
+  <div class="grid">
+    <div class="field">
+      <label class="label">Nombre del proceso</label>
+      <input class="input" value="Suministro de equipos médicos">
+    </div>
+    <div class="field">
+      <label class="label">Entidad contratante</label>
+      <div class="with-icon">
+        <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M2 12h20M12 2a15 15 0 0 1 0 20M12 2a15 15 0 0 0 0 20"/></svg>
+        <input class="input" value="Secretaría de Salud · Bogotá">
+      </div>
+    </div>
+    <div class="field">
+      <label class="label">Número de proceso (NIT)</label>
+      <input class="input error" value="LP-2024-XXXX">
+      <span class="err">Formato inválido. Ej.: LP-2024-0025</span>
+    </div>
+    <div class="field">
+      <label class="label">Sector UNSPSC</label>
+      <select class="select"><option>42 · Equipos médicos</option><option>72 · Construcción</option></select>
+    </div>
+    <div class="field" style="grid-column:1/-1">
+      <label class="label">Notas</label>
+      <textarea class="textarea" rows="3" placeholder="Notas internas sobre este proceso (opcional)"></textarea>
+      <span class="hint">Solo tu equipo verá estas notas.</span>
+    </div>
+    <div class="field">
+      <label class="label">Notificar cambios</label>
+      <div class="row"><span class="toggle on"></span><span class="hint">Recibir alertas por correo</span></div>
+    </div>
+    <div class="field">
+      <label class="label">Confirmaciones</label>
+      <div class="row"><span class="ck checked"><svg viewBox="0 0 24 24"><path d="M20 6 9 17l-5-5"/></svg></span><span class="hint">Acepto los términos</span></div>
+    </div>
+  </div>
+</body></html>

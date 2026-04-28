@@ -1,0 +1,48 @@
+<!doctype html><html lang="es"><head><meta charset="utf-8"><title>Color · Semáforo</title>
+<link rel="stylesheet" href="../colors_and_type.css">
+<style>
+  body{margin:0;padding:28px;font-family:var(--font-sans);background:#fff;color:var(--fg-1)}
+  h2{font-size:18px;font-weight:700;margin:0 0 4px;letter-spacing:-0.01em}
+  .lead{font-size:13px;color:var(--fg-3);margin:0 0 22px;max-width:62ch}
+  .grid{display:grid;grid-template-columns:repeat(3,1fr);gap:18px}
+  .card{border:1px solid var(--border-hairline);border-radius:14px;padding:18px;background:#fff;box-shadow:var(--shadow-sm)}
+  .light{width:64px;height:64px;border-radius:999px;display:flex;align-items:center;justify-content:center;color:#fff;margin-bottom:14px;font-size:28px;font-weight:700;box-shadow:0 1px 0 rgba(0,0,0,.05) inset}
+  .green{background:#22c55e}
+  .amber{background:#f59e0b}
+  .red{background:#ef4444}
+  .label{font-size:14px;font-weight:600;margin-bottom:4px}
+  .meaning{font-size:12px;color:var(--fg-3);margin-bottom:14px}
+  .hex{font-family:var(--font-mono);font-size:11px;color:var(--fg-3);display:block;margin-top:6px}
+  .pill{display:inline-flex;align-items:center;gap:6px;padding:4px 10px;border-radius:999px;font-size:12px;font-weight:600}
+  .dot{width:8px;height:8px;border-radius:999px}
+  .pill-green{background:#ecfdf5;color:#15803d}.pill-green .dot{background:#22c55e}
+  .pill-amber{background:#fffbeb;color:#b45309}.pill-amber .dot{background:#f59e0b}
+  .pill-red{background:#fef2f2;color:#b91c1c}.pill-red .dot{background:#ef4444}
+</style></head>
+<body>
+  <h2>Semáforo · the product's whole point</h2>
+  <p class="lead">Functional, not decorative. Each ramp owns one verdict, one pill, one row state.</p>
+  <div class="grid">
+    <div class="card">
+      <div class="light green">✓</div>
+      <div class="label">Elegible</div>
+      <div class="meaning">Cumple todos los requisitos habilitantes.</div>
+      <span class="pill pill-green"><span class="dot"></span>Elegible</span>
+      <span class="hex">--green-500 · #22c55e</span>
+    </div>
+    <div class="card">
+      <div class="light amber">!</div>
+      <div class="label">Con observaciones</div>
+      <div class="meaning">Cumple la mayoría — algunos puntos requieren ajuste.</div>
+      <span class="pill pill-amber"><span class="dot"></span>Observaciones</span>
+      <span class="hex">--amber-500 · #f59e0b</span>
+    </div>
+    <div class="card">
+      <div class="light red">✕</div>
+      <div class="label">No elegible</div>
+      <div class="meaning">No cumple uno o más requisitos críticos.</div>
+      <span class="pill pill-red"><span class="dot"></span>No elegible</span>
+      <span class="hex">--red-500 · #ef4444</span>
+    </div>
+  </div>
+</body></html>
