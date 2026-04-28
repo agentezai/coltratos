@@ -5,3 +5,46 @@ conventions:
     description: Keep generated files under 500 lines
   - id: mermaid
     description: Use Mermaid for flow/sequence diagrams in specs
+  # Added 2026-04-28 via /nybo-curate after project-bootstrap shipped.
+  - id: vitest-workspaces-inline
+    description: "Vitest 4 workspaces go inline in vitest.config.ts under test.projects; do not create vitest.workspace.ts (the defineWorkspace API was removed in v4)"
+    added: "2026-04-28"
+    feature: project-bootstrap
+    confidence: high
+    verified: "2026-04-28"
+  - id: expected-failure-test-pragma
+    description: "Expected-failure cross-spec tests need // @ts-expect-error on the failing-import line; wrap the import in try/catch and assert the error shape"
+    added: "2026-04-28"
+    feature: project-bootstrap
+    confidence: high
+    verified: "2026-04-28"
+  - id: ci-db-job-isolation
+    description: "Migration / database integration tests run in a separate CI db job with services postgres:15 (parallel to quality); never bundle them into the quality job"
+    added: "2026-04-28"
+    feature: project-bootstrap
+    confidence: high
+    verified: "2026-04-28"
+  - id: npm-not-pnpm
+    description: "Specs and task plans use npm run <script> — never pnpm or yarn (per ADR-014). Meta-references to pnpm are only allowed when documenting the rename itself"
+    added: "2026-04-28"
+    feature: project-bootstrap
+    confidence: high
+    verified: "2026-04-28"
+  - id: audit-gate-high-only
+    description: "CI audit gate is npm audit --audit-level=high; medium/low findings tracked in docs/<feature>/evidence/audit-known-issues.md with re-eval cadence"
+    added: "2026-04-28"
+    feature: project-bootstrap
+    confidence: medium
+    verified: "2026-04-28"
+  - id: tsconfig-drift-watch
+    description: "After every Next.js major / minor upgrade, diff tsconfig.json — Next silently rewrites compiler options during next build (e.g., jsx preserve → react-jsx); accept or revert deliberately"
+    added: "2026-04-28"
+    feature: project-bootstrap
+    confidence: medium
+    verified: "2026-04-28"
+  - id: scope-deferral-verify-gate
+    description: "When a spec defers a config decision to a downstream spec, surface the deferral during /nybo-verify (as a Q-question); flipping a config flag now is usually cheaper than re-bootstrapping later"
+    added: "2026-04-28"
+    feature: project-bootstrap
+    confidence: medium
+    verified: "2026-04-28"

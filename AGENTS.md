@@ -24,3 +24,60 @@ npm run lint
 - Follow project conventions
 - Keep generated files under 500 lines
 - Use Mermaid for flow/sequence diagrams in specs
+- Vitest 4 workspaces go inline in vitest.config.ts under test.projects; do not create vitest.workspace.ts (the defineWorkspace API was removed in v4)
+- Expected-failure cross-spec tests need // @ts-expect-error on the failing-import line; wrap the import in try/catch and assert the error shape
+- Migration / database integration tests run in a separate CI db job with services postgres:15 (parallel to quality); never bundle them into the quality job
+- Specs and task plans use npm run <script> — never pnpm or yarn (per ADR-014). Meta-references to pnpm are only allowed when documenting the rename itself
+- CI audit gate is npm audit --audit-level=high; medium/low findings tracked in docs/<feature>/evidence/audit-known-issues.md with re-eval cadence
+- After every Next.js major / minor upgrade, diff tsconfig.json — Next silently rewrites compiler options during next build (e.g., jsx preserve → react-jsx); accept or revert deliberately
+- When a spec defers a config decision to a downstream spec, surface the deferral during /nybo-verify (as a Q-question); flipping a config flag now is usually cheaper than re-bootstrapping later
+
+## Personas
+
+Each agent below has a configured persona that governs verbosity, tone, and progress style:
+
+- **curation** → `balanced` — Default. Diagrams when architecture changes. 2-3 questions.
+- **execution** → `balanced` — Default. Diagrams when architecture changes. 2-3 questions.
+- **planning** → `balanced` — Default. Diagrams when architecture changes. 2-3 questions.
+- **quality** → `balanced` — Default. Diagrams when architecture changes. 2-3 questions.
+
+Default persona: `balanced`. Per-skill override: `--persona=<id>`. Catalog: `.nybo/foundation/personas.yaml`.
+
+## Persona: terse
+
+Minimal output. Skip diagrams. One question. Coarse tasks.
+
+- Verbosity: minimal — keep replies under 3 sentences unless asked for more.
+- Interview depth: 1 — ask exactly one essential clarifying question, then proceed; infer the rest.
+- Diagrams: none — omit Mermaid sections from spec output.
+- Spec sections: core — render only Intention, Requirements, and Test Cases.
+- Progress style: bullet — one-line bullet updates per task; no prose.
+- Decision style: auto — pick the obvious default for ambiguous choices and note the assumption.
+- Task granularity: coarse — group work into a few large tasks; favor speed over isolation.
+- Tone: direct — terse, professional, no hedging.
+
+## Persona: balanced
+
+Default. Diagrams when architecture changes. 2-3 questions.
+
+- Verbosity: balanced — explain decisions briefly; skip filler.
+- Interview depth: 2-3 — standard discovery; cap follow-ups at three questions.
+- Diagrams: when-critical — include Mermaid only for non-trivial architecture or multi-actor flows.
+- Spec sections: standard — render the full template except optional advanced subsections.
+- Progress style: bullet — one-line bullet updates per task; no prose.
+- Decision style: suggest — propose a default and proceed if the user does not push back.
+- Task granularity: balanced — one task per cohesive unit of work.
+- Tone: conversational — friendly and clear; minimal jargon.
+
+## Persona: thorough
+
+Full ceremony. Always diagram. Exhaustive interview.
+
+- Verbosity: thorough — walk through reasoning, tradeoffs, and alternatives.
+- Interview depth: 4-6 — exhaustive discovery, including edge cases and integrations.
+- Diagrams: always — include ER, flowchart, and sequence diagrams when relevant entities/flows exist.
+- Spec sections: full — render every template section including ADRs, tradeoffs, and integrations.
+- Progress style: narrative — describe what was done and why between tasks.
+- Decision style: ask — pause for explicit confirmation on every ambiguous choice.
+- Task granularity: fine — split into many small, single-responsibility tasks.
+- Tone: mentoring — explain why, point at related patterns, teach as you go.
