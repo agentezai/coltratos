@@ -11,16 +11,16 @@ Breaking changes might not follow SemVer, please pin Vitest's version when using
  RUN  v4.1.5 /Users/carlosvilla/Documents/Proyectos/AI/coltratos
 
  ✓ |types| src/components/ui/__tests__/icon.test-d.ts > Icon name registry (REQ-011) > IconName equals the 28-entry registry exactly 1ms
+ ✓ |unit| src/__tests__/token-parity.test.ts > Token parity vs design-system bundle (NFR-04) > every bundle token is defined in app/globals.css :root 2ms
  ✓ |unit| src/__tests__/rsc-purity.test.ts > RSC purity (NFR-05) > only src/components/shell/sidebar.tsx carries "use client" 3ms
- ✓ |unit| src/__tests__/token-parity.test.ts > Token parity vs design-system bundle (NFR-04) > every bundle token is defined in app/globals.css :root 4ms
  ✓ |unit| tests/bootstrap.test.ts > project-bootstrap smoke test > vitest is installed and runs (REQ-006) 1ms
- ✓ |unit| tests/bootstrap.test.ts > project-bootstrap smoke test > the @/types path alias is wired but the barrel does not yet exist (REQ-013) 8ms
- ✓ |unit| src/__tests__/design-system-page.test.tsx > /design-system page smoke (REQ-012) > renders all 5 primitives + COLTRATOS wordmark 64ms
+ ✓ |unit| tests/bootstrap.test.ts > project-bootstrap smoke test > the @/types path alias is wired but the barrel does not yet exist (REQ-013) 5ms
+ ✓ |unit| src/__tests__/design-system-page.test.tsx > /design-system page smoke (REQ-012) > renders all 5 primitives + COLTRATOS wordmark 78ms
  ✓ |types|  TS  src/components/ui/__tests__/icon.test-d.ts > Icon name registry (REQ-011) > IconName equals the 28-entry registry exactly
 
  Test Files  6 passed (6)
       Tests  7 passed (7)
 Type Errors  no errors
-   Start at  11:53:21
-   Duration  1.74s (transform 140ms, setup 0ms, import 266ms, tests 84ms, environment 497ms, typecheck 930ms)
+   Start at  11:58:55
+   Duration  2.36s (transform 167ms, setup 0ms, import 360ms, tests 94ms, environment 850ms, typecheck 1.06s)
 

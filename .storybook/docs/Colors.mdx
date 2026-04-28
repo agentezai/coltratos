@@ -1,0 +1,136 @@
+import { Meta } from "@storybook/addon-docs/blocks";
+
+<Meta title="Tokens/Colors" />
+
+# Colors
+
+The COLTRATOS palette has three layers: **anchor** (navy + graphite, structural), **accent** (royal blue, the only CTA hue), and **semáforo** (functional green / amber / red — not decorative). Plus six tints used exclusively for icon wells.
+
+Token names mirror [docs/design-system/source/project/colors_and_type.css](../../docs/design-system/source/project/colors_and_type.css) byte-for-byte. The `:root` block in [app/globals.css](../../app/globals.css) is the runtime source; the parity test at `src/__tests__/token-parity.test.ts` enforces 1:1 alignment (NFR-04).
+
+## Anchor — Navy
+
+Sidebar, hero, modal veil. Always paired with `--fg-inverse` (white) or `--fg-on-dark-2` for body copy on dark.
+
+<div className="grid grid-cols-6 gap-4 my-6">
+  {[
+    ["--navy-950", "#060f24"],
+    ["--navy-900", "#0b1a3a"],
+    ["--navy-800", "#102448"],
+    ["--navy-700", "#1a2f5c"],
+    ["--navy-600", "#2a4075"],
+    ["--navy-500", "#3a5590"],
+  ].map(([tok, hex]) => (
+    <div key={tok}>
+      <div style={{ background: hex, height: 64, borderRadius: 8, border: "1px solid #eef1f6" }} />
+      <div style={{ fontFamily: "JetBrains Mono, monospace", fontSize: 11, marginTop: 4 }}>{tok}</div>
+      <div style={{ fontSize: 10, color: "#64748b" }}>{hex}</div>
+    </div>
+  ))}
+</div>
+
+## Anchor — Graphite
+
+Neutral warm-cool ramp. Ink, borders, canvas. Not true grey.
+
+<div className="grid grid-cols-10 gap-3 my-6">
+  {[
+    ["--graphite-50", "#f8fafc"], ["--graphite-100", "#f1f5f9"],
+    ["--graphite-200", "#e2e8f0"], ["--graphite-300", "#cbd5e1"],
+    ["--graphite-400", "#94a3b8"], ["--graphite-500", "#64748b"],
+    ["--graphite-600", "#475569"], ["--graphite-700", "#334155"],
+    ["--graphite-800", "#1e293b"], ["--graphite-900", "#0f172a"],
+  ].map(([tok, hex]) => (
+    <div key={tok}>
+      <div style={{ background: hex, height: 56, borderRadius: 6, border: "1px solid #eef1f6" }} />
+      <div style={{ fontFamily: "JetBrains Mono, monospace", fontSize: 10, marginTop: 4 }}>{tok.replace("--graphite-", "")}</div>
+    </div>
+  ))}
+</div>
+
+## Accent — Royal Blue
+
+The single primary-action color. Filled CTA, active nav item, selected table row, links, active step of the processing stepper. **Never** a decorative background.
+
+<div className="grid grid-cols-8 gap-3 my-6">
+  {[
+    ["50", "#eff6ff"], ["100", "#dbeafe"], ["200", "#bfdbfe"], ["400", "#60a5fa"],
+    ["500", "#3b82f6"], ["600", "#2563eb"], ["700", "#1d4ed8"], ["800", "#1e40af"],
+  ].map(([n, hex]) => (
+    <div key={n}>
+      <div style={{ background: hex, height: 56, borderRadius: 6 }} />
+      <div style={{ fontFamily: "JetBrains Mono, monospace", fontSize: 10, marginTop: 4 }}>--blue-{n}</div>
+    </div>
+  ))}
+</div>
+
+## Brand-green / Semáforo · Elegible
+
+Doubles as the logo accent. Used on the Elegible chip, the green semáforo light, check icons, and status dots.
+
+<div className="grid grid-cols-7 gap-3 my-6">
+  {[
+    ["50", "#ecfdf5"], ["100", "#d1fae5"], ["200", "#a7f3d0"], ["400", "#34d399"],
+    ["500", "#22c55e"], ["600", "#16a34a"], ["700", "#15803d"],
+  ].map(([n, hex]) => (
+    <div key={n}>
+      <div style={{ background: hex, height: 56, borderRadius: 6 }} />
+      <div style={{ fontFamily: "JetBrains Mono, monospace", fontSize: 10, marginTop: 4 }}>--green-{n}</div>
+    </div>
+  ))}
+</div>
+
+## Semáforo · Amber (Observaciones)
+
+<div className="grid grid-cols-7 gap-3 my-6">
+  {[
+    ["50", "#fffbeb"], ["100", "#fef3c7"], ["200", "#fde68a"], ["400", "#fbbf24"],
+    ["500", "#f59e0b"], ["600", "#d97706"], ["700", "#b45309"],
+  ].map(([n, hex]) => (
+    <div key={n}>
+      <div style={{ background: hex, height: 56, borderRadius: 6 }} />
+      <div style={{ fontFamily: "JetBrains Mono, monospace", fontSize: 10, marginTop: 4 }}>--amber-{n}</div>
+    </div>
+  ))}
+</div>
+
+## Semáforo · Red (No elegible)
+
+<div className="grid grid-cols-7 gap-3 my-6">
+  {[
+    ["50", "#fef2f2"], ["100", "#fee2e2"], ["200", "#fecaca"], ["400", "#f87171"],
+    ["500", "#ef4444"], ["600", "#dc2626"], ["700", "#b91c1c"],
+  ].map(([n, hex]) => (
+    <div key={n}>
+      <div style={{ background: hex, height: 56, borderRadius: 6 }} />
+      <div style={{ fontFamily: "JetBrains Mono, monospace", fontSize: 10, marginTop: 4 }}>--red-{n}</div>
+    </div>
+  ))}
+</div>
+
+## Tints (icon wells only)
+
+Pastel circular wells `~44 × 44 px` with a 50% radius. Icon inside is the same hue at `-500` or `-600`. Never put a stroked icon on a saturated background.
+
+<div className="flex gap-4 my-6">
+  {[
+    ["--tint-blue", "#e7eeff"],
+    ["--tint-green", "#e4f7ec"],
+    ["--tint-amber", "#fff2d6"],
+    ["--tint-red", "#fde6e6"],
+    ["--tint-violet", "#ece9fe"],
+    ["--tint-sky", "#e0f2fe"],
+  ].map(([tok, hex]) => (
+    <div key={tok} style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 4 }}>
+      <div style={{ background: hex, width: 44, height: 44, borderRadius: 999 }} />
+      <span style={{ fontFamily: "JetBrains Mono, monospace", fontSize: 10 }}>{tok}</span>
+    </div>
+  ))}
+</div>
+
+## What we avoid
+
+- ❌ Bluish-purple gradient backgrounds
+- ❌ Colored left-border accents on cards
+- ❌ Decorative use of the semáforo trio (always pair with text + icon, RN-007)
+- ❌ Saturated backgrounds behind stroked icons

@@ -1,0 +1,14 @@
+=== Coverage summary — design-system ===
+
+Statements: 100% (41/41)
+Branches:   93.54% (29/31) — 2 uncovered branches in page.tsx and card.tsx
+Functions:  100% (24/24)
+Lines:      100% (41/41)
+
+Source code under coverage:
+  - app/(internal)/design-system/page.tsx          100/66.66/100/100  (line 62: optional Card className path)
+  - src/components/ui/{button,card,chip,well,banner,icon}.tsx  100/96.42/100/100
+    - card.tsx:60  uncovered branch — CardHead with no title/sub but custom children
+
+Note: 'app/(internal)/design-system/page.tsx' is the only consumer of the primitives in v1;
+downstream FE feature specs will exercise more branches as they ship.

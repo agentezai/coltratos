@@ -79,6 +79,30 @@ Captured during `/nybo-run design-system` on 2026-04-28. None block; each is siz
 
 The bundle README mentioned that 2–3 glyphs (notably the stacked-database and handshake) came from Heroicons. The current 28-icon registry includes `database` (stacked-cylinder pattern). The handshake / users-handshake variant is not present (the registry uses `users` as the generic team icon). Confirm whether `Mi equipo` (Sidebar) should switch from `users` to a handshake glyph, and if so, whether to add it to the registry now or defer.
 
-### [Q003] Does the `/design-system` route need access control before `auth` ships?
+### [Q003] ✅ RESOLVED 2026-04-28 — `/design-system` route removed; Storybook is the new surface
 
-Today the route is public (Next.js's `(internal)` group is just a URL grouping convention; it doesn't gate access). When `auth` lands, this route should require an authenticated session — but until then it's reachable on any deploy. Acceptable for the private GitHub repo; should be confirmed before any first deploy to a public Vercel preview.
+User chose to migrate the audit surface to Storybook. The in-app route is deleted. See [deltas.md 2026-04-28](./deltas.md). Storybook runs on port 6006 (`npm run storybook`); the static export under `storybook-static/` can be deployed to Vercel previews or Chromatic in a future spec.
+
+---
+
+## Post-Storybook follow-ups (2026-04-28)
+
+### [S013] Publish `storybook-static` to a hosted URL
+
+**Why:** `npm run build-storybook` produces a static site. Today it's a CI artifact; would be more useful as a hosted preview that designers + reviewers can hit without checking out the repo. Cheapest path: a Vercel project pointed at `storybook-static/` (1 deploy hook). Alternative: Chromatic (free tier) gives visual-regression snapshots on every PR, which is a stronger gate than `play` functions.
+
+### [S014] Re-enable a11y violation gating (currently `test: 'todo'`)
+
+**Why:** `.storybook/preview.ts` configures `parameters.a11y.test = 'todo'` — Storybook's a11y addon shows violations in the test UI but doesn't fail CI. Once primitives are battle-tested by the first downstream FE spec, flip to `'error'` so a11y regressions block PRs.
+
+### [S015] Migrate `docs/design-system/source/project/preview/*.html` references or remove them
+
+**Why:** The bundle's `preview/*.html` files were the original visual-spec surface. They're still under `docs/design-system/source/` (read-only, vendored). With Storybook MDX docs covering the same ground, the `preview/*.html` files become redundant. Two options: (a) leave as bundle history; (b) collapse into a top-level "What changed from the bundle" note. Defer until the bundle's authoritative logo lands ([S001]) and we re-vendor anyway.
+
+### [S016] Promote "audit surfaces in Storybook, not in app routes" as a project convention
+
+**Why:** Captured in deltas.md "Impact on memory" — the rule generalizes beyond design-system. Any future internal UI (admin dashboards, observability widgets, debug panels) should default to Storybook unless production routing is structurally required. Add to `.nybo/foundation/conventions.yaml` next time `/nybo-curate` runs.
+
+### [S017] Storybook 10 + Next.js 16 + Tailwind v4 setup recipe
+
+**Why:** Captured as skill candidate. The combo is non-obvious (vitest workspaces, MDX patterns, `vite-tsconfig-paths` interaction, Playwright Chromium install for `@storybook/addon-vitest`). When a third project on this stack confirms the pattern, materialize as `.nybo/skills/storybook-setup.md` via `/nybo-curate extract`.

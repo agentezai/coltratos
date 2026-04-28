@@ -17,10 +17,15 @@ jobs:
           node-version: '20'
           cache: 'npm'
       - run: npm ci
+      # Storybook's vitest-addon project runs play functions in headless
+      # Chromium — install the browser before `npm run test`.
+      - name: Install Playwright Chromium
+        run: npx playwright install --with-deps chromium
       - run: npm run typecheck
       - run: npm run lint
       - run: npm run build
       - run: npm run test
+      - run: npm run build-storybook
 
   db:
     runs-on: ubuntu-latest

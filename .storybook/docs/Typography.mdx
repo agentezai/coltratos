@@ -1,0 +1,73 @@
+import { Meta } from "@storybook/addon-docs/blocks";
+
+<Meta title="Tokens/Typography" />
+
+# Typography
+
+**Geist** for display + UI (self-hosted, full static family + variable). **JetBrains Mono** for IDs, file metadata, and currency in dense tables.
+
+ADR-016 captures the choice over Inter, Plus Jakarta Sans, Satoshi, Manrope. Self-hosting eliminates the third-party CDN round-trip on first paint; the variable file is preloaded in [app/layout.tsx](../../app/layout.tsx).
+
+## Families
+
+```css
+--font-display: "Geist", ui-sans-serif, system-ui, ...
+--font-sans:    "Geist", ui-sans-serif, system-ui, ...
+--font-mono:    "JetBrains Mono", ui-monospace, ...
+```
+
+Display and sans share the same family — Geist's weight axis (100–900) makes a distinct display face unnecessary in v1.
+
+## Scale (desktop-first)
+
+<div style={{ display: "flex", flexDirection: "column", gap: 16, marginTop: 24 }}>
+  <div style={{ fontFamily: "Geist", fontWeight: 800, fontSize: 56, lineHeight: 1.05, letterSpacing: "-0.035em" }}>
+    Sabe en 1 minuto
+  </div>
+  <div style={{ fontFamily: "Geist", fontWeight: 800, fontSize: 44, lineHeight: 1.08, letterSpacing: "-0.03em" }}>
+    Display LG · 44 / 1.08
+  </div>
+  <div style={{ fontFamily: "Geist", fontWeight: 700, fontSize: 36, letterSpacing: "-0.02em" }}>
+    Display MD · 36 / 1.1
+  </div>
+  <div style={{ fontFamily: "Geist", fontWeight: 700, fontSize: 30, letterSpacing: "-0.02em" }}>
+    H1 · 30 / 1.1
+  </div>
+  <div style={{ fontFamily: "Geist", fontWeight: 600, fontSize: 24, letterSpacing: "-0.015em" }}>
+    H2 · 24 / 1.25
+  </div>
+  <div style={{ fontFamily: "Geist", fontWeight: 600, fontSize: 20 }}>
+    H3 · 20 / 1.25
+  </div>
+  <div style={{ fontFamily: "Geist", fontSize: 16, color: "#334155" }}>
+    Body LG · 16 / 1.5 — “Aquí tienes el resumen de tu actividad.”
+  </div>
+  <div style={{ fontFamily: "Geist", fontSize: 14, color: "#334155" }}>
+    Body · 14 / 1.5 — Default body text size.
+  </div>
+  <div style={{ fontFamily: "Geist", fontSize: 13, color: "#64748b" }}>
+    Sm · 13 / 1.5 — captions, table secondary fields.
+  </div>
+  <div style={{ fontFamily: "Geist", fontSize: 12, fontWeight: 600, letterSpacing: "0.08em", textTransform: "uppercase", color: "#64748b" }}>
+    Eyebrow · 12 caps
+  </div>
+  <div style={{ fontFamily: "JetBrains Mono, monospace", fontSize: 14, background: "#f1f5f9", padding: "6px 10px", borderRadius: 4, display: "inline-block", width: "fit-content" }}>
+    LP-2024-0025 · 1.87 MB · 48 seg
+  </div>
+</div>
+
+## Weights
+
+100 / 200 / 300 / 400 / 500 / 600 / 700 / 800 / 900 — every weight has a self-hosted `.ttf` at `public/fonts/Geist-*.ttf` plus the variable file as progressive enhancement.
+
+In practice we use:
+
+- **400** body
+- **500** emphasis (button labels, active nav)
+- **600** section titles, card heads
+- **700** H1 / numeric KPIs
+- **800** landing display
+
+## Casing
+
+The wordmark **COLTRATOS** is the only ALL-CAPS — it is a logotype, not running text. Page titles, button labels, table headers, eyebrows are sentence case.

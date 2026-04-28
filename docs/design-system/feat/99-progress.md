@@ -1,8 +1,8 @@
 # Progress Tracker
 
-**Status:** In Review (all 9 tasks implemented; final quality gate green in 10.1s)
+**Status:** In Review (all 11 tasks implemented including the Storybook revision; final quality gate green in 7s on dev machine)
 
-**Current Task:** None — ready for `/nybo-verify`
+**Current Task:** None — ready for second `/nybo-verify` pass post-Storybook
 
 ---
 
@@ -63,3 +63,37 @@
 - `vite-tsconfig-paths` plugin added so vitest resolves `@/components/ui` (the alias from `tsconfig.json`) when transforming page.tsx outside the test root.
 - `@/components/ui` had to be added explicitly because `app/(internal)/design-system/page.tsx` lives outside `src/` and the bare `'@': './src'` alias doesn't auto-extend to index.ts.
 - Sidebar uses `next/image` instead of `<img>` to clear the lint warning; the logo SVG keeps its REQ-013 warning comment.
+
+---
+
+## Storybook revision (2026-04-28, post-verify)
+
+User requested moving the design-system surface off the in-app `/design-system` route and into Storybook. Captured as a delta in [deltas.md](../deltas.md). Two new tasks added:
+
+### T10: Storybook scaffold + configuration
+- [x] Implement Task 10: `npx storybook@latest init` (auto-detected Next.js, picked `@storybook/nextjs-vite` framework). Configured `.storybook/main.ts` (stories pattern: `./docs/**/*.mdx` + `../src/**/*.stories.{ts,tsx}`) + `.storybook/preview.ts` (imports `../app/globals.css`, sets `layout: 'padded'`, navy / canvas / white background presets, a11y addon configured to "todo" mode).
+- [x] Verify Task 10: `npm run build-storybook` succeeds (static export to `storybook-static/`); `npm run storybook` boots dev server on port 6006.
+
+### T11: Component stories + token MDX docs
+- [x] Implement Task 11: 8 `*.stories.tsx` files alongside primitives (Button, Card, Chip, Well, Banner, Icon, Sidebar, Topbar). 4 token MDX docs at `.storybook/docs/` (Colors, Typography, Layout, Brand). Each variant story carries a `play` function asserting render shape; runs in `vitest`'s third workspace project (`storybook`, browser mode via headless Chromium).
+- [x] Verify Task 11: `npm run test` reports **14 test files, 52 tests passing** (3 unit projects + 1 type project + 1 storybook browser project). Story play functions hit each variant + Sidebar/Topbar shells.
+
+### Files removed (per delta)
+- `app/(internal)/design-system/page.tsx`, `app/(internal)/layout.tsx`
+- `src/__tests__/design-system-page.test.tsx` (REQ-012 smoke moved to `src/__tests__/primitives-smoke.test.tsx` + story play functions)
+
+### Files added (per delta)
+- `.storybook/{main.ts, preview.ts}`
+- `.storybook/docs/{Colors, Typography, Layout, Brand}.mdx`
+- `src/components/ui/{button, card, chip, well, banner, icon}.stories.tsx`
+- `src/components/shell/{sidebar, topbar}.stories.tsx`
+- `src/__tests__/primitives-smoke.test.tsx`
+
+### Final post-revision quality gate
+- `npm run typecheck` → 0
+- `npm run lint` → 0
+- `npm run build` → 0 (3 routes: `/`, `/_not-found`, `/icon.svg` — no `/design-system`)
+- `npm run test` → 0 (14 files, 52 tests, 7s)
+- `npm run build-storybook` → 0 (~1s vite build, ~250 MB output)
+
+Spec status returns to `in-review` for a second /nybo-verify pass on the post-Storybook implementation.
