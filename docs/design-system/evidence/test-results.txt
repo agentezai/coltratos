@@ -7,20 +7,67 @@ The plugin "vite-tsconfig-paths" is detected. Vite now supports tsconfig paths r
 The plugin "vite-tsconfig-paths" is detected. Vite now supports tsconfig paths resolution natively via the resolve.tsconfigPaths option. You can remove the plugin and set resolve.tsconfigPaths: true in your Vite config instead.
 Testing types with tsc and vue-tsc is an experimental feature.
 Breaking changes might not follow SemVer, please pin Vitest's version when using it.
+The plugin "vite-tsconfig-paths" is detected. Vite now supports tsconfig paths resolution natively via the resolve.tsconfigPaths option. You can remove the plugin and set resolve.tsconfigPaths: true in your Vite config instead.
 
  RUN  v4.1.5 /Users/carlosvilla/Documents/Proyectos/AI/coltratos
 
+The plugin "vite-tsconfig-paths" is detected. Vite now supports tsconfig paths resolution natively via the resolve.tsconfigPaths option. You can remove the plugin and set resolve.tsconfigPaths: true in your Vite config instead.
  ✓ |types| src/components/ui/__tests__/icon.test-d.ts > Icon name registry (REQ-011) > IconName equals the 28-entry registry exactly 1ms
- ✓ |unit| src/__tests__/token-parity.test.ts > Token parity vs design-system bundle (NFR-04) > every bundle token is defined in app/globals.css :root 2ms
  ✓ |unit| src/__tests__/rsc-purity.test.ts > RSC purity (NFR-05) > only src/components/shell/sidebar.tsx carries "use client" 3ms
+ ✓ |unit| src/__tests__/token-parity.test.ts > Token parity vs design-system bundle (NFR-04) > every bundle token is defined in app/globals.css :root 2ms
  ✓ |unit| tests/bootstrap.test.ts > project-bootstrap smoke test > vitest is installed and runs (REQ-006) 1ms
- ✓ |unit| tests/bootstrap.test.ts > project-bootstrap smoke test > the @/types path alias is wired but the barrel does not yet exist (REQ-013) 5ms
- ✓ |unit| src/__tests__/design-system-page.test.tsx > /design-system page smoke (REQ-012) > renders all 5 primitives + COLTRATOS wordmark 78ms
+ ✓ |unit| tests/bootstrap.test.ts > project-bootstrap smoke test > the @/types path alias is wired but the barrel does not yet exist (REQ-013) 17ms
+ ✓ |unit| src/__tests__/primitives-smoke.test.tsx > Primitives smoke (REQ-012) > Button renders a <button> with the COLTRATOS-style label 25ms
+ ✓ |unit| src/__tests__/primitives-smoke.test.tsx > Primitives smoke (REQ-012) > Card + CardHead + CardBody compose with data-component selectors 12ms
+ ✓ |unit| src/__tests__/primitives-smoke.test.tsx > Primitives smoke (REQ-012) > Chip renders with data-component=chip and its dot affordance 4ms
+ ✓ |unit| src/__tests__/primitives-smoke.test.tsx > Primitives smoke (REQ-012) > Well wraps an Icon and exposes data-component=well 9ms
+ ✓ |unit| src/__tests__/primitives-smoke.test.tsx > Primitives smoke (REQ-012) > Banner renders with data-component=banner 4ms
+ ✓ |unit| src/__tests__/primitives-smoke.test.tsx > Primitives smoke (REQ-012) > Icon renders an svg with the documented attributes 4ms
+ ✓ |storybook (chromium)| src/components/ui/icon.stories.tsx > Single 1093ms
+ ✓ |storybook (chromium)| src/components/ui/well.stories.tsx > Blue 1095ms
+ ✓ |storybook (chromium)| src/components/ui/chip.stories.tsx > Elegible 1103ms
+ ✓ |storybook (chromium)| src/components/ui/button.stories.tsx > Primary 1101ms
+ ✓ |storybook (chromium)| src/components/ui/banner.stories.tsx > Default 1101ms
+ ✓ |storybook (chromium)| src/components/ui/card.stories.tsx > Default 1103ms
+ ✓ |storybook (chromium)| src/components/shell/topbar.stories.tsx > Default 1094ms
+ ✓ |storybook (chromium)| src/components/ui/icon.stories.tsx > Gallery 235ms
+ ✓ |storybook (chromium)| src/components/ui/well.stories.tsx > Green 163ms
+ ✓ |storybook (chromium)| src/components/ui/chip.stories.tsx > Observaciones 171ms
+ ✓ |storybook (chromium)| src/components/ui/button.stories.tsx > Secondary 232ms
+ ✓ |storybook (chromium)| src/components/ui/banner.stories.tsx > With Shield Icon 243ms
+ ✓ |storybook (chromium)| src/components/ui/card.stories.tsx > With Actions 268ms
+ ✓ |storybook (chromium)| src/components/ui/icon.stories.tsx > Stroke On Dark 147ms
+ ✓ |storybook (chromium)| src/components/ui/card.stories.tsx > Body Only 151ms
+ ✓ |storybook (chromium)| src/components/ui/button.stories.tsx > Ghost 166ms
+ ✓ |storybook (chromium)| src/components/ui/banner.stories.tsx > With Sparkles Icon 173ms
+ ✓ |storybook (chromium)| src/components/ui/banner.stories.tsx > Rich Content 45ms
+ ✓ |storybook (chromium)| src/components/ui/well.stories.tsx > Amber 221ms
+ ✓ |storybook (chromium)| src/components/ui/well.stories.tsx > Red 52ms
+ ✓ |storybook (chromium)| src/components/ui/well.stories.tsx > Violet 23ms
+ ✓ |storybook (chromium)| src/components/ui/well.stories.tsx > Sky 22ms
+ ✓ |storybook (chromium)| src/components/ui/chip.stories.tsx > No Elegible 220ms
+ ✓ |storybook (chromium)| src/components/ui/chip.stories.tsx > En Proceso 49ms
+ ✓ |storybook (chromium)| src/components/ui/chip.stories.tsx > Pendiente 21ms
+ ✓ |storybook (chromium)| src/components/ui/chip.stories.tsx > Borrador 23ms
+ ✓ |storybook (chromium)| src/components/ui/well.stories.tsx > All Tints 23ms
+ ✓ |storybook (chromium)| src/components/ui/well.stories.tsx > Size Range 16ms
+ ✓ |storybook (chromium)| src/components/ui/button.stories.tsx > Success 47ms
+ ✓ |storybook (chromium)| src/components/ui/button.stories.tsx > Disabled 22ms
+ ✓ |storybook (chromium)| src/components/ui/button.stories.tsx > Sizes Matrix 26ms
+ ✓ |storybook (chromium)| src/components/ui/button.stories.tsx > Variants Matrix 25ms
+ ✓ |storybook (chromium)| src/components/ui/chip.stories.tsx > No Dot 23ms
+ ✓ |storybook (chromium)| src/components/ui/chip.stories.tsx > All Variants 20ms
+ ✓ |storybook (chromium)| src/components/shell/sidebar.stories.tsx > Default 1502ms
+ ✓ |storybook (chromium)| src/components/shell/sidebar.stories.tsx > Active Subir 37ms
+ ✓ |storybook (chromium)| src/components/shell/sidebar.stories.tsx > Active Alertas 33ms
+ ✓ |storybook (chromium)| src/components/shell/sidebar.stories.tsx > Low Credits 36ms
+ ✓ |storybook (chromium)| src/components/shell/sidebar.stories.tsx > Full Credits 36ms
+ ✓ |storybook (chromium)| src/components/shell/sidebar.stories.tsx > Custom User 32ms
  ✓ |types|  TS  src/components/ui/__tests__/icon.test-d.ts > Icon name registry (REQ-011) > IconName equals the 28-entry registry exactly
 
- Test Files  6 passed (6)
-      Tests  7 passed (7)
+ Test Files  14 passed (14)
+      Tests  52 passed (52)
 Type Errors  no errors
-   Start at  11:58:55
-   Duration  2.36s (transform 167ms, setup 0ms, import 360ms, tests 94ms, environment 850ms, typecheck 1.06s)
+   Start at  12:44:06
+   Duration  7.34s (transform 1.23s, setup 13.88s, import 2.70s, tests 12.29s, environment 566ms, typecheck 1.47s)
 
