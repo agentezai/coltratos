@@ -1,0 +1,37 @@
+
+> coltratos@0.1.0 test:coverage
+> vitest run --coverage
+
+The plugin "vite-tsconfig-paths" is detected. Vite now supports tsconfig paths resolution natively via the resolve.tsconfigPaths option. You can remove the plugin and set resolve.tsconfigPaths: true in your Vite config instead.
+The plugin "vite-tsconfig-paths" is detected. Vite now supports tsconfig paths resolution natively via the resolve.tsconfigPaths option. You can remove the plugin and set resolve.tsconfigPaths: true in your Vite config instead.
+The plugin "vite-tsconfig-paths" is detected. Vite now supports tsconfig paths resolution natively via the resolve.tsconfigPaths option. You can remove the plugin and set resolve.tsconfigPaths: true in your Vite config instead.
+Testing types with tsc and vue-tsc is an experimental feature.
+Breaking changes might not follow SemVer, please pin Vitest's version when using it.
+
+ RUN  v4.1.5 /Users/carlosvilla/Documents/Proyectos/AI/coltratos
+      Coverage enabled with v8
+
+
+ Test Files  6 passed (6)
+      Tests  7 passed (7)
+Type Errors  no errors
+   Start at  11:59:00
+   Duration  1.90s (transform 160ms, setup 0ms, import 314ms, tests 107ms, environment 358ms, typecheck 1.04s)
+
+ % Coverage report from v8
+-------------------|---------|----------|---------|---------|-------------------
+File               | % Stmts | % Branch | % Funcs | % Lines | Uncovered Line #s 
+-------------------|---------|----------|---------|---------|-------------------
+All files          |     100 |    93.54 |     100 |     100 |                   
+ .../design-system |     100 |    66.66 |     100 |     100 |                   
+  page.tsx         |     100 |    66.66 |     100 |     100 | 62                
+ src/components/ui |     100 |    96.42 |     100 |     100 |                   
+  card.tsx         |     100 |    88.88 |     100 |     100 | 60                
+-------------------|---------|----------|---------|---------|-------------------
+
+=============================== Coverage summary ===============================
+Statements   : 100% ( 41/41 )
+Branches     : 93.54% ( 29/31 )
+Functions    : 100% ( 24/24 )
+Lines        : 100% ( 41/41 )
+================================================================================

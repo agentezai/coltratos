@@ -1,0 +1,70 @@
+import { Meta } from "@storybook/addon-docs/blocks";
+
+<Meta title="Tokens/Brand" />
+
+# Brand — logo + iconography
+
+## Logo
+
+The COLTRATOS mark is a stylized rounded **C** in a green gradient (`#4ade80 → #16a34a`) — geometric, suggestive of a layered contract document. The wordmark sits to its right in **bold uppercase** white (on navy) or `--graphite-900` (on light).
+
+> ⚠️ **The logo currently in `public/logo/` is reverse-engineered from the bundle's raster mocks.** Replace with the authoritative SVG when supplied by the design team. The placeholder must carry the warning comment in REQ-013; downstream marketing/branding specs MUST NOT lock layout to the placeholder's exact geometry (RN-008, [S001] in suggestions).
+
+<div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16, marginTop: 24 }}>
+  <div style={{ background: "#fff", border: "1px solid #eef1f6", borderRadius: 12, padding: 32, display: "flex", alignItems: "center", justifyContent: "center", minHeight: 120 }}>
+    <img src="/logo/coltratos-lockup.svg" alt="COLTRATOS lockup on light" style={{ filter: "brightness(0)", height: 48 }} />
+  </div>
+  <div style={{ background: "#0b1a3a", borderRadius: 12, padding: 32, display: "flex", alignItems: "center", justifyContent: "center", minHeight: 120 }}>
+    <img src="/logo/coltratos-lockup.svg" alt="COLTRATOS lockup on navy" style={{ height: 48 }} />
+  </div>
+</div>
+
+The mark alone (used as favicon at `app/icon.svg`):
+
+<div style={{ display: "flex", gap: 16, marginTop: 24 }}>
+  <div style={{ background: "#fff", border: "1px solid #eef1f6", borderRadius: 12, padding: 24, display: "flex", alignItems: "center", justifyContent: "center" }}>
+    <img src="/logo/coltratos-mark.svg" alt="" style={{ width: 48, height: 48 }} />
+  </div>
+  <div style={{ background: "#0b1a3a", borderRadius: 12, padding: 24, display: "flex", alignItems: "center", justifyContent: "center" }}>
+    <img src="/logo/coltratos-mark.svg" alt="" style={{ width: 48, height: 48 }} />
+  </div>
+</div>
+
+## Iconography
+
+The mocks consistently use **outline / stroked icons at 1.75 px stroke weight** with **round line caps and joins**. The character matches **Lucide** almost exactly.
+
+We **do not** ship our own icon font, sprite, or `lucide-react` dependency (ADR-018). Instead, the registry at [src/components/ui/icon.tsx](../../src/components/ui/icon.tsx) holds 28 inline path definitions; `IconName = keyof typeof PATHS` is the typed name union.
+
+To **add a new icon**:
+
+1. Find or author the path data (Lucide's source is the upstream reference; preserve `viewBox="0 0 24 24"`, stroke-width 1.75, round caps + joins).
+2. Append one entry to `PATHS` in `icon.tsx`.
+3. Add the new name to the `Expected` union in `src/components/ui/__tests__/icon.test-d.ts`.
+4. Run `npm run test` — the type-test confirms the union and registry stay in sync.
+
+To **see all 28 registered names**, browse to **UI / Icon / Gallery** in this Storybook.
+
+## Casing rule
+
+The wordmark **COLTRATOS** is the only ALL-CAPS text in the system — a logotype, not running text. Everything else (page titles, button labels, table headers, eyebrows) is sentence case.
+
+## Voice (Spanish, Colombia)
+
+Second-person informal — **tú**, never *usted*. Friendly, direct, slightly warm without being cute. The product greets by first name (“¡Hola, María! 👋”) but never uses slang.
+
+- ✅ *“Sabe en 1 minuto si puedes presentarte a un proceso del SECOP II.”*
+- ✅ *“Aquí tienes el resumen de tu actividad.”*
+- ✅ *“Tu archivo se analiza de forma privada y segura.”*
+- ❌ *“El usuario puede cargar el pliego de condiciones.”* (too formal / third-person)
+
+Two emoji are sanctioned, contextually:
+
+- `👋` after a greeting
+- `🇨🇴` next to the *“Plataforma colombiana”* chip on marketing
+
+Never in body copy, tables, or buttons. Never decorative.
+
+## Casing for the wordmark
+
+The lockup SVG and the Sidebar's brand block both render `COLTRATOS` in uppercase. Headings in product copy stay sentence case; only the literal logotype is uppercase.

@@ -1,3 +1,6 @@
+// For more info, see https://github.com/storybookjs/eslint-plugin-storybook#configuration-flat-config-format
+import storybook from "eslint-plugin-storybook";
+
 import { defineConfig, globalIgnores } from "eslint/config";
 import nextVitals from "eslint-config-next/core-web-vitals";
 import nextTs from "eslint-config-next/typescript";
@@ -13,11 +16,14 @@ const eslintConfig = defineConfig([
     "build/**",
     "next-env.d.ts",
     // Project-specific:
-    "docs/**",       // Documentation + vendored design bundle (HTML/JSX prototypes are reference-only)
-    "coverage/**",   // vitest coverage output
-    "supabase/**",   // Supabase CLI artifacts
-    ".nybo/**",      // nybo memory + foundation
+    "docs/**",            // Documentation + vendored design bundle (HTML/JSX prototypes are reference-only)
+    "coverage/**",        // vitest coverage output
+    "supabase/**",        // Supabase CLI artifacts
+    ".nybo/**",           // nybo memory + foundation
+    "storybook-static/**", // Storybook static export (build artifact)
+    "node_modules/**",    // Always; defensive
   ]),
+  ...storybook.configs["flat/recommended"]
 ]);
 
 export default eslintConfig;

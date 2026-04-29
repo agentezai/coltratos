@@ -1,8 +1,9 @@
 # ADR-017 — Tokens via Tailwind v4 `@theme` + `:root` CSS custom properties (dual layer)
 
-- **Status:** Accepted
-- **Date:** 2026-04-28
-- **Owner spec:** [design-system](../../../docs/design-system/spec/spec.md)
+## Status
+Accepted (2026-04-28)
+
+**Owner spec:** [design-system](../../../docs/design-system/spec/spec.md)
 
 ## Context
 

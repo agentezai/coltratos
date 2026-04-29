@@ -1,14 +1,16 @@
 import { defineConfig } from "vitest/config";
-import { resolve } from "node:path";
+import tsconfigPaths from "vite-tsconfig-paths";
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
+import { storybookTest } from '@storybook/addon-vitest/vitest-plugin';
+import { playwright } from '@vitest/browser-playwright';
+const dirname = typeof __dirname !== 'undefined' ? __dirname : path.dirname(fileURLToPath(import.meta.url));
 
+// More info at: https://storybook.js.org/docs/next/writing-tests/integrations/vitest-addon
 export default defineConfig({
-  resolve: {
-    alias: {
-      // Mirror tsconfig paths so vitest-resolved imports match tsc-resolved imports.
-      "@": resolve(__dirname, "./src"),
-      "@/types": resolve(__dirname, "./src/types/index.ts"),
-    },
-  },
+  // Honor tsconfig.json paths (@/* and @/types) so vitest resolves
+  // imports the same way tsc does.
+  plugins: [tsconfigPaths()],
   test: {
     // Non-globals: import describe/it/expect explicitly (RN-006).
     globals: false,
@@ -16,28 +18,48 @@ export default defineConfig({
     coverage: {
       provider: "v8",
       reporter: ["text", "html", "json-summary"],
-      reportsDirectory: "./coverage",
+      reportsDirectory: "./coverage"
     },
     // vitest 4 workspaces are configured inline via test.projects.
     projects: [
-      // Project 1: standard runtime tests.
-      {
-        test: {
-          name: "unit",
-          include: ["**/*.test.ts", "**/*.test.tsx"],
-          exclude: ["**/*.test-d.ts", "node_modules/**"],
-        },
-      },
-      // Project 2: type-level tests (compile-only; no runtime assertions).
-      {
-        test: {
-          name: "types",
-          include: ["**/*.test-d.ts"],
-          typecheck: {
-            enabled: true,
-          },
-        },
-      },
-    ],
-  },
+    // Project 1: standard runtime tests.
+    {
+      plugins: [tsconfigPaths()],
+      test: {
+        name: "unit",
+        include: ["**/*.test.ts", "**/*.test.tsx"],
+        exclude: ["**/*.test-d.ts", "node_modules/**"]
+      }
+    },
+    // Project 2: type-level tests (compile-only; no runtime assertions).
+    {
+      plugins: [tsconfigPaths()],
+      test: {
+        name: "types",
+        include: ["**/*.test-d.ts"],
+        typecheck: {
+          enabled: true
+        }
+      }
+    }, {
+      extends: true,
+      plugins: [
+      // The plugin will run tests for the stories defined in your Storybook config
+      // See options at: https://storybook.js.org/docs/next/writing-tests/integrations/vitest-addon#storybooktest
+      storybookTest({
+        configDir: path.join(dirname, '.storybook')
+      })],
+      test: {
+        name: 'storybook',
+        browser: {
+          enabled: true,
+          headless: true,
+          provider: playwright({}),
+          instances: [{
+            browser: 'chromium'
+          }]
+        }
+      }
+    }]
+  }
 });
