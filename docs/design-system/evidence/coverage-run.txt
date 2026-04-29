@@ -7,31 +7,32 @@ The plugin "vite-tsconfig-paths" is detected. Vite now supports tsconfig paths r
 The plugin "vite-tsconfig-paths" is detected. Vite now supports tsconfig paths resolution natively via the resolve.tsconfigPaths option. You can remove the plugin and set resolve.tsconfigPaths: true in your Vite config instead.
 Testing types with tsc and vue-tsc is an experimental feature.
 Breaking changes might not follow SemVer, please pin Vitest's version when using it.
+The plugin "vite-tsconfig-paths" is detected. Vite now supports tsconfig paths resolution natively via the resolve.tsconfigPaths option. You can remove the plugin and set resolve.tsconfigPaths: true in your Vite config instead.
 
  RUN  v4.1.5 /Users/carlosvilla/Documents/Proyectos/AI/coltratos
       Coverage enabled with v8
 
+The plugin "vite-tsconfig-paths" is detected. Vite now supports tsconfig paths resolution natively via the resolve.tsconfigPaths option. You can remove the plugin and set resolve.tsconfigPaths: true in your Vite config instead.
+12:44:39 PM [vite] (client) Re-optimizing dependencies because vite config has changed
 
- Test Files  6 passed (6)
-      Tests  7 passed (7)
+ Test Files  14 passed (14)
+      Tests  52 passed (52)
 Type Errors  no errors
-   Start at  11:59:00
-   Duration  1.90s (transform 160ms, setup 0ms, import 314ms, tests 107ms, environment 358ms, typecheck 1.04s)
+   Start at  12:44:38
+   Duration  9.22s (transform 781ms, setup 20.54s, import 3.03s, tests 10.75s, environment 821ms, typecheck 1.86s)
 
  % Coverage report from v8
 -------------------|---------|----------|---------|---------|-------------------
 File               | % Stmts | % Branch | % Funcs | % Lines | Uncovered Line #s 
 -------------------|---------|----------|---------|---------|-------------------
-All files          |     100 |    93.54 |     100 |     100 |                   
- .../design-system |     100 |    66.66 |     100 |     100 |                   
-  page.tsx         |     100 |    66.66 |     100 |     100 | 62                
- src/components/ui |     100 |    96.42 |     100 |     100 |                   
-  card.tsx         |     100 |    88.88 |     100 |     100 | 60                
+All files          |   94.28 |      100 |   90.47 |   93.33 |                   
+ ...mponents/shell |   84.61 |      100 |   71.42 |   84.61 |                   
+  sidebar.tsx      |   83.33 |      100 |   66.66 |   83.33 | 80,100            
 -------------------|---------|----------|---------|---------|-------------------
 
 =============================== Coverage summary ===============================
-Statements   : 100% ( 41/41 )
-Branches     : 93.54% ( 29/31 )
-Functions    : 100% ( 24/24 )
-Lines        : 100% ( 41/41 )
+Statements   : 94.28% ( 33/35 )
+Branches     : 100% ( 36/36 )
+Functions    : 90.47% ( 19/21 )
+Lines        : 93.33% ( 28/30 )
 ================================================================================

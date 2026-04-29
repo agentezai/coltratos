@@ -1,110 +1,78 @@
 === Diff: feat/design-system vs main ===
 
 --- shortlog ---
+6dbb5b3 refactor(design-system): replace /design-system route with Storybook
 0766ac6 feat(design-system): tokens + primitives + shell + preview route
 
---- stat ---
- app/icon.svg                                       |  11 +
- app/layout.tsx                                     |  25 +-
- docs/design-system/evidence/build.log              |  35 +
- docs/design-system/evidence/full-gate.txt          |  18 +
- docs/design-system/evidence/test-results.txt       |  26 +
- docs/design-system/feat/99-progress.md             |  64 +-
- docs/design-system/status.yaml                     |   4 +-
- docs/design-system/suggestions.md                  |  84 +++
- docs/project-bootstrap/status.yaml                 |   4 +-
- docs/status.yaml                                   |   8 +-
- package-lock.json                                  | 706 +++++++++++++++++++++
- package.json                                       |   4 +
- public/fonts/Geist-Black.ttf                       | Bin 0 -> 78308 bytes
- public/fonts/Geist-Bold.ttf                        | Bin 0 -> 78340 bytes
- public/fonts/Geist-ExtraBold.ttf                   | Bin 0 -> 78364 bytes
- public/fonts/Geist-ExtraLight.ttf                  | Bin 0 -> 78336 bytes
- public/fonts/Geist-Light.ttf                       | Bin 0 -> 78288 bytes
- public/fonts/Geist-Medium.ttf                      | Bin 0 -> 78324 bytes
- public/fonts/Geist-Regular.ttf                     | Bin 0 -> 78308 bytes
- public/fonts/Geist-SemiBold.ttf                    | Bin 0 -> 78352 bytes
- public/fonts/Geist-Thin.ttf                        | Bin 0 -> 78196 bytes
- public/fonts/Geist-VariableFont_wght.ttf           | Bin 0 -> 148832 bytes
- public/logo/coltratos-lockup.svg                   |  11 +
- public/logo/coltratos-mark.svg                     |  11 +
- src/__tests__/design-system-page.test.tsx          |  38 ++
- src/__tests__/rsc-purity.test.ts                   |  38 ++
- src/__tests__/token-parity.test.ts                 |  61 ++
- src/components/shell/index.ts                      |   2 +
- src/components/shell/sidebar.tsx                   | 160 +++++
- src/components/shell/topbar.tsx                    |  52 ++
- src/components/ui/__tests__/icon.test-d.ts         |  45 ++
- src/components/ui/banner.tsx                       |  32 +
- src/components/ui/button.tsx                       |  67 ++
- src/components/ui/card.tsx                         |  79 +++
- src/components/ui/chip.tsx                         |  53 ++
- src/components/ui/icon.tsx                         | 229 +++++++
- src/components/ui/index.ts                         |  13 +
- src/components/ui/well.tsx                         |  38 ++
- vitest.config.ts                                   |  14 +-
- 53 files changed, 2694 insertions(+), 64 deletions(-)
+--- shortstat ---
+ 74 files changed, 5419 insertions(+), 148 deletions(-)
 
---- file lists ---
-Added (A):
-  	.claude/rules/nybble-personas.md
-  	app/(internal)/design-system/page.tsx
-  	app/(internal)/layout.tsx
-  	app/icon.svg
-  	docs/design-system/evidence/build.log
-  	docs/design-system/evidence/full-gate.txt
-  	docs/design-system/evidence/test-results.txt
-  	docs/design-system/suggestions.md
-  	public/fonts/Geist-Black.ttf
-  	public/fonts/Geist-Bold.ttf
-  	public/fonts/Geist-ExtraBold.ttf
-  	public/fonts/Geist-ExtraLight.ttf
-  	public/fonts/Geist-Light.ttf
-  	public/fonts/Geist-Medium.ttf
-  	public/fonts/Geist-Regular.ttf
-  	public/fonts/Geist-SemiBold.ttf
-  	public/fonts/Geist-Thin.ttf
-  	public/fonts/Geist-VariableFont_wght.ttf
-  	public/logo/coltratos-lockup.svg
-  	public/logo/coltratos-mark.svg
-  	src/__tests__/design-system-page.test.tsx
-  	src/__tests__/rsc-purity.test.ts
-  	src/__tests__/token-parity.test.ts
-  	src/components/shell/index.ts
-  	src/components/shell/sidebar.tsx
-  	src/components/shell/topbar.tsx
-  	src/components/ui/__tests__/icon.test-d.ts
-  	src/components/ui/banner.tsx
-  	src/components/ui/button.tsx
-  	src/components/ui/card.tsx
-  	src/components/ui/chip.tsx
-  	src/components/ui/icon.tsx
-  	src/components/ui/index.ts
-  	src/components/ui/well.tsx
+--- status counts ---
+Added:    51
+Modified: 23
+Deleted:  0
 
-Modified (M):
-  	.claude/CLAUDE.md
-  	.claude/agents/curation.md
-  	.claude/agents/execution.md
-  	.claude/agents/planning.md
-  	.claude/agents/quality.md
-  	.nybo/events.jsonl
-  	.nybo/foundation/adrs/ADR-016-geist-self-hosted.md
-  	.nybo/foundation/adrs/ADR-017-tailwind-v4-theme-tokens.md
-  	.nybo/foundation/adrs/ADR-018-inline-icon-component.md
-  	CLAUDE.md
-  	app/globals.css
-  	app/layout.tsx
-  	docs/design-system/feat/99-progress.md
-  	docs/design-system/status.yaml
-  	docs/project-bootstrap/status.yaml
-  	docs/status.yaml
-  	package-lock.json
-  	package.json
-  	vitest.config.ts
+--- top 60 affected files ---
+M	.claude/CLAUDE.md
+M	.claude/agents/curation.md
+M	.claude/agents/execution.md
+M	.claude/agents/planning.md
+M	.claude/agents/quality.md
+A	.claude/rules/nybble-personas.md
+M	.github/workflows/ci.yml
+M	.gitignore
+M	.nybo/events.jsonl
+M	.nybo/foundation/adrs/ADR-016-geist-self-hosted.md
+M	.nybo/foundation/adrs/ADR-017-tailwind-v4-theme-tokens.md
+M	.nybo/foundation/adrs/ADR-018-inline-icon-component.md
+A	.storybook/docs/Brand.mdx
+A	.storybook/docs/Colors.mdx
+A	.storybook/docs/Layout.mdx
+A	.storybook/docs/Typography.mdx
+A	.storybook/main.ts
+A	.storybook/preview.ts
+M	CLAUDE.md
+M	app/globals.css
+A	app/icon.svg
+M	app/layout.tsx
+A	docs/design-system/deltas.md
+A	docs/design-system/evidence/build.log
+A	docs/design-system/evidence/coverage-run.txt
+A	docs/design-system/evidence/coverage-summary.txt
+A	docs/design-system/evidence/diff-summary.txt
+A	docs/design-system/evidence/full-gate.txt
+A	docs/design-system/evidence/test-results.txt
+M	docs/design-system/feat/99-progress.md
+M	docs/design-system/spec/spec.md
+M	docs/design-system/status.yaml
+A	docs/design-system/suggestions.md
+M	docs/project-bootstrap/status.yaml
+M	docs/status.yaml
+M	eslint.config.mjs
+M	package-lock.json
+M	package.json
+A	public/fonts/Geist-Black.ttf
+A	public/fonts/Geist-Bold.ttf
+A	public/fonts/Geist-ExtraBold.ttf
+A	public/fonts/Geist-ExtraLight.ttf
+A	public/fonts/Geist-Light.ttf
+A	public/fonts/Geist-Medium.ttf
+A	public/fonts/Geist-Regular.ttf
+A	public/fonts/Geist-SemiBold.ttf
+A	public/fonts/Geist-Thin.ttf
+A	public/fonts/Geist-VariableFont_wght.ttf
+A	public/logo/coltratos-lockup.svg
+A	public/logo/coltratos-mark.svg
+A	src/__tests__/primitives-smoke.test.tsx
+A	src/__tests__/rsc-purity.test.ts
+A	src/__tests__/token-parity.test.ts
+A	src/components/shell/index.ts
+A	src/components/shell/sidebar.stories.tsx
+A	src/components/shell/sidebar.tsx
+A	src/components/shell/topbar.stories.tsx
+A	src/components/shell/topbar.tsx
+A	src/components/ui/__tests__/icon.test-d.ts
+A	src/components/ui/banner.stories.tsx
 
-Deleted (D):
-  (none)
-
---- branch / log ---
+--- branch ---
 feat/design-system

@@ -27,7 +27,15 @@ src/
 - Keep generated files under 500 lines
 - Use Mermaid for flow/sequence diagrams in specs
 
+## Product Scope (always load for /nybo-plan, /nybo-run, /nybo-verify)
+- MVP scope — `.nybo/memory/product/mvp-scope.md`
+- Anti-goals — `.nybo/memory/product/anti-goals.md`
+- Quality bars — `.nybo/memory/product/quality-bars.md`
+
 ## Active Domains
+- contratacion-publica — `.nybo/memory/domains/contratacion-publica.md`
+- database — `.nybo/memory/domains/database.md`
+- integrations — `.nybo/memory/domains/integrations.md`
 - auth — `.nybo/memory/domains/auth.md`
 - empresa-profile — `.nybo/memory/domains/empresa-profile.md`
 - pliego-upload — `.nybo/memory/domains/pliego-upload.md`
