@@ -46,3 +46,10 @@
 {"timestamp":"2026-04-28T17:55:00Z","type":"task_completed","actor":"agent","details":{"spec":"design-system","task_number":8,"task_title":"/design-system preview route — 10 specimen cards + Banner"}}
 {"timestamp":"2026-04-28T17:58:00Z","type":"task_completed","actor":"agent","details":{"spec":"design-system","task_number":9,"task_title":"Token-parity, RSC-purity, page-smoke tests + Icon type-test (7/7 pass)"}}
 {"timestamp":"2026-04-28T18:00:00Z","type":"run_completed","actor":"agent","details":{"spec":"design-system","tasks_done":9,"tasks_blocked":0,"test_count":7,"coverage_pct":null}}
+{"timestamp":"2026-04-29T00:14:47.109Z","type":"curate_run","actor":"human","details":{"spec":null,"adaptersRegenerated":1,"coreUpdated":false}}
+{"timestamp":"2026-04-29T00:21:36.293Z","type":"curate_run","actor":"human","details":{"spec":null,"adaptersRegenerated":1,"coreUpdated":false}}
+{"timestamp":"2026-04-29T00:22:06.178Z","type":"doctor_run","actor":"human","details":{"passing":11,"warnings":2,"failures":1,"total":14}}
+{"timestamp":"2026-04-29T00:23:30.065Z","type":"doctor_run","actor":"human","details":{"passing":11,"warnings":2,"failures":1,"total":14}}
+{"timestamp":"2026-04-29T00:24:57.134Z","type":"curate_run","actor":"human","details":{"spec":null,"adaptersRegenerated":1,"coreUpdated":false}}
+{"timestamp":"2026-04-29T00:24:57.455Z","type":"doctor_run","actor":"human","details":{"passing":12,"warnings":1,"failures":1,"total":14}}
+{"timestamp":"2026-04-29T00:25:16.770Z","type":"doctor_run","actor":"human","details":{"passing":13,"warnings":1,"failures":0,"total":14}}
