@@ -11,3 +11,9 @@ domains:
     description: eligibility-matching domain
   - name: analytics
     description: analytics domain
+  - name: contratacion-publica
+    description: contratacion-publica domain
+  - name: database
+    description: database domain
+  - name: integrations
+    description: integrations domain

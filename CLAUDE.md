@@ -7,8 +7,14 @@
 
 @.nybo/memory/CORE.md
 
+## Domain Knowledge
+
+@.nybo/memory/domains/contratacion-publica.md
+@.nybo/memory/domains/database.md
+@.nybo/memory/domains/integrations.md
+
 ## Summary
 
 Project: coltratos
 Design principles: Clarity, Consistency
-Domains: auth, empresa-profile, pliego-upload, requisito-extraction, eligibility-matching, analytics
+Domains: auth, empresa-profile, pliego-upload, requisito-extraction, eligibility-matching, analytics, contratacion-publica, database, integrations
