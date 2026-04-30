@@ -23,6 +23,7 @@ export default function RootLayout({
     <html
       lang="es"
       className={`${jetbrainsMono.variable} h-full antialiased`}
+      suppressHydrationWarning
     >
       <head>
         {/* Preload Geist Variable per ADR-016 / NFR-01 — eliminates the FOUT on the

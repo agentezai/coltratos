@@ -1,0 +1,40 @@
+Base: main
+
+Modified files (8):
+  M  .nybo/events.jsonl                        (+4)
+  M  .nybo/foundation/feature-suggestions.yaml (+142)
+  M  .storybook/main.ts                        (+2/-1)  S010: app/** stories glob
+  M  docs/status.yaml                          (+7)
+  M  next.config.ts                            (+1/-1)  S001: turbopack.root
+  M  package.json                              (+1)     S002: test:integration script
+  M  src/__tests__/rsc-purity.test.ts          (+25/-12) scoped to src/components/
+  M  vitest.config.ts                          (+9/-3)  S002: integration project
+
+New untracked files (auth-and-tenancy feature):
+  ?? app/(auth)/login/login.stories.tsx         S010
+  ?? app/(auth)/login/page.tsx                  S006: ?error= banner added
+  ?? app/(auth)/signup/check-email/page.tsx     S004
+  ?? app/(auth)/signup/page.tsx                 S004: router.push on success
+  ?? app/(auth)/signup/signup.stories.tsx       S010
+  ?? app/(auth)/layout.tsx
+  ?? app/(auth)/forgot-password/page.tsx
+  ?? app/(auth)/reset-password/page.tsx
+  ?? app/auth/confirm/route.ts
+  ?? app/dashboard/page.tsx                     S003
+  ?? docs/auth-and-tenancy/
+  ?? proxy.ts                                   S005: rate limit, S009: /reset-password guard
+  ?? src/__tests__/auth-actions.test.ts
+  ?? src/__tests__/auth-client-types.test-d.ts
+  ?? src/__tests__/auth-confirm-route.test.ts   S007: import fixed to canonical path
+  ?? src/__tests__/auth-tenancy.integration.test.ts  S002
+  ?? src/app/(auth)/actions.ts                  (canonical server actions)
+  ?? src/lib/
+  ?? supabase/migrations/20260428000002_auth_rls_and_trigger.sql
+
+Deleted from src/ (S007 — duplicates removed):
+  src/app/(auth)/forgot-password/page.tsx
+  src/app/(auth)/layout.tsx
+  src/app/(auth)/login/page.tsx
+  src/app/(auth)/reset-password/page.tsx
+  src/app/(auth)/signup/page.tsx
+  src/app/auth/confirm/route.ts

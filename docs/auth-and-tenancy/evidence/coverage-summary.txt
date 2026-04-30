@@ -1,0 +1,14 @@
+Provider: v8
+
+File                        | Stmts | Branch | Funcs | Lines | Uncovered
+----------------------------|-------|--------|-------|-------|----------
+src/app/(auth)/actions.ts   | 100%  | 83.33% | 100%  | 100%  | L14, L51
+src/components/ui/button.tsx| 100%  | 77.77% | 100%  | 100%  | L44, L64
+src/components/ui/card.tsx  | 100%  | 88.88% | 100%  | 100%  | L60
+----------------------------|-------|--------|-------|-------|----------
+ALL FILES                   | 100%  | 89.58% | 100%  | 100%  |
+
+Notes:
+- actions.ts L14/L51: `origin` header fallback branch ('' when header absent).
+  Not reachable in unit tests without a real HTTP context — acceptable.
+- button/card branches: conditional class variants; covered by Storybook stories.

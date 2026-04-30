@@ -48,3 +48,17 @@ features:
     branch: "feat/design-system"
     action_type: FEATURE
     profile: code
+  auth-and-tenancy:
+    status: in-review
+    created: "2026-04-28"
+    approved_at: "2026-04-28"
+    run_completed_at: "2026-04-28"
+    action_type: FEATURE
+    profile: code
+  auth-theme:
+    status: in-review
+    created: "2026-04-30"
+    approved_at: "2026-04-30"
+    run_completed_at: "2026-04-30"
+    action_type: FEATURE
+    profile: code

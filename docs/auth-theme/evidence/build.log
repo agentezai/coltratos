@@ -1,0 +1,11 @@
+Build: npm run build
+Result: SUCCESS — 0 TypeScript errors, 0 Next.js build errors
+
+Routes built:
+  ○ /dashboard
+  ○ /login
+  ○ /signup
+  ○ /signup/check-email
+  ○ /forgot-password
+  ○ /reset-password
+  ƒ /auth/confirm

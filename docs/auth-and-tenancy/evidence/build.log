@@ -1,0 +1,20 @@
+Result: PASS
+Warnings: 0
+Errors: 0
+
+▲ Next.js 16.2.4 (Turbopack)
+✓ Compiled in 2.7s
+✓ TypeScript: clean
+✓ 12 static pages generated
+
+Routes:
+  ○ /                    static
+  ○ /_not-found          static
+  ƒ /auth/confirm        dynamic
+  ○ /dashboard           static  ← S003
+  ○ /forgot-password     static
+  ○ /login               static
+  ○ /reset-password      static
+  ○ /signup              static
+  ○ /signup/check-email  static  ← S004
+  ƒ Proxy (Middleware)

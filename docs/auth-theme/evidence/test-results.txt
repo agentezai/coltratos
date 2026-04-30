@@ -1,0 +1,9 @@
+Test Files  9 passed (9)
+     Tests  36 passed (36)
+  Start at  2026-04-30
+  Duration  ~1s
+
+New tests added:
+  src/__tests__/auth-layout.test.tsx       2 tests  (T1: REQ-001)
+  src/__tests__/auth-form-themes.test.tsx  5 tests  (T2: REQ-002, REQ-003, REQ-004, NFR-01)
+  src/__tests__/dashboard-layout.test.tsx  3 tests  (T3: REQ-006)

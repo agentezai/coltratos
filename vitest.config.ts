@@ -28,7 +28,17 @@ export default defineConfig({
       test: {
         name: "unit",
         include: ["**/*.test.ts", "**/*.test.tsx"],
-        exclude: ["**/*.test-d.ts", "node_modules/**"]
+        exclude: ["**/*.test-d.ts", "**/*.integration.test.ts", "node_modules/**"]
+      }
+    },
+    // Project 3: integration tests against a live Supabase stack (npm run db:start required).
+    {
+      plugins: [tsconfigPaths()],
+      test: {
+        name: "integration",
+        include: ["**/*.integration.test.ts"],
+        exclude: ["node_modules/**"],
+        testTimeout: 30_000,
       }
     },
     // Project 2: type-level tests (compile-only; no runtime assertions).
