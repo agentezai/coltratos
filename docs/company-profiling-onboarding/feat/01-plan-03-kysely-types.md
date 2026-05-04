@@ -1,71 +1,81 @@
-# T3: Kysely DB Types Update
+# T3: Kysely DB Types — company_profiles
 
 ## Scope
 
-- `src/types/db.ts` — add `EmpresaPerfilTable`, `EmpresaDocumentoJuridicoTable`; update `Database`
+- `src/types/db/company-profile-table.ts` — Kysely table interface (new file)
+- `src/types/db/index.ts` — add CompanyProfileTable to Database interface
 
 ## Changes
 
-### EmpresaPerfilTable
-
-Financial columns: `activo_total`, `pasivo_total`, `activo_corriente`, `pasivo_corriente`, `ebit`, `gastos_financieros` (raw inputs, nullable), `ingresos_operacionales`, `utilidad_neta`, `margen_neto`, `margen_ebitda`, `roe`, `roa` (manual, nullable).
-
-Generated financial indicators: `ColumnType<number | null, never, never>` for `nivel_endeudamiento`, `liquidez_corriente`, `razon_cobertura_int`.
-
-JSONB columns use `ColumnType<T[], T[] | undefined, T[]>` for `unspsc_codes`, `contratos_previos`, `personal_cv`, `certificaciones`, `habilitaciones_sectoriales`.
-
-Arrays (`text[]`) use `ColumnType<string[], string[] | undefined, string[]>`.
-
-Generated completitud columns: `ColumnType<boolean, never, never>` for `completitud_tecnica`, `completitud_financiera`.
-
-**Removed from original spec:** `patrimonio_neto`, `activos_totales`, `pasivos_totales`, `activos_corrientes`, `pasivos_corrientes`, `gastos_intereses`, `utilidad_operacional` (full balance sheet approach dropped), `tiene_antecedentes_*` booleans, `declaracion_antecedentes_at/ip`.
+### CompanyProfileTable interface
 
 ```typescript
-export type NewEmpresaPerfil    = Insertable<EmpresaPerfilTable>
-export type EmpresaPerfilUpdate = Updateable<EmpresaPerfilTable>
-```
+import { ColumnType, Generated, Insertable, Selectable } from 'kysely'
 
-### EmpresaDocumentoJuridicoTable
+export interface CompanyProfileTable {
+  id: Generated<string>
+  company_id: string
+  version: number
+  is_current: boolean
+  created_at: Generated<Date>
 
-```typescript
-export interface EmpresaDocumentoJuridicoTable {
-  id: EmpresaDocumentoJuridicoId
-  empresa_id: EmpresaId
-  tipo_documento: TipoDocumentoJuridico
-  file_path: string
-  file_hash: string
-  fecha_emision: Date
-  fecha_vencimiento: Date
-  uploaded_at: Date
-  uploaded_by_user_id: string
+  // Section 1: Datos legales
+  nit: string | null
+  digito_verificacion: number | null
+  razon_social: string | null
+  representante_legal_nombre: string | null
+  representante_legal_cedula: string | null
+  domicilio_principal: string | null
+  anio_constitucion: number | null
+
+  // Section 2: Capacidad financiera
+  ejercicios_fiscales: ColumnType<unknown, string, string>  // JSONB
+  liquidez_corriente: number | null
+  nivel_endeudamiento: number | null
+  capital_de_trabajo: number | null
+
+  // Section 3: Experiencia
+  contratos_previos: ColumnType<unknown, string, string>
+
+  // Section 4: Personal clave
+  personal_clave: ColumnType<unknown, string, string>
+
+  // Section 5: Alcance comercial
+  unspsc_codes: ColumnType<string[], string, string>
+  departamentos_interes: ColumnType<string[], string, string>
+  presupuesto_min_cop: number | null
+  presupuesto_max_cop: number | null
 }
-export type NewEmpresaDocumentoJuridico    = Insertable<EmpresaDocumentoJuridicoTable>
-export type EmpresaDocumentoJuridicoUpdate = Updateable<EmpresaDocumentoJuridicoTable>
+
+export type CompanyProfileRow = Selectable<CompanyProfileTable>
+export type NewCompanyProfile = Insertable<CompanyProfileTable>
+// No UpdateableCompanyProfile — rows are immutable after insert (versioned pattern)
 ```
 
-### Database interface
+### Database interface update
 
-Add both tables:
 ```typescript
-interface Database {
-  // existing...
-  empresa_perfil: EmpresaPerfilTable
-  empresa_documento_juridico: EmpresaDocumentoJuridicoTable
+// src/types/db/index.ts
+import type { CompanyProfileTable } from './company-profile-table'
+
+export interface Database {
+  // ...existing tables...
+  company_profiles: CompanyProfileTable
 }
 ```
 
 ### Design Rationale (ADR-001)
 
-Generated columns `ColumnType<..., never, never>` prevents accidental INSERT/UPDATE at compile time — same pattern as `profile_updated_at` on `EmpresaTable`. Removed full balance sheet columns prevent executor from accidentally implementing the old schema.
+No `Updateable` export enforces the immutable versioned-snapshot pattern at the type level. JSONB columns typed as `ColumnType<unknown, string, string>` — callers must `JSON.stringify` on write and validate with Zod on read.
 
 ## Dependencies
 
-T2 must be complete — interface must match actual migration columns.
+T2 must complete first (migration defines column names and types).
 
 ## Done When
 
-- [ ] `EmpresaPerfilTable` and `EmpresaDocumentoJuridicoTable` in `src/types/db.ts`
-- [ ] `Database` interface includes both tables
-- [ ] Generated columns typed `ColumnType<..., never, never>`
-- [ ] No old balance sheet columns present (`patrimonio_neto` etc.)
-- [ ] `npm run build` passes with no type errors
+- [ ] `CompanyProfileRow`, `NewCompanyProfile` exported
+- [ ] No `UpdateableCompanyProfile` type present
+- [ ] `db.insertInto('company_profiles').values({ ... })` compiles OK
+- [ ] `Database` interface includes `company_profiles`
+- [ ] `npm run build` succeeds

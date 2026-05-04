@@ -9,44 +9,36 @@
 ## Task Checklist
 
 ### T1: Domain Primitives & Zod Schemas
-- [ ] Implement T1: Add EmpresaPerfilId, TipoSocietario, TipoDocumentoJuridico; create Step1-5 Zod schemas; add ContratoPrevio, PersonalCvEntry types; implement calcularExperienciaEfectiva
-- [ ] Verify T1: Schema unit tests pass; CV overlap tests pass; type compilation clean
+- [ ] Implement T1: Add CompanyProfileId; create CompanyProfileSchema (5-section full form); ContratoPrevio, EjercicioFiscal, PersonalClaveEntry types; validarDigitoVerificacion; computarIndicadoresFinancieros
+- [ ] Verify T1: Unit tests pass for DV validation, indicator computation (null-guard), and date range refine
 
 ### T2: DB Migration
-- [ ] Implement T2: empresa_perfil table (simplified financial cols, contratos_previos/personal_cv JSONB, generated indicators + completitud) + empresa_documento_juridico table + RLS policies + indexes
-- [ ] Verify T2: Migration applies cleanly; generated columns correct; both RLS policies block cross-tenant access
+- [ ] Implement T2: versioned company_profiles table (UNIQUE company+version, is_current, ejercicios_fiscales JSONB, unspsc_codes/departamentos_interes text[], NUMERIC monetary fields) + RLS + GIN indexes + companies.current_profile_id column
+- [ ] Verify T2: Migration clean; UNIQUE constraint; GIN indexes; RLS blocks cross-company; CHECK rejects invalid presupuesto range
 
 ### T3: Kysely DB Types
-- [ ] Implement T3: EmpresaPerfilTable (simplified financial, no balance sheet, no antecedentes booleans) + EmpresaDocumentoJuridicoTable; update Database interface
-- [ ] Verify T3: Build passes; generated cols typed ColumnType<..., never, never>; old balance sheet fields absent
+- [ ] Implement T3: CompanyProfileTable interface (no Updateable export); add to Database interface
+- [ ] Verify T3: Build passes; no UpdateableCompanyProfile type; Database includes company_profiles
 
 ### T4: RUES Lookup Service
-- [ ] Implement T4: rues-lookup.ts with 2s AbortController timeout; POST /api/empresa/rues-lookup
-- [ ] Verify T4: Timeout returns { found: false }; 500 returns { found: false }; correct NIT mapping
+- [ ] Implement T4: lookupByNit with 2s AbortController timeout; POST /api/empresa/rues-lookup; returns razon_social, representante_legal_nombre, domicilio_principal
+- [ ] Verify T4: Timeout returns { found: false }; HTTP 500 returns { found: false }; valid response maps correctly
 
 ### T5: UNSPSC Catalog
-- [ ] Implement T5: unspsc-v23.json catalog; searchUnspsc util with lazy import
-- [ ] Verify T5: software/construcción queries return correct results; empty query returns []
+- [ ] Implement T5: unspsc-v23.json catalog; searchUnspsc util with lazy import; max 20 results
+- [ ] Verify T5: software/construccion queries return correct results; empty query returns []
 
-### T6: Document Upload Service
-- [ ] Implement T6: uploadDocumentoJuridico (SHA-256, storage, DB insert, 30-day expiry); getDocumentosJuridicos with estado computation; POST /api/empresa/documentos-juridicos
-- [ ] Verify T6: Upload stores at correct path; expiry computed correctly; vencido/por_vencer/vigente states correct; 5MB limit enforced
+### T6: Server Actions
+- [ ] Implement T6: saveCompanyProfile (Zod validate → NIT DV validate → compute indicators → versioned INSERT in transaction); getCompanyProfile (is_current row)
+- [ ] Verify T6: Versioning correct; no DB write on validation failure; unauthenticated rejected
 
-### T7: Server Actions
-- [ ] Implement T7: upsertEmpresaPerfilStep1-5 (step4 uses new financial fields, step5 has no antecedentes); getEmpresaPerfil
-- [ ] Verify T7: New financial fields upsert; no antecedentes logic; unauthenticated returns error
+### T7: Single-Page Profile Form
+- [ ] Implement T7: ProfileForm (5 sections, react-hook-form + zodResolver); DatosLegalesSection with RUES trigger; CapacidadFinancieraSection with derived preview; ExperienciaSection + PersonalClaveSection (DynamicList); AlcanceComercialSection (UNSPSC autocomplete); /onboarding and /config/perfil routes
+- [ ] Verify T7: RUES non-blocking; dynamic lists functional; inline validation; pre-fill on edit; derived preview live
 
-### T8: Onboarding Wizard (Steps 1-3)
-- [ ] Implement T8: OnboardingWizard, Step1-3 components; contratos_previos repeatable entries in step2; CV entries with overlap advisory; UNSPSC RUP advisory
-- [ ] Verify T8: RUES non-blocking; CV overlap advisory fires; contratos_previos add/remove works; step3 redirects to dashboard
-
-### T9: Profile Editor (Steps 4-5)
-- [ ] Implement T9: Step4DimensionFinanciera (two groups: raw inputs + manual indicators; calculated previews); Step5DimensionJuridica (5 document upload cards with expiry countdown; no antecedentes booleans); /dashboard/config/perfil page
-- [ ] Verify T9: Calculated previews update live; document cards show correct expiry state; upload updates card; 5MB rejected
-
-### T10: Dashboard Integration
-- [ ] Implement T10: CompletitudBanner (financial only); DocumentExpiryAlerts (per expired/expiring certificate); ContextualGateModal (updated copy); wire into dashboard layout
-- [ ] Verify T10: Banner hidden when completitud_financiera true; expiry alerts show per estado; gate fires before analysis; smoke test full flow
+### T8: Dashboard Completeness Badge
+- [ ] Implement T8: computeCompleteness util; ProfileCompletenessBadge component; wire into dashboard layout; redirect to /onboarding if no profile
+- [ ] Verify T8: Badge reflects state; score = 5 shows success; analysis never blocked; smoke test full flow
 
 ---
 

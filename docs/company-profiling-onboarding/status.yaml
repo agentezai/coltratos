@@ -1,8 +1,9 @@
-status: draft
+status: approved
 action_type: FEATURE
 profile: code
 created: "2026-05-01"
+approved_at: "2026-05-04"
 owner: Carlos Villa Mercado
-updated: "2026-05-01"
-revision_count: 1
-last_revision: "Align with product description: documento uploads (not declarations) for Jurídica; simplified financial inputs; objeto+CV model for Técnica; Jurídica removed from score formula; T6 added (document upload service); task count 9→10"
+updated: "2026-05-04"
+revision_count: 2
+last_revision: "MVP scope alignment: single-page form (no wizard); 3-year financial JSONB + balance fields; profile versioning (immutable snapshots); Datos legales section; removed document uploads; completeness warning (not gate); 10 tasks → 8 tasks"

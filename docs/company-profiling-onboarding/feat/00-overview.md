@@ -6,105 +6,91 @@
 
 ## Problem + Solution
 
-- **Problem:** COLTRATOS has no empresa capability data; matching cannot score procesos beyond keyword presence
-- **Solution:** 5-step onboarding: steps 1-3 mandatory (Layer 1 — UNSPSC + geography), steps 4-5 optional (Layer 2 — financial thresholds + semantic objeto matching)
-- **Score:** Técnica 50% + Financiera 40% + Semantic 10%. Jurídica = certificate expiry alert track only (not scored)
-- **Key changes vs v0:** documento uploads (not declarations) for Jurídica; simplified financial inputs; objeto contractual + CV overlap model for Técnica
+- **Problem:** COLTRATOS has no empresa capability data; matching cannot score procesos or derive discovery filters
+- **Solution:** Single-page profile form (5 sections); completable in <15 min with RUP in hand; every save = immutable versioned snapshot
+- **Dual purpose:** Profile feeds (a) semáforo matching during analysis and (b) discovery filter derivation (UNSPSC/geographic/budget)
+- **Key constraints:** No wizard state persistence; completeness warning only (analysis never blocked); single user per company in MVP
 
 ## Architecture Diagram
 
 ```mermaid
 flowchart TD
-    subgraph Onboarding["Onboarding Wizard (Steps 1-3)"]
-        S1["Step 1\nIdentidad legal"]
-        S2["Step 2\nTécnica\n+ contratos_previos\n+ personal_cv"]
-        S3["Step 3\nPreferencias"]
-    end
-
-    subgraph ProfileEditor["Profile Editor (Steps 4-5)"]
-        S4["Step 4\nFinanciera\n(simplified inputs)"]
-        S5["Step 5\nJurídica\n(document uploads)"]
+    subgraph Form["Single-Page Profile Form"]
+        S1["Datos legales\n(NIT, DV, razón social,\nrep. legal, domicilio)"]
+        S2["Capacidad financiera\n(3 años: ingresos + patrimonio\n+ balance fields)"]
+        S3["Experiencia\n(contratos_previos)"]
+        S4["Personal clave\n(dynamic list)"]
+        S5["Alcance comercial\n(UNSPSC + dpto + presupuesto)"]
     end
 
     subgraph Services
-        RUES["RUES Lookup (2s)"]
+        RUES["RUES Lookup\n(2s timeout)"]
         UNSPSC["UNSPSC Search\n(client JSON)"]
-        Actions["Server Actions\n(upsertStep1-5)"]
-        DocSvc["Document Upload\nService"]
+        Action["saveCompanyProfile\n(Server Action)"]
     end
 
     subgraph DB
-        EP[("empresa_perfil")]
-        DJ[("empresa_documento_juridico")]
-        Storage[("Supabase Storage")]
+        CP[("company_profiles\n(versioned)")]
     end
 
     subgraph Dashboard
-        Banner["Completitud Banner\n(financial)"]
-        Alerts["Document Expiry\nAlerts"]
-        Gate["Contextual Gate"]
+        Badge["Completeness Badge\n(X/5 sections)"]
     end
 
     S1 -->|NIT| RUES
-    S2 -->|search| UNSPSC
-    S1 & S2 & S3 -->|submit| Actions
-    S4 -->|submit| Actions
-    S5 -->|RUP fields| Actions
-    S5 -->|certificates| DocSvc
-    Actions -->|upsert| EP
-    DocSvc -->|insert| DJ
-    DocSvc -->|store| Storage
-    EP -->|completitud_financiera| Banner
-    EP -->|completitud_financiera| Gate
-    DJ -->|expiry status| Alerts
+    S5 -->|search| UNSPSC
+    Form -->|submit| Action
+    Action -->|compute indicators + INSERT| CP
+    CP -->|is_current| Badge
 ```
 
 ## Data Model
 
 ```mermaid
 classDiagram
-    class Empresa {
-        +EmpresaId id
+    class Company {
+        +CompanyId id
         +string nombre
+        +ProfileId current_profile_id
+    }
+    class CompanyProfile {
+        +ProfileId id
+        +CompanyId company_id
+        +int version
+        +bool is_current
         +string nit
-    }
-    class EmpresaPerfil {
-        +EmpresaId empresa_id PK
-        +UnspscItem[] unspsc_codes
+        +int digito_verificacion
+        +string razon_social
+        +string representante_legal_nombre
+        +string representante_legal_cedula
+        +string domicilio_principal
+        +int anio_constitucion
+        +EjercicioFiscal[] ejercicios_fiscales
+        +number liquidez_corriente
+        +number nivel_endeudamiento
+        +number capital_de_trabajo
         +ContratoPrevio[] contratos_previos
-        +PersonalCvEntry[] personal_cv
-        +number activo_total
-        +number pasivo_total
-        +number nivel_endeudamiento [generated]
-        +number liquidez_corriente [generated]
-        +boolean completitud_tecnica [generated]
-        +boolean completitud_financiera [generated]
+        +PersonalClaveEntry[] personal_clave
+        +string[] unspsc_codes
+        +string[] departamentos_interes
+        +number presupuesto_min_cop
+        +number presupuesto_max_cop
     }
-    class EmpresaDocumentoJuridico {
-        +UUID id
-        +EmpresaId empresa_id
-        +TipoDocumentoJuridico tipo_documento
-        +string file_path
-        +Date fecha_vencimiento
-    }
-    Empresa "1" --> "0..1" EmpresaPerfil
-    Empresa "1" --> "0..*" EmpresaDocumentoJuridico
+    Company "1" --> "0..*" CompanyProfile : "versions"
 ```
 
 ## Task Index
 
 | Task | File | Description | Dependencies |
 |------|------|-------------|--------------|
-| T1 | [01-plan-01-primitives.md](./01-plan-01-primitives.md) | Zod schemas + types: ContratoPrevio, PersonalCvEntry, TipoDocumentoJuridico, calcularExperienciaEfectiva | None |
-| T2 | [01-plan-02-migration.md](./01-plan-02-migration.md) | Migration: empresa_perfil (simplified financial) + empresa_documento_juridico + RLS | T1 |
-| T3 | [01-plan-03-kysely-types.md](./01-plan-03-kysely-types.md) | Kysely interfaces for both tables | T2 |
+| T1 | [01-plan-01-primitives.md](./01-plan-01-primitives.md) | Zod schemas + domain types for all 5 form sections | None |
+| T2 | [01-plan-02-migration.md](./01-plan-02-migration.md) | Migration: versioned company_profiles table + RLS + GIN indexes | T1 |
+| T3 | [01-plan-03-kysely-types.md](./01-plan-03-kysely-types.md) | Kysely interface for company_profiles | T2 |
 | T4 | [01-plan-04-rues-lookup.md](./01-plan-04-rues-lookup.md) | RUES lookup service + API route | T1 |
-| T5 | [01-plan-05-unspsc-catalog.md](./01-plan-05-unspsc-catalog.md) | UNSPSC catalog JSON + search util | None |
-| T6 | [01-plan-06-document-upload.md](./01-plan-06-document-upload.md) | Document upload service: storage + expiry tracking | T3 |
-| T7 | [01-plan-07-server-actions.md](./01-plan-07-server-actions.md) | Server actions upsertStep1-5 (no antecedentes) | T3, T4 |
-| T8 | [01-plan-08-onboarding-wizard.md](./01-plan-08-onboarding-wizard.md) | Wizard UI: steps 1-3, contratos_previos, CV overlap advisory | T5, T7 |
-| T9 | [01-plan-09-profile-editor.md](./01-plan-09-profile-editor.md) | Profile editor: step4 simplified financiera, step5 document upload cards | T6, T7 |
-| T10 | [01-plan-10-dashboard-integration.md](./01-plan-10-dashboard-integration.md) | Dashboard: CompletitudBanner + DocumentExpiryAlerts + ContextualGate | T8, T9 |
+| T5 | [01-plan-05-unspsc-catalog.md](./01-plan-05-unspsc-catalog.md) | UNSPSC catalog JSON + client-side search util | None |
+| T6 | [01-plan-06-server-actions.md](./01-plan-06-server-actions.md) | saveCompanyProfile (versioned INSERT + indicator computation) + getCompanyProfile | T3, T4 |
+| T7 | [01-plan-07-profile-form.md](./01-plan-07-profile-form.md) | Single-page profile form UI (5 sections, dynamic lists, UNSPSC multi-select) | T5, T6 |
+| T8 | [01-plan-08-dashboard-completeness.md](./01-plan-08-dashboard-completeness.md) | Dashboard completeness badge; wire form into /onboarding and /config/perfil routes | T7 |
 
 ## Dependency Graph
 
@@ -115,22 +101,16 @@ flowchart LR
     T3["T3: Kysely Types"]
     T4["T4: RUES Lookup"]
     T5["T5: UNSPSC Catalog"]
-    T6["T6: Document Upload"]
-    T7["T7: Server Actions"]
-    T8["T8: Onboarding Wizard"]
-    T9["T9: Profile Editor"]
-    T10["T10: Dashboard"]
+    T6["T6: Server Actions"]
+    T7["T7: Profile Form"]
+    T8["T8: Dashboard Completeness"]
 
     T1 --> T2
     T2 --> T3
     T1 --> T4
     T3 --> T6
-    T3 --> T7
-    T4 --> T7
-    T5 --> T8
+    T4 --> T6
+    T5 --> T7
+    T6 --> T7
     T7 --> T8
-    T6 --> T9
-    T7 --> T9
-    T8 --> T10
-    T9 --> T10
 ```

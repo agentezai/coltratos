@@ -1,209 +1,174 @@
-# TDD Contract: company-profiling-onboarding (Rev 1)
+# TDD Contract: company-profiling-onboarding (Rev 2)
 
 ---
 
 ## Task T1: Domain Primitives & Zod Schemas
 
-### Behavior: CV overlap elimination — overlapping ranges (REQ-013, RN-014)
+### Behavior: NIT DV validation — valid NIT accepted (REQ-002, NFR-05)
 
-**Given** two PersonalCvEntry records for same person: Jan 2024–Jun 2024 and Apr 2024–Sep 2024  
-**When** `calcularExperienciaEfectiva([entry1, entry2])` called  
-**Then** returns 9 months (Jan–Sep, not 12)
+**Given** a valid NIT with correct DV (e.g., "830115396" with DV = 7)  
+**When** `validarDigitoVerificacion('830115396', 7)` called  
+**Then** returns `true`
 
-**Test file:** `src/__tests__/empresa-perfil-validators.test.ts`  
+**Test file:** `src/__tests__/company-profile-validators.test.ts`  
 **Framework:** vitest
 
 ---
 
-### Behavior: CV overlap — non-overlapping ranges (RN-014)
+### Behavior: NIT DV validation — invalid DV rejected (REQ-002, RN-002)
 
-**Given** two entries: Jan–Mar 2024 and Jun–Sep 2024  
-**When** `calcularExperienciaEfectiva([...])` called  
-**Then** returns 6 months
+**Given** NIT "830115396" with incorrect DV = 5  
+**When** `validarDigitoVerificacion('830115396', 5)` called  
+**Then** returns `false`
 
-**Test file:** `src/__tests__/empresa-perfil-validators.test.ts`  
+**Test file:** `src/__tests__/company-profile-validators.test.ts`  
 **Framework:** vitest
 
 ---
 
-### Behavior: CV overlap — null fecha_fin treated as today (RN-014)
+### Behavior: Financial indicators — liquidez computed correctly (REQ-005, RN-005)
 
-**Given** one entry with `fecha_inicio = 2024-01-01` and `fecha_fin = null`  
-**When** `calcularExperienciaEfectiva([entry])` called with mocked `now = 2024-07-01`  
-**Then** returns 6 months
+**Given** ejercicios with most recent year: activo_corriente = 800, pasivo_corriente = 400  
+**When** `computarIndicadoresFinancieros([{ ejercicio: 2024, activo_corriente: 800, pasivo_corriente: 400, ... }])` called  
+**Then** returns `{ liquidez_corriente: 2.0, ... }`
 
-**Test file:** `src/__tests__/empresa-perfil-validators.test.ts`  
+**Test file:** `src/__tests__/company-profile-validators.test.ts`  
 **Framework:** vitest
 
 ---
 
-### Behavior: Step4Schema rejects when activo_corriente > activo_total (REQ-007)
+### Behavior: Financial indicators — null-guard on division by zero (NFR-07, RN-005)
 
-**Given** step4 data with `activo_corriente: 500, activo_total: 300`  
-**When** `Step4Schema.safeParse(data)` called  
+**Given** most recent year with pasivo_corriente = 0  
+**When** `computarIndicadoresFinancieros([{ pasivo_corriente: 0, ... }])` called  
+**Then** returns `{ liquidez_corriente: null, ... }`
+
+**Test file:** `src/__tests__/company-profile-validators.test.ts`  
+**Framework:** vitest
+
+---
+
+### Behavior: Financial indicators — empty array returns all null (RN-005)
+
+**Given** empty ejercicios array  
+**When** `computarIndicadoresFinancieros([])` called  
+**Then** returns `{ liquidez_corriente: null, nivel_endeudamiento: null, capital_de_trabajo: null }`
+
+**Test file:** `src/__tests__/company-profile-validators.test.ts`  
+**Framework:** vitest
+
+---
+
+### Behavior: CompanyProfileSchema rejects presupuesto_min > presupuesto_max (REQ-014, RN-014)
+
+**Given** form data with presupuesto_min_cop = 5000000, presupuesto_max_cop = 1000000  
+**When** `CompanyProfileSchema.safeParse(data)` called  
+**Then** `result.success === false`; error message is "El presupuesto mínimo no puede ser mayor al máximo"
+
+**Test file:** `src/__tests__/company-profile-validators.test.ts`  
+**Framework:** vitest
+
+---
+
+### Behavior: ContratoPrevioSchema rejects invalid date range (REQ-016, RN-016)
+
+**Given** entry with fecha_inicio = "2024-06-01", fecha_fin = "2024-01-01"  
+**When** `ContratoPrevioSchema.safeParse(entry)` called  
 **Then** `result.success === false`
 
-**Test file:** `src/__tests__/empresa-perfil-validators.test.ts`  
-**Framework:** vitest
-
----
-
-### Behavior: Step4Schema has no patrimonio_neto field (REQ-007)
-
-**Given** step4 data including `patrimonio_neto: 1000000`  
-**When** `Step4Schema.safeParse(data)` called  
-**Then** `patrimonio_neto` not present in parsed output (stripped as unknown key)
-
-**Test file:** `src/__tests__/empresa-perfil-validators.test.ts`  
-**Framework:** vitest
-
----
-
-### Behavior: Step5Schema has no antecedentes boolean fields (REQ-009)
-
-**Given** step5 data including `tiene_antecedentes_disciplinarios: false`  
-**When** `Step5Schema.safeParse(data)` called  
-**Then** `tiene_antecedentes_disciplinarios` not present in parsed output
-
-**Test file:** `src/__tests__/empresa-perfil-validators.test.ts`  
+**Test file:** `src/__tests__/company-profile-validators.test.ts`  
 **Framework:** vitest
 
 ---
 
 ## Task T2: DB Migration
 
-### Behavior: liquidez_corriente generated column computes (REQ-008, RN-009)
+### Behavior: Versioning constraint — duplicate (company, version) rejected (RN-009)
 
-**Given** `empresa_perfil` with `activo_corriente = 300, pasivo_corriente = 100`  
-**When** row inserted  
-**Then** `liquidez_corriente = 3.0`
+**Given** company_profiles row with company_id = X, version = 1 exists  
+**When** INSERT with same company_id = X, version = 1  
+**Then** unique constraint violation
 
-**Test file:** `src/__tests__/domain/empresa-perfil-migration.test.ts`  
-**Framework:** vitest (integration)
-
----
-
-### Behavior: nivel_endeudamiento NULL-guarded (NFR-07)
-
-**Given** `activo_total = 0`  
-**When** row inserted  
-**Then** `nivel_endeudamiento IS NULL`
-
-**Test file:** `src/__tests__/domain/empresa-perfil-migration.test.ts`  
-**Framework:** vitest (integration)
+**Test file:** `supabase/migrations/tests/company_profiles.test.sql`  
+**Framework:** pgTAP (or manual verification)
 
 ---
 
-### Behavior: empresa_documento_juridico rejects unknown tipo (REQ-009)
+### Behavior: GIN index enables @> operator query (REQ-008, RN-008)
 
-**Given** insert with `tipo_documento = 'pasaporte'`  
-**When** DB insert attempted  
-**Then** CHECK constraint violation; insert fails
+**Given** row with unspsc_codes = ARRAY['72131500', '81111500']  
+**When** query: `SELECT * FROM company_profiles WHERE unspsc_codes @> '{72131500}'`  
+**Then** row returned; EXPLAIN shows index scan
 
-**Test file:** `src/__tests__/domain/empresa-perfil-migration.test.ts`  
-**Framework:** vitest (integration)
-
----
-
-## Task T6: Document Upload Service
-
-### Behavior: expiry computed as emision + 30 days (REQ-009, RN-010)
-
-**Given** `fecha_emision = 2026-05-01`  
-**When** `uploadDocumentoJuridico(...)` called  
-**Then** row has `fecha_vencimiento = 2026-05-31`
-
-**Test file:** `src/__tests__/documento-juridico.test.ts`  
-**Framework:** vitest (mocked Supabase)
+**Test file:** manual DB verification  
+**Framework:** psql
 
 ---
 
-### Behavior: getDocumentosJuridicos returns vencido for missing tipo (RN-011)
+### Behavior: RLS blocks cross-company read (REQ-015, RN-015)
 
-**Given** empresa has no `certificado_contraloria` row  
-**When** `getDocumentosJuridicos(empresaId)` called  
-**Then** result includes `{ tipo_documento: 'certificado_contraloria', estado: 'vencido', diasRestantes: -Infinity }`
+**Given** company B user JWT; company A profile row in DB  
+**When** `SELECT * FROM company_profiles` executed as company B user  
+**Then** company A rows not returned
 
-**Test file:** `src/__tests__/documento-juridico.test.ts`  
+**Test file:** `supabase/tests/rls_company_profiles.sql`  
+**Framework:** pgTAP
+
+---
+
+## Task T6: Server Actions
+
+### Behavior: First save creates version 1 (REQ-009, RN-009)
+
+**Given** no existing company_profiles rows for company  
+**When** `saveCompanyProfile(validFormData)` called  
+**Then** new row with version = 1, is_current = true
+
+**Test file:** `src/__tests__/actions/save-company-profile.test.ts`  
+**Framework:** vitest (with Supabase test client)
+
+---
+
+### Behavior: Second save creates version 2 and flips is_current (REQ-009, RN-009)
+
+**Given** existing row with version = 1, is_current = true  
+**When** `saveCompanyProfile(validFormData)` called again  
+**Then** new row version = 2, is_current = true; previous row is_current = false
+
+**Test file:** `src/__tests__/actions/save-company-profile.test.ts`  
 **Framework:** vitest
 
 ---
 
-### Behavior: por_vencer when 5 days remain (RN-011)
+### Behavior: Invalid NIT DV causes no DB write (REQ-002)
 
-**Given** `fecha_vencimiento = now() + 5 days` (mocked)  
-**When** `getDocumentosJuridicos` called  
-**Then** `estado = 'por_vencer'`, `diasRestantes = 5`
+**Given** form data with invalid DV  
+**When** `saveCompanyProfile(data)` called  
+**Then** returns `{ ok: false, error }` without inserting any row
 
-**Test file:** `src/__tests__/documento-juridico.test.ts`  
+**Test file:** `src/__tests__/actions/save-company-profile.test.ts`  
 **Framework:** vitest
 
 ---
 
-### Behavior: file > 5MB rejected (NFR-05)
+## Task T8: Dashboard Completeness Badge
 
-**Given** multipart request with file of 6MB  
-**When** `POST /api/empresa/documentos-juridicos`  
-**Then** HTTP 413
+### Behavior: Null profile returns score 0 (REQ-011, RN-011)
 
-**Test file:** `src/__tests__/api/documentos-juridicos.test.ts`  
+**Given** `computeCompleteness(null)` called  
+**When** —  
+**Then** returns `{ score: 0, total: 5 }`
+
+**Test file:** `src/__tests__/utils/profile-completeness.test.ts`  
 **Framework:** vitest
 
 ---
 
-## Task T7: Server Actions
+### Behavior: Analysis proceeds without completeness gate (REQ-011, RN-011)
 
-### Behavior: step4 upserts new financial fields (REQ-007)
+**Given** profile with score = 2 (3 sections missing)  
+**When** user clicks "Iniciar análisis"  
+**Then** analysis starts; no modal or redirect blocks it
 
-**Given** valid step4 data with `activo_total`, `ingresos_operacionales`, `roe`  
-**When** `upsertEmpresaPerfilStep4(data)` called  
-**Then** `{ ok: true }`; DB row has those fields set; `completitud_financiera = true`
-
-**Test file:** `src/__tests__/actions/empresa-perfil-actions.test.ts`  
-**Framework:** vitest
-
----
-
-### Behavior: step5 has no antecedentes writes (REQ-009)
-
-**Given** step5 data (RUP fields + certificaciones only)  
-**When** `upsertEmpresaPerfilStep5(data)` called  
-**Then** no `tiene_antecedentes_*` columns written; no `declaracion_antecedentes_at` written
-
-**Test file:** `src/__tests__/actions/empresa-perfil-actions.test.ts`  
-**Framework:** vitest
-
----
-
-## Task T10: Dashboard Integration
-
-### Behavior: CompletitudBanner hidden when financiera complete (REQ-016)
-
-**Given** `completitudFinanciera = true`  
-**When** `<CompletitudBanner>` renders  
-**Then** component returns null / not visible
-
-**Test file:** `src/__tests__/completitud-banner.test.tsx`  
-**Framework:** vitest + @testing-library/react
-
----
-
-### Behavior: DocumentExpiryAlerts shows expired certificate (REQ-010)
-
-**Given** `documentos = [{ tipo: 'certificado_policia', estado: 'vencido', diasRestantes: -3 }]`  
-**When** `<DocumentExpiryAlerts>` renders  
-**Then** one alert card visible with "venció hace 3 días" copy
-
-**Test file:** `src/__tests__/document-expiry-alerts.test.tsx`  
-**Framework:** vitest + @testing-library/react
-
----
-
-### Behavior: no alerts when all vigente (REQ-010)
-
-**Given** all 5 documentos have `estado = 'vigente'`  
-**When** `<DocumentExpiryAlerts>` renders  
-**Then** no alert cards rendered
-
-**Test file:** `src/__tests__/document-expiry-alerts.test.tsx`  
-**Framework:** vitest + @testing-library/react
+**Test file:** e2e or manual smoke test  
+**Framework:** manual

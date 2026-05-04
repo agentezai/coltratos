@@ -115,11 +115,18 @@ features:
     run_completed_at: "2026-05-01"
     original_feature: auth-and-tenancy
   company-profiling-onboarding:
-    status: draft
+    status: approved
     created: "2026-05-01"
+    approved_at: "2026-05-04"
     action_type: FEATURE
     profile: code
     owner: Carlos Villa Mercado
-    updated: "2026-05-01"
-    revision_count: 1
-    last_revision: "Align with product description: documento uploads, simplified financiera, Jurídica as alert track, objeto+CV model"
+    updated: "2026-05-04"
+    revision_count: 2
+    last_revision: "MVP scope: single-page form; 3-year financial JSONB; profile versioning; removed doc uploads; completeness badge (not gate); 10→8 tasks"
+  domain-model-mvp:
+    status: approved
+    created: "2026-05-04"
+    approved_at: "2026-05-04"
+    action_type: CREATE
+    profile: code

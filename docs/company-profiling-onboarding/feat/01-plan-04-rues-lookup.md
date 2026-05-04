@@ -12,9 +12,8 @@
 ```typescript
 export interface RuesLookupResult {
   razon_social: string
-  tipo_societario: TipoSocietario | null
   representante_legal_nombre: string | null
-  domicilio_departamento: string | null
+  domicilio_principal: string | null
 }
 export type RuesLookupResponse =
   | { found: true; data: RuesLookupResult }
@@ -30,7 +29,7 @@ export type RuesLookupResponse =
 ### API route (rues-lookup/route.ts)
 
 - `POST /api/empresa/rues-lookup` body: `{ nit: string }`
-- Validates NIT format with `Step1Schema.shape.nit.safeParse(nit)`
+- Validates NIT format with `CompanyProfileSchema.shape.nit.safeParse(nit)`
 - Calls `lookupByNit`; returns result as JSON
 - Returns 400 on invalid NIT; 200 + `{ found: false }` on timeout/not-found
 - Requires `authenticated` session (check Supabase server client)
@@ -41,7 +40,7 @@ Service encapsulates RUES API concerns; route handles HTTP contract. Components 
 
 ## Dependencies
 
-Requires T1 — `Step1Schema` for NIT validation, `TipoSocietario` for mapping.
+Requires T1 — `CompanyProfileSchema` for NIT validation.
 
 ## Done When
 

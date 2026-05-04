@@ -2,13 +2,7 @@
 
 ## Intention
 
-Captures the multidimensional profile of a Colombian empresa during onboarding, enabling the COLTRATOS matching engine to score SECOP II `procesos` across two scoring dimensions (Técnica + Financiera) and a documentation health track (Jurídica). Steps 1-3 are mandatory (Layer 1 — UNSPSC + geography + cuantía matching); steps 4-5 are optional and unlock Layer 2 — financial indicator thresholds and semantic objeto matching. Jurídica does not affect the match score; instead it drives a certificate expiry alert system that warns the empresa when legal documents need renewal.
-
-**Score formula (Layer 2):**
-```
-Score = Técnica (50%) + Financiera (40%) + Semantic similarity — objeto (10%)
-```
-A proceso is notified when both Técnica AND Financiera pass their thresholds. Jurídica = documentation health alert track only.
+Enables a Colombian empresa to build their RUP-derived capability profile via a single-page form, completable in under 15 minutes with RUP document in hand. The profile is the single source of truth for two downstream consumers: (a) the semáforo matching engine during pliego analysis and (b) the proceso discovery filter engine for UNSPSC/geographic/budget scoping. Every save creates an immutable versioned snapshot; analyses always reference the snapshot active at run time, ensuring verdicts remain reproducible after profile edits.
 
 ## Use Cases
 
@@ -16,13 +10,10 @@ Detailed scenarios in [use-cases.md](./use-cases.md).
 
 | Use Case | Description | User Stories |
 |----------|-------------|-------------|
-| [UC-01 — Onboarding obligatorio](./use-cases.md#uc-01) | Empresa completes steps 1-3 to activate Layer 1 matching | US-01, US-02 |
-| [UC-02 — RUES auto-fill](./use-cases.md#uc-02) | NIT lookup pre-populates empresa data from RUES | US-03 |
-| [UC-03 — Dimensión financiera](./use-cases.md#uc-03) | Empresa enters financial indicators to unlock Layer 2 | US-04 |
-| [UC-04 — Dimensión jurídica](./use-cases.md#uc-04) | Empresa uploads legal certificates; system tracks expiry | US-05 |
-| [UC-05 — Alerta de vencimiento](./use-cases.md#uc-05) | Dashboard warns when a certificate expires within 7 days | US-08 |
-| [UC-06 — Edición posterior](./use-cases.md#uc-06) | User edits profile; matching scores update on next query | US-06 |
-| [UC-07 — Contextual gate](./use-cases.md#uc-07) | Opening a pliego that needs financial data prompts completion | US-07 |
+| [UC-01 — Primer guardado](./use-cases.md#uc-01) | User completes and saves profile for the first time | US-01 |
+| [UC-02 — RUES auto-fill](./use-cases.md#uc-02) | NIT entry triggers RUES pre-fill of legal fields | US-02 |
+| [UC-03 — Edición posterior](./use-cases.md#uc-03) | User edits profile; new version created; existing analyses unaffected | US-03 |
+| [UC-04 — Completeness warning](./use-cases.md#uc-04) | Dashboard shows completeness ratio; analysis never blocked | US-04 |
 
 ---
 
@@ -30,42 +21,39 @@ Detailed scenarios in [use-cases.md](./use-cases.md).
 
 ### Functional Requirements
 
-| ID | Requirement | User Stories | Business Rules |
-|----|-------------|-------------|----------------|
-| REQ-001 | System creates `empresa_perfil` row on step-3 completion | US-01 | RN-001 |
-| REQ-002 | Steps 1-3 mandatory; user cannot reach dashboard without completing them | US-01 | RN-002 |
-| REQ-003 | Steps 4-5 optional; user reaches dashboard after step 3 and completes later | US-01 | RN-003 |
-| REQ-004 | NIT input triggers RUES lookup (≤2s timeout); pre-fills fields on success; non-blocking on failure | US-03 | RN-007 |
-| REQ-005 | UNSPSC autocomplete over static catalog; min 1 code; soft-warn above 15 | US-02 | RN-004 |
-| REQ-006 | Experience monetary values stored in SMMLV | US-02 | RN-005 |
-| REQ-007 | Financial inputs: `activo_total`, `pasivo_total`, `activo_corriente`, `pasivo_corriente`, `ebit`, `gastos_financieros` (for calculated indicators) + `ingresos_operacionales`, `utilidad_neta`, `margen_neto`, `margen_ebitda`, `roe`, `roa` (manual entries from RUP or empresa records) | US-04 | RN-008 |
-| REQ-008 | Calculated financial indicators (`nivel_endeudamiento`, `liquidez_corriente`, `razon_cobertura_int`) persisted as generated stored columns | US-04 | RN-009 |
-| REQ-009 | Jurídica dimension = document uploads with expiry tracking; 5 certificate types; each with `fecha_emision`, `fecha_vencimiento`, file storage reference | US-05 | RN-010 |
-| REQ-010 | Dashboard shows document expiry alert when any certificate expires within 7 days or is already expired | US-08 | RN-011 |
-| REQ-011 | Certificate storage path: `empresas/<empresa_id>/documentos-juridicos/<tipo>/<file_hash>.pdf`; Supabase storage bucket `documentos-juridicos` | US-05 | RN-012 |
-| REQ-012 | `contratos_previos` JSONB captures prior executed contracts with `objeto`, `entidad`, `valor_smmlv`, `fecha_inicio`, `fecha_fin`, `unspsc_codes`; used for objeto matching and experience thresholds | US-02 | RN-013 |
-| REQ-013 | `personal_cv` JSONB captures personnel experience entries with date ranges; overlap elimination applied before computing total experience months | US-02 | RN-014 |
-| REQ-014 | UNSPSC codes entered trigger advisory warning (non-blocking) if they don't overlap with `rup_clasificaciones_unspsc` | US-02 | RN-015 |
-| REQ-015 | `completitud_tecnica`, `completitud_financiera` are generated boolean columns; drive UI state | US-01, US-04 | RN-006 |
-| REQ-016 | Dashboard shows completitud banner when `completitud_financiera = false` | US-07 | RN-003 |
-| REQ-017 | Contextual gate modal fires when user opens pliego analysis requiring financial thresholds and `completitud_financiera = false` | US-07 | RN-016 |
-| REQ-018 | Profile edit page (`/dashboard/config/perfil`) allows updating all fields post-onboarding | US-06 | — |
-| REQ-019 | Preference validation: `presupuesto_min_cop ≤ presupuesto_max_cop`; `cobertura_nacional = false → departamentos_interes` non-empty; `modalidades_interes` non-empty | US-01 | RN-017 |
-| REQ-020 | RLS on `empresa_perfil` and `empresa_documento_juridico` restrict rows to owning empresa members | US-01, US-04, US-05 | RN-001 |
+| ID | Requirement | Business Rules |
+|----|-------------|----------------|
+| REQ-001 | Single-page form with 5 sections: Datos legales, Capacidad financiera, Experiencia, Personal clave, Alcance comercial | RN-001 |
+| REQ-002 | NIT DV validated server-side before any row is written | RN-002 |
+| REQ-003 | RUES lookup triggered on NIT entry; pre-fills legal fields on success; non-blocking on failure or timeout | RN-003 |
+| REQ-004 | Capacidad financiera captures ingresos_operacionales + patrimonio + activo_corriente + pasivo_corriente + activo_total + pasivo_total for each of the last 3 fiscal years | RN-004 |
+| REQ-005 | Derived financial indicators (liquidez_corriente, nivel_endeudamiento, capital_de_trabajo) computed server-side from most recent fiscal year; NULL if any required input absent | RN-005 |
+| REQ-006 | Experiencia section: dynamic list; each entry has entidad_contratante, objeto, valor_cop, fecha_inicio, fecha_fin, unspsc_code (optional) | RN-006 |
+| REQ-007 | Personal clave section: dynamic list; each entry has nombre, cedula, profesion, titulo, anios_experiencia, certificaciones | RN-007 |
+| REQ-008 | Alcance comercial: unspsc_codes (multi-select from canonical catalog), departamentos_interes, presupuesto_min_cop/presupuesto_max_cop — all stored structurally and GIN-indexed for discovery filter queries | RN-008 |
+| REQ-009 | Every form save inserts a new immutable company_profiles row; no in-place mutation of existing rows | RN-009 |
+| REQ-010 | Existing analyses reference their profile_snapshot_id; unaffected by new profile versions | RN-010 |
+| REQ-011 | Dashboard shows completeness badge "X de 5 secciones completas"; analysis is never blocked | RN-011 |
+| REQ-012 | All labels, validation messages, and UI copy in Spanish | RN-012 |
+| REQ-013 | All monetary fields stored as NUMERIC(20,2); no float types | RN-013 |
+| REQ-014 | presupuesto_min_cop ≤ presupuesto_max_cop enforced client-side (Zod .refine()) and server-side (DB CHECK constraint) | RN-014 |
+| REQ-015 | RLS on company_profiles restricts rows to owning company members | RN-015 |
+| REQ-016 | Date ranges in contratos_previos and personal_clave validated server-side: fecha_fin ≥ fecha_inicio | RN-016 |
 
 ### Non-Functional Requirements
 
 | ID | Category | Requirement |
 |----|----------|-------------|
 | NFR-01 | Performance | UNSPSC autocomplete <100ms (client-side JSON search) |
-| NFR-02 | Performance | RUES lookup ≤2s; onboarding never blocks on it |
-| NFR-03 | Performance | Wizard step transitions ≤200ms (no server round-trips between steps) |
-| NFR-04 | Security | RLS on both `empresa_perfil` and `empresa_documento_juridico` (ADR-003) |
-| NFR-05 | Security | Supabase storage policy on `documentos-juridicos` bucket; per-tenant path prefix enforced |
-| NFR-06 | Correctness | NIT DV validated before RUES lookup and before insert |
-| NFR-07 | Correctness | Generated financial columns use NULL-guarded division |
-| NFR-08 | Maintainability | UNSPSC catalog as static JSON — not in DB |
-| NFR-09 | Correctness | CV overlap elimination must be deterministic; given same date ranges always produces same result |
+| NFR-02 | Performance | RUES lookup ≤2s; non-blocking via AbortController |
+| NFR-03 | Performance | Form submit ≤3s p95 |
+| NFR-04 | Security | RLS on company_profiles enforces per-company row isolation |
+| NFR-05 | Correctness | NIT DV validated using Colombian modulo-11 algorithm |
+| NFR-06 | Correctness | All monetary amounts NUMERIC(20,2) — no float |
+| NFR-07 | Correctness | Financial indicators NULL-guarded (division by zero → NULL) |
+| NFR-08 | Maintainability | UNSPSC catalog as static JSON — not DB table |
+| NFR-09 | UX | Profile completable <15 minutes with RUP in hand (measured during pilot onboarding) |
+| NFR-10 | Scope | Single user per company in MVP — no multi-user support |
 
 ---
 
@@ -73,123 +61,97 @@ Detailed scenarios in [use-cases.md](./use-cases.md).
 
 | Rule | Description |
 |------|-------------|
-| RN-001 | `empresa_perfil` and `empresa_documento_juridico` are tenant-scoped; RLS restricts to `empresa_member.empresa_id` of JWT subject |
-| RN-002 | Mandatory fields: `nit`, `razon_social`, `tipo_societario`, `unspsc_codes` (min 1), `anios_experiencia`, `experiencia_general_smmlv`, `cobertura_nacional`/`departamentos_interes`, `modalidades_interes` |
-| RN-003 | Steps 4-5 MUST be optional; blocking matching on them is a product anti-goal |
-| RN-004 | UNSPSC codes stored at level selected; matching engine handles hierarchy traversal |
-| RN-005 | Experience monetary values stored in SMMLV |
-| RN-006 | `completitud_tecnica = jsonb_array_length(unspsc_codes) > 0 AND experiencia_general_smmlv IS NOT NULL AND anios_experiencia IS NOT NULL`; `completitud_financiera = activo_total IS NOT NULL AND pasivo_total IS NOT NULL AND activo_corriente IS NOT NULL AND pasivo_corriente IS NOT NULL` |
-| RN-007 | RUES API failure must NOT block onboarding |
-| RN-008 | Financial dimension uses simplified input model: 6 raw inputs for calculations + 6 manual indicators. No full balance sheet capture. |
-| RN-009 | Calculated indicators (`nivel_endeudamiento`, `liquidez_corriente`, `razon_cobertura_int`) MUST be materialized as generated stored columns for O(1) matching access |
-| RN-010 | Legal certificates require upload of actual document file (PDF). 5 types: `certificado_policia`, `certificado_contraloria`, `rmnc`, `redam`, `camara_comercio`. Maximum validity: 30 days from `fecha_emision`. |
-| RN-011 | Expiry alert fires when `fecha_vencimiento <= now() + 7 days`; fires immediately when already past expiry. Jurídica does NOT affect match score — alert track only. |
-| RN-012 | Storage path: `empresas/<empresa_id>/documentos-juridicos/<tipo>/<file_hash>.pdf`. SHA-256 hash must match uploaded file content. |
-| RN-013 | `contratos_previos` entries: `objeto` is required for semantic matching; `valor_smmlv`, `fecha_inicio`, `fecha_fin` required for experience threshold matching |
-| RN-014 | CV overlap elimination: if two entries for the same person share overlapping date ranges, only non-overlapping months are counted. Algorithm: sort by `fecha_inicio`, merge overlapping intervals, sum durations. |
-| RN-015 | UNSPSC vs RUP advisory: if `unspsc_codes` contain codes not covered by `rup_clasificaciones_unspsc`, show advisory "Código X no está en tu RUP — verifica antes de presentarte". Non-blocking. |
-| RN-016 | Contextual gate: if pliego requires financial thresholds and `completitud_financiera = false`, show modal before analysis starts |
-| RN-017 | `presupuesto_min_cop ≤ presupuesto_max_cop`; `cobertura_nacional = false → departamentos_interes.length ≥ 1`; `modalidades_interes.length ≥ 1` |
+| RN-001 | Form sections: (1) Datos legales, (2) Capacidad financiera, (3) Experiencia, (4) Personal clave, (5) Alcance comercial |
+| RN-002 | NIT DV validated using Colombian modulo-11 checksum; invalid DV → server 422, no row written |
+| RN-003 | RUES failure MUST NOT block form submission |
+| RN-004 | ejercicios_fiscales JSONB: `[{ejercicio: int, ingresos_operacionales: numeric, patrimonio: numeric, activo_corriente: numeric, pasivo_corriente: numeric, activo_total: numeric, pasivo_total: numeric}]`; 1–3 entries ordered by ejercicio desc |
+| RN-005 | Derived indicators from most recent year: `liquidez_corriente = activo_corriente / pasivo_corriente`; `nivel_endeudamiento = pasivo_total / activo_total`; `capital_de_trabajo = activo_corriente - pasivo_corriente`. NULL if divisor = 0 or input absent. Computed in server action before INSERT |
+| RN-006 | contratos_previos JSONB: `[{entidad_contratante: text, objeto: text, valor_cop: numeric, fecha_inicio: date, fecha_fin: date, unspsc_code?: text}]` |
+| RN-007 | personal_clave JSONB: `[{nombre: text, cedula: text, profesion: text, titulo: text, anios_experiencia: int, certificaciones: string[]}]` |
+| RN-008 | unspsc_codes and departamentos_interes stored as text[]; GIN-indexed for discovery filter queries (`@>` operator) |
+| RN-009 | saveProfile = INSERT with version = MAX(version) + 1 for company; previous is_current row set to false in same transaction |
+| RN-010 | analyses.profile_snapshot_id references company_profiles.id at run time; never updated post-analysis |
+| RN-011 | Completeness = count of non-null sections (each section = at least one non-null required field in that section) / 5; displayed as pill badge in dashboard header |
+| RN-012 | All UI strings and validation error messages must be in Spanish |
+| RN-013 | presupuesto_min_cop, presupuesto_max_cop declared NUMERIC(20,2) in DB; valor_cop in contratos_previos JSONB entries validated as number with max 2 decimal places |
+| RN-014 | Zod .refine(): presupuesto_min_cop ≤ presupuesto_max_cop; DB CHECK constraint as guard |
+| RN-015 | RLS policy: company_profiles row visible only when auth.uid() maps to a member of company_id |
+| RN-016 | fecha_fin ≥ fecha_inicio for all date-range entries; server returns 422 on violation |
 
 ---
 
 ## Test Cases
 
-### TC-001 — Mandatory steps enforced (REQ-002)
-**Given** authenticated user with no `empresa_perfil`  
-**When** they navigate to `/dashboard`  
-**Then** redirected to `/onboarding`
+### TC-001 — Primer guardado crea snapshot (REQ-009, RN-009)
+**Given** authenticated user with no existing company_profiles row  
+**When** form submitted with valid data  
+**Then** one row in company_profiles with version = 1, is_current = true
 
-### TC-002 — Step 3 creates empresa_perfil (REQ-001)
-**Given** user completes steps 1-3 with valid data  
-**When** wizard submits step 3  
-**Then** one `empresa_perfil` row with `completitud_tecnica = true`
+### TC-002 — Segunda edición crea nueva versión (REQ-009, RN-009)
+**Given** user with existing company_profiles version 1 (is_current = true)  
+**When** form re-submitted  
+**Then** new row with version = 2, is_current = true; previous row is_current = false
 
-### TC-003 — RUES lookup success pre-fills (REQ-004)
-**Given** RUES API returns data for a valid NIT  
-**When** user enters NIT and lookup completes  
-**Then** `razon_social`, `tipo_societario`, `representante_legal_nombre` pre-filled; user can edit
-
-### TC-004 — RUES timeout non-blocking (REQ-004, RN-007)
-**Given** RUES API does not respond within 2s  
-**When** user enters NIT  
-**Then** form proceeds to manual input; no blocking error
-
-### TC-005 — NIT DV rejects invalid (NFR-06)
+### TC-003 — NIT DV inválido rechazado (REQ-002, NFR-05, RN-002)
 **Given** NIT with incorrect DV  
-**When** field loses focus  
-**Then** inline error; cannot advance
+**When** form submitted  
+**Then** server returns 422; zero rows inserted
 
-### TC-006 — Financial calculated indicators materialized (REQ-008, RN-009)
-**Given** `empresa_perfil` with `activo_corriente = 200`, `pasivo_corriente = 100`  
+### TC-004 — RUES timeout no bloquea (REQ-003, RN-003)
+**Given** RUES API times out at 2s  
+**When** NIT entered  
+**Then** form remains editable; "No encontramos tu empresa en RUES. Completa manualmente." shown; no blocking
+
+### TC-005 — Datos financieros 3 años guardados (REQ-004, RN-004)
+**Given** user enters ingresos_operacionales + patrimonio + balance fields for 2022, 2023, 2024  
+**When** form submitted  
+**Then** ejercicios_fiscales JSONB has 3 entries with correct values
+
+### TC-006 — Indicadores derivados computados (REQ-005, NFR-07, RN-005)
+**Given** most recent year has activo_corriente = 800, pasivo_corriente = 400  
 **When** row inserted  
-**Then** `liquidez_corriente = 2.0` stored; `nivel_endeudamiento` computed
+**Then** liquidez_corriente = 2.0; nivel_endeudamiento and capital_de_trabajo also computed
 
-### TC-007 — Division-by-zero guard (NFR-07)
-**Given** `pasivo_corriente = 0`  
+### TC-007 — Indicador derivado NULL-guard (REQ-005, NFR-07)
+**Given** most recent year has pasivo_corriente = 0  
 **When** row inserted  
-**Then** `liquidez_corriente = NULL`
+**Then** liquidez_corriente = NULL; no division error
 
-### TC-008 — Document upload stores with expiry (REQ-009, RN-010)
-**Given** user uploads `certificado_policia.pdf` with `fecha_emision = 2026-05-01`  
-**When** upload action executes  
-**Then** `fecha_vencimiento = 2026-05-31`; file stored at correct path; row in `empresa_documento_juridico`
+### TC-008 — UNSPSC queryable con GIN (REQ-008, RN-008)
+**Given** company_profiles row with unspsc_codes = ARRAY['72131500']  
+**When** discovery query: `unspsc_codes @> '{72131500}'`  
+**Then** index scan used; correct row returned
 
-### TC-009 — Expired certificate triggers alert (REQ-010, RN-011)
-**Given** `empresa_documento_juridico` row with `fecha_vencimiento = 2026-04-20` (past)  
-**When** dashboard renders  
-**Then** expiry alert shown for that certificate type
-
-### TC-010 — 7-day warning fires (REQ-010, RN-011)
-**Given** `fecha_vencimiento = now() + 5 days`  
-**When** dashboard renders  
-**Then** expiry warning shown ("Vence en 5 días")
-
-### TC-011 — CV overlap eliminated (REQ-013, RN-014)
-**Given** two CV entries for same person: Jan–Jun and Apr–Sep (3 months overlap)  
-**When** `calcularExperienciaEfectiva` called  
-**Then** total = 9 months (not 12)
-
-### TC-012 — contratos_previos objeto feeds semantic match (REQ-012)
-**Given** empresa has `contratos_previos` with `objeto = "Desarrollo de software para entidad pública"`  
-**When** matching against proceso with `objeto = "Sistema de información para gestión pública"`  
-**Then** semantic similarity score > 0.6 (example threshold)
-
-### TC-013 — UNSPSC advisory on RUP mismatch (REQ-014, RN-015)
-**Given** empresa selects UNSPSC `72131500` (Construcción) but `rup_clasificaciones_unspsc` only contains IT codes  
-**When** step 2 renders selected codes  
-**Then** advisory shown "Código 72131500 no está en tu RUP"; form not blocked
-
-### TC-014 — Presupuesto validation (REQ-019, RN-017)
-**Given** `presupuesto_min_cop = 500`, `presupuesto_max_cop = 100`  
-**When** step 3 submitted  
-**Then** Zod error: min must be ≤ max
-
-### TC-015 — completitud_financiera = true after step 4 (REQ-015)
-**Given** user submits step 4 with `activo_total`, `pasivo_total`, `activo_corriente`, `pasivo_corriente` set  
-**When** row upserted  
-**Then** `completitud_financiera = true`
-
-### TC-016 — RLS cross-tenant isolation (NFR-04, RN-001)
-**Given** empresa B member authenticated  
-**When** queries `empresa_perfil` or `empresa_documento_juridico`  
-**Then** only empresa B's rows returned
-
-### TC-017 — Contextual gate fires before analysis (REQ-017, RN-016)
-**Given** `completitud_financiera = false`; pliego requires financial thresholds  
+### TC-009 — Completeness warning no bloquea análisis (REQ-011, RN-011)
+**Given** is_current profile where ejercicios_fiscales IS NULL  
 **When** user initiates analysis  
-**Then** gate modal fires; analysis does not start
+**Then** analysis starts; completeness badge shows partial count; no gate modal
 
-### TC-018 — Habilitaciones sectoriales conditional (RN-015)
-**Given** UNSPSC primary code `72131500` (Construcción)  
-**When** step 5 renders  
-**Then** COPNIA/RETIE fields shown
+### TC-010 — Rango presupuesto inválido rechazado (REQ-014, RN-014)
+**Given** presupuesto_min_cop = 5000000, presupuesto_max_cop = 1000000  
+**When** form submitted  
+**Then** Zod error: "El presupuesto mínimo no puede ser mayor al máximo"
+
+### TC-011 — RLS aislamiento cross-company (REQ-015, RN-015)
+**Given** company B user authenticated  
+**When** queries company_profiles  
+**Then** only company B rows visible; company A rows absent
+
+### TC-012 — Análisis existente no afectado por nueva versión (REQ-010, RN-010)
+**Given** analysis A1 created with profile snapshot V1  
+**When** user saves new profile creating V2  
+**Then** A1.profile_snapshot_id still references V1; A1 verdict unchanged
+
+### TC-013 — Fecha rango inválido rechazado (REQ-016, RN-016)
+**Given** contrato_previo with fecha_inicio = "2024-06-01", fecha_fin = "2024-01-01"  
+**When** form submitted  
+**Then** server returns 422: "La fecha de fin no puede ser anterior a la fecha de inicio"
 
 ---
 
 ## UX/UI
 
-Design references pending. Wizard steps 1-3: linear, no reload. Steps 4-5 at `/dashboard/config/perfil`. Dashboard: completitud banner (financial) + document expiry alert cards (juridical). Contextual gate: centered modal before analysis.
+Single-page form at `/onboarding` (first save) and `/dashboard/config/perfil` (subsequent edits). Five sections rendered as vertical accordion or sequential sections. Design System components only — no custom UI. All labels in Spanish. Completeness badge in dashboard header (pill showing X/5 completas). Dynamic list sections (Experiencia, Personal clave) use add/remove row controls.
 
 ---
 
@@ -199,19 +161,20 @@ Design references pending. Wizard steps 1-3: linear, no reload. Steps 4-5 at `/d
 
 | ADR | Title | Impact |
 |-----|-------|--------|
-| ADR-001 | Kysely | `empresa_perfil` + `empresa_documento_juridico` types hand-authored |
-| ADR-002 | Zod | Step-level schemas at all server action boundaries |
-| ADR-003 | Supabase RLS | Both new tables empresa-private; policies in migration |
+| ADR-001 | Kysely | company_profiles types hand-authored from migration schema |
+| ADR-002 | Zod | Full form schema validated at server action boundary |
+| ADR-003 | Supabase RLS | company_profiles restricted to owning empresa members |
 
 ### Tradeoffs
 
 | Tradeoff | We chose | Over | Rationale |
 |----------|----------|------|-----------|
-| Simplified financial inputs vs full balance sheet | Simplified (6 raw + 6 manual) | Full balance sheet | Matches what pliegos actually require; less friction for non-accountants |
-| Document uploads vs boolean declarations | Uploads with expiry | Self-declaration booleans | Pliegos require actual certificates; declarations have no legal weight |
-| Jurídica as alert vs scoring dimension | Alert track | Score weight | Jurídica is pass/fail documentation hygiene, not a comparative quality signal |
-| Client-side UNSPSC search | Static JSON | API endpoint | <100ms; no per-keystroke round-trip |
-| Materialized financial indicators | Generated stored columns | Computed at query | O(1) matching; no runtime division |
+| Single-page form vs multi-step wizard | Single form | Wizard with persistent step state | No page-reload state complexity; user sees full scope; holistic validation; pilots can skip sections and return |
+| Immutable versioned rows vs in-place upsert | Immutable rows | In-place update | Analyses must remain reproducible; profile edit must not silently change historical verdicts |
+| Financial: per-year JSONB vs flat columns | JSONB per year | Flat columns | N years is variable; flat schema would require ALTER TABLE per year; JSONB flexible and queryable |
+| Completeness badge vs blocking gate | Warning badge | Blocking analysis | MVP anti-goal to block analysis on incomplete profile; badge provides soft pressure |
+| text[] for alcance comercial | text[] with GIN | JSONB | Structural filter queries (`@>`) more natural and performant on text[] with GIN |
+| Derived indicators at save time | Computed before INSERT | Generated stored columns | Generated columns cannot read inside JSONB; compute in server action, store as flat numerics |
 
 ### Performance Goals & Metrics
 
@@ -219,79 +182,42 @@ Design references pending. Wizard steps 1-3: linear, no reload. Steps 4-5 at `/d
 |--------|--------|-------------|
 | UNSPSC autocomplete | <100ms | Browser DevTools |
 | RUES lookup or timeout | ≤2s | AbortController |
-| Document upload | <3s p95 | Supabase storage logs |
-| Wizard step transition | ≤200ms | React state update |
+| Form submit (full profile) | ≤3s p95 | Server action timing log |
+| Profile load (edit mode) | ≤500ms | LCP |
 
 ### Data Model
 
 ```mermaid
 erDiagram
-    empresa ||--o| empresa_perfil : "extends"
-    empresa ||--o{ empresa_documento_juridico : "has"
-    empresa_perfil {
-        uuid empresa_id PK_FK
-        text tipo_societario
+    companies ||--o{ company_profiles : "versioned"
+    company_profiles {
+        uuid id PK
+        uuid company_id FK
+        int version
+        bool is_current
+        timestamptz created_at
+        text nit
+        int digito_verificacion
+        text razon_social
         text representante_legal_nombre
-        text representante_legal_documento
-        text email_corporativo
-        text telefono
-        jsonb unspsc_codes
+        text representante_legal_cedula
+        text domicilio_principal
+        int anio_constitucion
+        jsonb ejercicios_fiscales
+        numeric liquidez_corriente
+        numeric nivel_endeudamiento
+        numeric capital_de_trabajo
         jsonb contratos_previos
-        jsonb personal_cv
-        numeric experiencia_general_smmlv
-        numeric experiencia_especifica_smmlv
-        int anios_experiencia
-        int numero_contratos_ejecutados
-        bool acepta_consorcios
-        int numero_empleados
-        text[] departamentos_presencia
-        bool cobertura_nacional
+        jsonb personal_clave
+        text[] unspsc_codes
         text[] departamentos_interes
-        text[] modalidades_interes
         numeric presupuesto_min_cop
         numeric presupuesto_max_cop
-        text[] entidades_favoritas
-        text[] entidades_excluidas
-        text[] rup_clasificaciones_unspsc
-        numeric rup_capacidad_organizacional_co
-        numeric rup_capacidad_residual_kc
-        numeric rup_capacidad_financiera_kf
-        numeric activo_total
-        numeric pasivo_total
-        numeric activo_corriente
-        numeric pasivo_corriente
-        numeric ebit
-        numeric gastos_financieros
-        numeric ingresos_operacionales
-        numeric utilidad_neta
-        numeric margen_neto
-        numeric margen_ebitda
-        numeric roe
-        numeric roa
-        numeric nivel_endeudamiento_generated
-        numeric liquidez_corriente_generated
-        numeric razon_cobertura_int_generated
-        bool completitud_tecnica_generated
-        bool completitud_financiera_generated
-        jsonb certificaciones
-        jsonb habilitaciones_sectoriales
     }
-    empresa_documento_juridico {
-        uuid id PK
-        uuid empresa_id FK
-        text tipo_documento
-        text file_path
-        text file_hash
-        date fecha_emision
-        date fecha_vencimiento
-        timestamptz uploaded_at
-        uuid uploaded_by_user_id FK
-    }
-    empresa {
+    companies {
         uuid id PK
         text nombre
-        text nit
-        timestamptz profile_updated_at
+        uuid current_profile_id FK
     }
 ```
 
@@ -300,42 +226,31 @@ erDiagram
 | Endpoint / Action | Description |
 |-------------------|-------------|
 | `POST /api/empresa/rues-lookup` | `{ nit }` → RUES data or `{ found: false }` in ≤2s |
-| `GET /api/unspsc/search?q=` | Client-side fallback; returns max 20 results |
-| `POST /api/empresa/documentos-juridicos` | Multipart upload: tipo + file → store + create row |
-| `upsertEmpresaPerfilStep1-5` | Server actions; Zod-validated per step |
-| `getDocumentosJuridicos` | Returns all documents for empresa with expiry status |
+| `saveCompanyProfile` | Server action; Zod-validated full form schema; computes derived indicators; INSERTs new version |
+| `getCompanyProfile` | Server action; returns is_current row for authenticated company |
 
 ### Service Integrations
 
 | System | Direction | Data |
 |--------|-----------|------|
-| RUES API | Reading | razon_social, tipo_societario, representante_legal_nombre |
-| Supabase DB | Writing | empresa_perfil upsert per step; empresa_documento_juridico insert |
-| Supabase Storage (`documentos-juridicos`) | Writing | Legal certificate PDFs |
-| UNSPSC JSON (static) | Reading | Code + description lookup |
+| RUES API | Reading | razon_social, representante_legal_nombre from NIT |
+| Supabase DB | Writing | company_profiles INSERT (versioned snapshot) |
+| UNSPSC JSON (static) | Reading | Code + description lookup (client-side) |
 
 ```mermaid
 flowchart LR
-    Wizard["Onboarding\n(Steps 1-3)"]
-    ProfileEditor["Profile Editor\n(Steps 4-5)"]
+    Form["Single-Page\nProfile Form\n(/onboarding, /config/perfil)"]
     RUES["RUES API\n(2s timeout)"]
     UNSPSC["UNSPSC JSON\n(client-side)"]
-    Actions["Server Actions"]
-    DocUpload["Document Upload\nService"]
-    DB[("empresa_perfil")]
-    DocDB[("empresa_documento_juridico")]
-    Storage[("Supabase Storage\ndocumentos-juridicos")]
-    Dashboard["Dashboard\n(banner + alerts)"]
+    Action["saveCompanyProfile\n(Server Action)"]
+    DB[("company_profiles\n(versioned)")]
+    Dashboard["Dashboard\n(completeness badge)"]
 
-    Wizard -->|NIT| RUES
-    Wizard -->|search| UNSPSC
-    Wizard & ProfileEditor -->|step submit| Actions
-    ProfileEditor -->|upload| DocUpload
-    Actions -->|upsert| DB
-    DocUpload -->|insert| DocDB
-    DocUpload -->|store| Storage
-    DB -->|completitud flags| Dashboard
-    DocDB -->|expiry status| Dashboard
+    Form -->|NIT entry| RUES
+    Form -->|UNSPSC search| UNSPSC
+    Form -->|submit| Action
+    Action -->|compute indicators + INSERT| DB
+    DB -->|is_current row| Dashboard
 ```
 
 ---
@@ -344,4 +259,5 @@ flowchart LR
 
 | Date | Change | Reason |
 |------|--------|--------|
-| 2026-05-01 | Rev 1: objeto contractual matching, CV overlap, document uploads (not declarations), financial simplified model, Jurídica removed from score | Spec compared against real product description; 5 structural mismatches found |
+| 2026-05-01 | Rev 1: documento uploads for Jurídica; simplified financial inputs; objeto+CV model; Jurídica removed from score | Align with product description |
+| 2026-05-04 | Rev 2: Single-page form (no wizard); 3-year financial JSONB + balance fields; profile versioning (immutable snapshots); Datos legales section; removed document uploads; completeness warning (not blocking gate); single user per company | MVP scope alignment: 15-min completion target, versioned verdicts, discovery filter derivation |

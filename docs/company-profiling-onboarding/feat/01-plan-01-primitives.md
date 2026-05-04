@@ -2,83 +2,105 @@
 
 ## Scope
 
-- `src/types/domain/primitives.ts` — add `EmpresaPerfilId`, `TipoSocietario`, `TipoDocumentoJuridico`
-- `src/lib/validators/empresa-perfil.ts` — Zod schemas for steps 1-5 + domain types (new file)
+- `src/types/domain/company-profile.ts` — branded types + domain sub-types (new file)
+- `src/lib/validators/company-profile.ts` — Zod schemas for full form + sub-schemas (new file)
 
 ## Changes
 
-### New primitives
-
-- `EmpresaPerfilId`: branded string
-- `EmpresaDocumentoJuridicoId`: branded string
-- `TipoSocietario` enum: `SAS | SA | LTDA | EU | Cooperativa | Consorcio | UT | PersonaNatural | Otro`
-- `TipoDocumentoJuridico` enum: `certificado_policia | certificado_contraloria | rmnc | redam | camara_comercio`
-
-### Domain sub-types (empresa-perfil.ts)
+### Branded types (company-profile.ts)
 
 ```typescript
+export type CompanyProfileId = string & { readonly __brand: 'CompanyProfileId' }
+```
+
+### Domain sub-types
+
+```typescript
+export const EjercicioFiscalSchema = z.object({
+  ejercicio: z.number().int().min(2000).max(2030),
+  ingresos_operacionales: z.number().nonnegative(),
+  patrimonio: z.number(),
+  activo_corriente: z.number().nonnegative(),
+  pasivo_corriente: z.number().nonnegative(),
+  activo_total: z.number().nonnegative(),
+  pasivo_total: z.number().nonnegative(),
+})
+export type EjercicioFiscal = z.infer<typeof EjercicioFiscalSchema>
+
 export const ContratoPrevioSchema = z.object({
+  entidad_contratante: z.string().min(2),
   objeto: z.string().min(5),
-  entidad: z.string(),
-  valor_smmlv: z.number().nonnegative(),
+  valor_cop: z.number().nonnegative(),
   fecha_inicio: z.string().date(),
   fecha_fin: z.string().date(),
-  unspsc_codes: z.array(z.string()).optional(),
+  unspsc_code: z.string().optional(),
+}).refine(d => d.fecha_fin >= d.fecha_inicio, {
+  message: 'La fecha de fin no puede ser anterior a la fecha de inicio',
+  path: ['fecha_fin'],
 })
 export type ContratoPrevio = z.infer<typeof ContratoPrevioSchema>
 
-export const PersonalCvEntrySchema = z.object({
+export const PersonalClaveEntrySchema = z.object({
   nombre: z.string().min(2),
-  cargo: z.string(),
-  fecha_inicio: z.string().date(),
-  fecha_fin: z.string().date().nullable(),
-  empresa_contratante: z.string(),
-  objeto: z.string().optional(),
+  cedula: z.string().min(5),
+  profesion: z.string().min(2),
+  titulo: z.string().min(2),
+  anios_experiencia: z.number().int().nonnegative(),
+  certificaciones: z.array(z.string()).default([]),
 })
-export type PersonalCvEntry = z.infer<typeof PersonalCvEntrySchema>
+export type PersonalClaveEntry = z.infer<typeof PersonalClaveEntrySchema>
 ```
 
-### Step schemas
-
-**Step1Schema:** nit (DV validated), razon_social, tipo_societario, representante_legal_nombre, representante_legal_documento, email_corporativo, telefono (optional)
-
-**Step2Schema:**
-- `unspsc_codes`: min 1
-- `contratos_previos`: `z.array(ContratoPrevioSchema).optional()`
-- `personal_cv`: `z.array(PersonalCvEntrySchema).optional()`
-- `experiencia_general_smmlv`, `anios_experiencia`: required
-- `acepta_consorcios`, `numero_empleados`, `departamentos_presencia`, `tiene_oficina_fisica`: optional
-- `rup_clasificaciones_unspsc`: `z.array(z.string()).optional()` — for advisory cross-check
-
-**Step3Schema:** cobertura_nacional, departamentos_interes, modalidades_interes (min 1), presupuesto range with `.refine(min ≤ max)`, `.refine(cobertura_nacional = false → dptos non-empty)`, entidades_favoritas, entidades_excluidas
-
-**Step4Schema:**
-- Raw inputs: `activo_total > 0`, `pasivo_total ≥ 0`, `activo_corriente ≥ 0`, `pasivo_corriente ≥ 0`, `ebit` (any sign), `gastos_financieros ≥ 0`
-- Manual: `ingresos_operacionales ≥ 0`, `utilidad_neta`, `margen_neto`, `margen_ebitda`, `roe`, `roa`
-- Optional: `cupo_credito_aprobado_cop`, `tiene_aseguradora_garantias`, `aseguradoras_relacion`
-- No full balance sheet; no `patrimonio_neto`
-
-**Step5Schema:** (RUP + certifications + habilitaciones; antecedentes booleans REMOVED)
-- `rup_vigente`, `rup_numero`, `rup_fecha_vencimiento`, `rup_capacidad_organizacional_co`, `rup_capacidad_residual_kc`, `rup_capacidad_financiera_kf`
-- `certificaciones`: array
-- `habilitaciones_sectoriales`: array
-
-**DocumentUploadSchema:**
-- `tipo_documento`: `z.nativeEnum(TipoDocumentoJuridico)`
-- `fecha_emision`: `z.string().date()`
-- `fecha_vencimiento` = `fecha_emision + 30 days` (computed server-side)
-
-### CV overlap utility
+### Full form schema (company-profile.ts)
 
 ```typescript
-export function calcularExperienciaEfectiva(entries: PersonalCvEntry[]): number
-// Returns total non-overlapping months across all CV entries
-// Algorithm: sort by fecha_inicio, merge overlapping date ranges, sum durations
+export const CompanyProfileSchema = z.object({
+  // Section 1: Datos legales
+  nit: z.string().regex(/^\d{6,10}$/, 'NIT debe tener entre 6 y 10 dígitos'),
+  digito_verificacion: z.number().int().min(0).max(9),
+  razon_social: z.string().min(2),
+  representante_legal_nombre: z.string().min(2),
+  representante_legal_cedula: z.string().min(5),
+  domicilio_principal: z.string().min(2),
+  anio_constitucion: z.number().int().min(1900).max(new Date().getFullYear()),
+  // Section 2: Capacidad financiera
+  ejercicios_fiscales: z.array(EjercicioFiscalSchema).min(0).max(3),
+  // Section 3: Experiencia
+  contratos_previos: z.array(ContratoPrevioSchema).default([]),
+  // Section 4: Personal clave
+  personal_clave: z.array(PersonalClaveEntrySchema).default([]),
+  // Section 5: Alcance comercial
+  unspsc_codes: z.array(z.string()).default([]),
+  departamentos_interes: z.array(z.string()).default([]),
+  presupuesto_min_cop: z.number().nonnegative().nullable().optional(),
+  presupuesto_max_cop: z.number().nonnegative().nullable().optional(),
+}).refine(
+  d => !d.presupuesto_min_cop || !d.presupuesto_max_cop || d.presupuesto_min_cop <= d.presupuesto_max_cop,
+  { message: 'El presupuesto mínimo no puede ser mayor al máximo', path: ['presupuesto_max_cop'] }
+)
+export type CompanyProfile = z.infer<typeof CompanyProfileSchema>
+```
+
+### NIT DV utility
+
+```typescript
+export function validarDigitoVerificacion(nit: string, dv: number): boolean
+// Colombian modulo-11 algorithm
+// Returns true if computed DV matches provided dv
+```
+
+### Derived indicators utility
+
+```typescript
+export function computarIndicadoresFinancieros(
+  ejercicios: EjercicioFiscal[]
+): { liquidez_corriente: number | null; nivel_endeudamiento: number | null; capital_de_trabajo: number | null }
+// Uses most recent year (max ejercicio); returns null for each indicator if required input = 0 or absent
 ```
 
 ### Design Rationale (SRP)
 
-All domain schemas and sub-types in one file. CV utility is pure (no side effects) — testable in isolation.
+Full form schema in one file — holistic validation (cross-section .refine) can only work on the full object. Utilities are pure with no side effects — testable in isolation.
 
 ## Dependencies
 
@@ -86,8 +108,8 @@ None — foundational task.
 
 ## Done When
 
-- [ ] `EmpresaPerfilId`, `TipoSocietario`, `TipoDocumentoJuridico` exported from primitives
-- [ ] All 5 step Zod schemas + `DocumentUploadSchema` exported
-- [ ] `ContratoPrevio`, `PersonalCvEntry`, `calcularExperienciaEfectiva` exported
-- [ ] `calcularExperienciaEfectiva` unit tests pass (overlap, no-overlap, null fecha_fin edge cases)
+- [ ] `CompanyProfileSchema` exported; validates all 5 sections with correct .refine rules
+- [ ] `ContratoPrevioSchema` rejects entries where fecha_fin < fecha_inicio
+- [ ] `validarDigitoVerificacion` accepts valid NITs, rejects invalid DVs (unit tests)
+- [ ] `computarIndicadoresFinancieros` returns null when pasivo_corriente = 0
 - [ ] `npm run build` succeeds with no type errors

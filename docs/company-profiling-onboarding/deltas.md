@@ -1,3 +1,33 @@
+## Delta 2026-05-04 — edit | Rev 2: MVP scope alignment
+
+**Mode:** edit  
+**Rationale:** Adapt spec to MVP constraints: 15-min completion target, profile versioning for reproducible verdicts, discovery filter derivation, single-page form (no wizard state), no document uploads in scope.  
+**Affected domains:** empresa-profile, database, integrations, eligibility-matching
+
+### Tasks added
+- None
+
+### Tasks modified
+- T1: Replaced step-by-step schemas with unified CompanyProfileSchema (5 sections); replaced ContratoPrevio+PersonalCvEntry with updated field names (entidad_contratante, valor_cop, cedula); replaced calcularExperienciaEfectiva with computarIndicadoresFinancieros; added validarDigitoVerificacion
+- T2: Replaced empresa_perfil (single-row) with versioned company_profiles (UNIQUE company+version, is_current); removed empresa_documento_juridico; added ejercicios_fiscales JSONB; changed flat financial cols to derived numerics (not generated)
+- T3: Replaced EmpresaPerfilTable/EmpresaDocumentoJuridicoTable with CompanyProfileTable; removed Updateable export (immutable rows)
+- T4: Updated RuesLookupResult fields (removed tipo_societario; added domicilio_principal)
+- T6 (was T7): saveCompanyProfile now does versioned INSERT in transaction; removed step1-5 individual upserts
+- T7 (was T8+T9 merged): Single-page form with 5 sections replaces multi-step wizard + profile editor
+- T8 (was T10 simplified): Completeness badge only (no gate, no document expiry alerts)
+
+### Tasks removed
+- T6 (Document Upload Service) — Jurídica document uploads removed from MVP scope
+- T8 (Onboarding Wizard) — replaced by single-page form (T7)
+- T9 (Profile Editor) — merged into single-page form (T7)
+- T10 (Dashboard Integration) — replaced by simpler T8 (completeness badge only)
+
+### Impact on memory
+- empresa-profile domain: no wizard pattern; single form; versioned snapshots (not upserts)
+- database domain: company_profiles is versioned; no empresa_documento_juridico in this spec
+
+---
+
 ## Delta 2026-05-01 — edit | Rev 1: align with real product description
 
 **Mode:** edit  

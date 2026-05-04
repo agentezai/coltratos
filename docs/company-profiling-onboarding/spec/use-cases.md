@@ -11,193 +11,141 @@
 
 ## User Stories
 
-### US-01 — Completar onboarding obligatorio
+### US-01 — Completar perfil por primera vez
 
 **As a** usuario empresa  
-**I want** to complete steps 1-3 of the onboarding wizard  
-**So that** I can access the dashboard and see matching procesos from day one
+**I want** to fill in my company profile with RUP data in a single form  
+**So that** COLTRATOS can match procesos to my capabilities from day one
 
-### US-02 — Definir capacidades técnicas
-
-**As a** usuario empresa  
-**I want** to select my UNSPSC codes and enter experience data  
-**So that** the matching engine can filter procesos relevant to my activity
-
-### US-03 — Auto-rellenar desde RUES
+### US-02 — Auto-rellenar datos legales desde RUES
 
 **As a** usuario empresa  
-**I want** the system to pre-fill my empresa data from RUES using my NIT  
-**So that** I don't have to type information that is already publicly registered
+**I want** the system to pre-fill my legal data from RUES using my NIT  
+**So that** I don't have to type publicly registered information manually
 
-### US-04 — Completar dimensión financiera
-
-**As a** usuario empresa  
-**I want** to enter my last fiscal year's financial statements  
-**So that** COLTRATOS can evaluate my eligibility for pliegos with financial thresholds (Layer 2)
-
-### US-05 — Completar dimensión jurídica
+### US-03 — Editar perfil post-primer guardado
 
 **As a** usuario empresa  
-**I want** to enter my RUP data, certifications, and declare my antecedentes  
-**So that** COLTRATOS can check my legal eligibility and certification requirements
+**I want** to update any profile field after the initial save  
+**So that** my matching scores reflect my current capabilities without affecting past verdicts
 
-### US-06 — Editar perfil post-onboarding
-
-**As a** usuario empresa  
-**I want** to update any profile field after onboarding  
-**So that** my matching scores reflect my current state
-
-### US-07 — Ver puertas contextuales
+### US-04 — Ver advertencia de completitud
 
 **As a** usuario empresa  
-**I want** to be prompted to complete my financial profile when I open a pliego that requires it  
-**So that** I understand exactly why I need the information and can complete it in context
+**I want** to see how complete my profile is at all times  
+**So that** I understand how much profile data is driving my verdicts
 
 ---
 
 ## Use Case Scenarios
 
-### UC-01 — Onboarding obligatorio (US-01, US-02) {#uc-01}
+### UC-01 — Primer guardado {#uc-01}
 
-**Preconditions:** User authenticated; no `empresa_perfil` row exists for their empresa
+**Preconditions:** User authenticated; no company_profiles row exists for their company
 
 #### Main Scenario
 
 1. User navigates to any dashboard route
-2. System detects missing `empresa_perfil`; redirects to `/onboarding`
-3. User completes Step 1 (Identidad legal): NIT, razon_social, tipo_societario, representante_legal_nombre, email_corporativo
-4. User completes Step 2 (Dimensión Técnica): selects UNSPSC codes, enters experiencia_general_smmlv, anios_experiencia, numero_empleados
-5. User completes Step 3 (Preferencias): sets departamentos_interes, modalidades_interes, presupuesto range
-6. System upserts `empresa_perfil`; `completitud_tecnica = true`
-7. System redirects to `/dashboard` — Layer 1 matching active
+2. System detects no is_current company_profiles row; redirects to `/onboarding`
+3. Single-page form rendered with 5 sections
+4. User enters NIT → RUES lookup triggered; legal fields pre-filled on success
+5. User completes remaining sections (Capacidad financiera, Experiencia, Personal clave, Alcance comercial)
+6. User submits form
+7. Server validates NIT DV, date ranges, budget constraint; computes derived financial indicators
+8. New company_profiles row inserted: version = 1, is_current = true
+9. Redirect to `/dashboard`; completeness badge shows filled sections count
 
 #### Alternative Scenarios
 
-**3a. RUES returns data (UC-02)**  
-System pre-fills razon_social, tipo_societario, representante_legal_nombre; user reviews and confirms
+**4a. RUES returns data (UC-02)**  
+Fields razon_social, representante_legal_nombre pre-filled; user reviews and may edit
 
-**3b. User on Step 2 or 3 refreshes page**  
-Partially completed data preserved in server-side session or local state; user resumes from last completed step
+**4b. RUES timeout or error**  
+Form shows "No encontramos tu empresa en RUES. Completa manualmente."; fields remain editable; onboarding not blocked
+
+**5a. User skips optional sections**  
+Form submits with partial data; completeness badge reflects partial state; analysis proceeds with available data
 
 #### Error Scenarios
 
-**3e. User submits Step 1 with invalid NIT DV**  
-Inline validation error; cannot advance until corrected
+**7e. NIT DV incorrect**  
+Server returns 422; no row written; inline error shown: "El dígito de verificación es incorrecto"
 
-**5e. User submits Step 3 with presupuesto_min > presupuesto_max**  
-Zod validation error shown inline; form does not submit
+**7e. presupuesto_min > presupuesto_max**  
+Zod validation error: "El presupuesto mínimo no puede ser mayor al máximo"
 
-**Postconditions:** `empresa_perfil` row exists; `completitud_tecnica = true`; user on dashboard
+**7e. fecha_fin < fecha_inicio in a contract entry**  
+Server returns 422; error shown on the specific entry row
+
+**Postconditions:** company_profiles row exists with version = 1, is_current = true; user on dashboard
 
 ---
 
 ### UC-02 — RUES auto-fill {#uc-02}
 
-**Preconditions:** User on Step 1; NIT field populated
+**Preconditions:** User on profile form; NIT field populated
 
 #### Main Scenario
 
 1. User enters NIT and field loses focus
-2. System sends NIT to `/api/empresa/rues-lookup`
+2. System sends NIT to `POST /api/empresa/rues-lookup`
 3. RUES API responds within 2s
-4. System pre-fills razon_social, tipo_societario, representante_legal_nombre with RUES data
+4. Fields pre-filled: razon_social, representante_legal_nombre
 5. User confirms or edits pre-filled values
 
 #### Alternative Scenarios
 
-**2a. RUES API timeout or error**  
-After 2s AbortController fires; form shows "No encontramos tu empresa en RUES. Completa manualmente."; fields remain empty and editable
+**3a. RUES API timeout or error**  
+After 2s AbortController fires; "No encontramos tu empresa en RUES. Completa manualmente." shown; fields remain editable; form not blocked
 
-**4a. RUES returns partial data**  
-Only available fields pre-filled; rest remain editable
+**4a. Partial RUES data**  
+Only available fields pre-filled; rest remain empty and editable
 
-**Postconditions:** Fields either pre-filled from RUES or filled manually by user; onboarding not blocked
+**Postconditions:** Fields pre-filled from RUES or left for manual entry; form submission never blocked by RUES outcome
 
 ---
 
-### UC-03 — Dimensión financiera {#uc-03}
+### UC-03 — Edición posterior {#uc-03}
 
-**Preconditions:** User has completed steps 1-3; `completitud_financiera = false`
+**Preconditions:** User has an existing is_current company_profiles row; navigates to `/dashboard/config/perfil`
 
 #### Main Scenario
 
-1. User navigates to `/dashboard/config/perfil` or clicks completitud banner CTA
-2. System renders Step 4 (Dimensión Financiera)
-3. User enters estados financieros fields: patrimonio_neto, activos_totales, activos_corrientes, pasivos_totales, pasivos_corrientes, ingresos_operacionales, utilidad_operacional, gastos_intereses
-4. System shows calculated indicators (read-only preview): indice_liquidez, indice_endeudamiento, razon_cobertura_int
-5. User submits
-6. System upserts financial fields; generated columns materialized; `completitud_financiera = true`
-7. Banner disappears from dashboard
+1. System loads is_current row and pre-fills all form fields
+2. User edits one or more sections
+3. User submits form
+4. Server validates; computes updated derived indicators from most recent fiscal year
+5. New company_profiles row inserted: version = previous + 1, is_current = true; previous row is_current = false
+6. Completeness badge updated in dashboard
 
 #### Error Scenarios
 
-**5e. activos_corrientes > activos_totales**  
-Zod `.refine()` error; cannot submit
+**Same validation errors as UC-01 Step 7**
 
-**Postconditions:** `completitud_financiera = true`; financial indicators available for Layer 2 matching
-
----
-
-### UC-04 — Dimensión jurídica {#uc-04}
-
-**Preconditions:** User has completed steps 1-3; `completitud_juridica = false`
-
-#### Main Scenario
-
-1. User navigates to Step 5 (Dimensión Jurídica)
-2. System renders RUP fields, certificaciones input, antecedentes checkboxes
-3. If UNSPSC primary codes include regulated sectors, conditional habilitaciones sectoriales fields appear
-4. User fills fields and checks disclaimer acknowledgement
-5. User submits
-6. System logs `declaracion_antecedentes_at = now()` and `declaracion_antecedentes_ip` from request
-7. `completitud_juridica = true`
-
-#### Error Scenarios
-
-**5e. User submits without checking disclaimer**  
-Submission blocked; disclaimer checkbox highlighted with error
-
-**Postconditions:** `completitud_juridica = true`; declaration logged with timestamp and IP
+**Postconditions:** New company_profiles version created; existing analyses still reference their original snapshot; matching scores use new version on next query
 
 ---
 
-### UC-05 — Edición posterior {#uc-05}
+### UC-04 — Completeness warning {#uc-04}
 
-**Preconditions:** User has completed onboarding; navigates to `/dashboard/config/perfil`
-
-#### Main Scenario
-
-1. System renders all 5 steps in edit mode; existing values pre-filled
-2. User edits any field and submits the affected step
-3. Server action validates and upserts changed fields
-4. Generated columns recompute automatically
-
-**Postconditions:** Updated `empresa_perfil` row; matching scores reflect new data on next query
-
----
-
-### UC-06 — Contextual gate before analysis {#uc-06}
-
-**Preconditions:** User with `completitud_financiera = false`; opens pliego that requires financial thresholds
+**Preconditions:** User has is_current profile with one or more sections incomplete
 
 #### Main Scenario
 
-1. User clicks "Iniciar análisis" on a pliego
-2. System checks `completitud_financiera`; finds it false
-3. System checks pliego for financial threshold requirements; finds patrimonio mínimo or liquidez threshold
-4. Gate modal shown: "Este pliego exige [threshold]. Completa tu perfil financiero para evaluarte automáticamente."
-5. User clicks "Completar ahora" → navigated to Step 4
-6. On return, analysis starts automatically
+1. User views dashboard
+2. Completeness badge shows "X de 5 secciones completas"
+3. User clicks badge → navigated to `/dashboard/config/perfil` with incomplete section highlighted
+4. User fills section and saves
+5. Badge updates
 
-#### Alternative Scenarios
+#### Key Constraint
 
-**4a. User dismisses modal**  
-Analysis starts in Layer 1 mode; financial habilitantes not evaluated; verdict marked `unverified` for financial dimension
+Analysis is never blocked regardless of completeness score. Badge is informational only.
 
-**Postconditions:** Analysis starts with correct depth level based on profile completeness
+**Postconditions:** User aware of profile gaps; analysis available at any completeness level
 
 ---
 
 ## UX/UI References
 
-Design references pending — see [spec.md UX/UI section](./spec.md#uxui).
+Design System components only — see [spec.md UX/UI section](./spec.md#uxui). Spanish labels throughout.
