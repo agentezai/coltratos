@@ -41,7 +41,7 @@ export const WithAuthError: Story = {
       appDirectory: true,
       navigation: {
         pathname: '/login',
-        searchParams: new URLSearchParams({ error: 'El enlace de verificación ha expirado.' }),
+        query: { error: 'El enlace de verificación ha expirado.' },
       },
     },
   },

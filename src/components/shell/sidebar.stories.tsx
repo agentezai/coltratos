@@ -7,6 +7,10 @@ const meta = {
   component: Sidebar,
   parameters: {
     layout: "fullscreen",
+    nextjs: {
+      appDirectory: true,
+      navigation: { pathname: "/dashboard" },
+    },
     docs: {
       description: {
         component:
@@ -17,9 +21,7 @@ const meta = {
       },
     },
   },
-  args: {
-    initialActive: "dashboard",
-  },
+  args: {},
 } satisfies Meta<typeof Sidebar>;
 
 export default meta;
@@ -38,11 +40,11 @@ export const Default: Story = {
 };
 
 export const ActiveSubir: Story = {
-  args: { initialActive: "subir" },
+  args: {},
 };
 
 export const ActiveAlertas: Story = {
-  args: { initialActive: "alertas" },
+  args: {},
 };
 
 export const LowCredits: Story = {
