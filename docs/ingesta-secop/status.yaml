@@ -1,0 +1,9 @@
+status: draft
+created: "2026-05-01"
+action_type: FEATURE
+profile: code
+feature_id: secop-ingestion-and-listing
+owner: Carlos Villa Mercado
+updated: "2026-05-01"
+revision_count: 2
+last_revision: "Remove P5 (frontend → procesos-listing spec); upgrade P4 with empresa enrichment, filter-aware stats, multi-select filters, Cache-Control private"

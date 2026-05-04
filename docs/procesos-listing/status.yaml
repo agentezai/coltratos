@@ -1,0 +1,7 @@
+status: draft
+created: "2026-05-01"
+action_type: FEATURE
+profile: code
+feature_id: procesos-listing
+owner: Carlos Villa Mercado
+depends_on: ingesta-secop

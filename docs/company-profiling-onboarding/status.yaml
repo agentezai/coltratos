@@ -1,0 +1,8 @@
+status: draft
+action_type: FEATURE
+profile: code
+created: "2026-05-01"
+owner: Carlos Villa Mercado
+updated: "2026-05-01"
+revision_count: 1
+last_revision: "Align with product description: documento uploads (not declarations) for Jurídica; simplified financial inputs; objeto+CV model for Técnica; Jurídica removed from score formula; T6 added (document upload service); task count 9→10"
