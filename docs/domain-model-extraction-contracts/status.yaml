@@ -1,0 +1,9 @@
+status: confirmed
+action_type: FEATURE
+profile: code
+created: "2026-04-30"
+approved_at: "2026-04-30"
+run_completed_at: "2026-04-30"
+verified_at: "2026-04-30"
+revision_count: 1
+last_revision: "Split from domain-model spec rev 5. Extraction contracts layer: RequisitoExtractionPayloadSchema, ExtractorLogger, Semaforo/SemaforoStats/RequisitoCategoria types, HABILITANTE_HEADING_PATTERNS constants."

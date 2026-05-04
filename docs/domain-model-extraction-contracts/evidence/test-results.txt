@@ -1,0 +1,49 @@
+The plugin "vite-tsconfig-paths" is detected. Vite now supports tsconfig paths resolution natively via the resolve.tsconfigPaths option. You can remove the plugin and set resolve.tsconfigPaths: true in your Vite config instead.
+The plugin "vite-tsconfig-paths" is detected. Vite now supports tsconfig paths resolution natively via the resolve.tsconfigPaths option. You can remove the plugin and set resolve.tsconfigPaths: true in your Vite config instead.
+The plugin "vite-tsconfig-paths" is detected. Vite now supports tsconfig paths resolution natively via the resolve.tsconfigPaths option. You can remove the plugin and set resolve.tsconfigPaths: true in your Vite config instead.
+Testing types with tsc and vue-tsc is an experimental feature.
+Breaking changes might not follow SemVer, please pin Vitest's version when using it.
+
+ RUN  v4.1.5 /Users/carlosvilla/Documents/Proyectos/AI/coltratos
+      Coverage enabled with v8
+
+
+ Test Files  32 passed (32)
+      Tests  153 passed (153)
+Type Errors  no errors
+   Start at  23:51:39
+   Duration  4.34s (transform 854ms, setup 0ms, import 2.12s, tests 643ms, environment 2.81s, typecheck 2.98s)
+
+ % Coverage report from v8
+-------------------|---------|----------|---------|---------|-------------------
+File               | % Stmts | % Branch | % Funcs | % Lines | Uncovered Line #s 
+-------------------|---------|----------|---------|---------|-------------------
+All files          |   72.31 |    69.23 |   61.53 |   72.94 |                   
+ ...orgot-password |      50 |       50 |      25 |      50 |                   
+  page.tsx         |      50 |       50 |      25 |      50 | 14-17,22,54       
+ app/(auth)/login  |   55.55 |       50 |   33.33 |   58.82 |                   
+  page.tsx         |   55.55 |       50 |   33.33 |   58.82 | 19-23,46-60       
+ ...reset-password |   35.29 |       25 |      20 |    37.5 |                   
+  page.tsx         |   35.29 |       25 |      20 |    37.5 | 14-22,41-56       
+ app/(auth)/signup |   43.75 |    33.33 |      20 |   43.75 |                   
+  page.tsx         |   43.75 |    33.33 |      20 |   43.75 | 17-24,43-58       
+ src/app/(auth)    |     100 |    83.33 |     100 |     100 |                   
+  actions.ts       |     100 |    83.33 |     100 |     100 | 14,51             
+ src/components/ui |     100 |    89.28 |     100 |     100 |                   
+  button.tsx       |     100 |    77.77 |     100 |     100 | 44,64             
+  card.tsx         |     100 |    88.88 |     100 |     100 | 60                
+ src/lib/supabase  |       0 |        0 |       0 |       0 |                   
+  client.ts        |       0 |        0 |       0 |       0 | 7-12              
+  server.ts        |       0 |      100 |       0 |       0 | 6-19              
+ src/types/domain  |   89.13 |      100 |   79.16 |   88.88 |                   
+  anexo-proceso.ts |      75 |      100 |   66.66 |      75 | 10                
+  pliego.ts        |      75 |      100 |   66.66 |      75 | 10                
+  prompt-cache.ts  |      25 |      100 |       0 |      25 | 5-7               
+-------------------|---------|----------|---------|---------|-------------------
+
+=============================== Coverage summary ===============================
+Statements   : 72.31% ( 128/177 )
+Branches     : 69.23% ( 54/78 )
+Functions    : 61.53% ( 40/65 )
+Lines        : 72.94% ( 124/170 )
+================================================================================

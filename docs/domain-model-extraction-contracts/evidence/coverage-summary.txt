@@ -1,0 +1,21 @@
+## Coverage Summary — domain-model-extraction-contracts
+
+Source: vitest --coverage (v8 provider), run 2026-04-30
+
+### Repo-wide (all src/)
+Statements : 72.31% (128/177)
+Branches   : 69.23% (54/78)
+Functions  : 61.53% (40/65)
+Lines      : 72.94% (124/170)
+
+### Spec files (this feature only)
+extraction-payload.ts  — fully covered by TC-001→TC-004 (12 unit tests)
+semaforo.ts            — pure types; no runtime coverage applicable
+habilitante-patterns.ts — runtime constant; covered by TC-005 (length/instanceof checks)
+logger.ts              — pure interface; no runtime coverage applicable
+
+### Uncovered repo files (not introduced by this spec)
+prompt-cache.ts        — 25% stmts (lines 5-7); pre-existing
+pliego.ts              — 75% stmts (line 10); pre-existing
+anexo-proceso.ts       — 75% stmts (line 10); pre-existing
+src/lib/supabase/      — 0% (integration-test boundary); pre-existing
