@@ -4,8 +4,21 @@ import { NextResponse } from 'next/server'
 
 export async function GET(request: Request) {
   const { searchParams, origin } = new URL(request.url)
+  const code = searchParams.get('code')
   const token_hash = searchParams.get('token_hash')
   const type = searchParams.get('type') as EmailOtpType | null
+
+  const supabase = await createServerClient()
+
+  if (code) {
+    const { error } = await supabase.auth.exchangeCodeForSession(code)
+    if (error) {
+      return NextResponse.redirect(
+        new URL(`/login?error=${encodeURIComponent(error.message)}`, origin)
+      )
+    }
+    return NextResponse.redirect(new URL('/dashboard', origin))
+  }
 
   if (!token_hash || !type) {
     return NextResponse.redirect(
@@ -13,7 +26,6 @@ export async function GET(request: Request) {
     )
   }
 
-  const supabase = await createServerClient()
   const { error } = await supabase.auth.verifyOtp({ token_hash, type })
 
   if (error) {
