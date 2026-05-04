@@ -200,6 +200,50 @@ const PATHS = {
       <path d="M17 6h6v6" />
     </>
   ),
+  "file-text": (
+    <>
+      <path d="M14 3v5h5" />
+      <path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z" />
+      <path d="M9 13h6" />
+      <path d="M9 17h4" />
+    </>
+  ),
+  target: (
+    <>
+      <circle cx="12" cy="12" r="10" />
+      <circle cx="12" cy="12" r="6" />
+      <circle cx="12" cy="12" r="2" />
+    </>
+  ),
+  archive: (
+    <>
+      <path d="M21 8v13H3V8" />
+      <path d="M1 3h22v5H1z" />
+      <path d="M10 12h4" />
+    </>
+  ),
+  "dollar-sign": (
+    <>
+      <path d="M12 1v22" />
+      <path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6" />
+    </>
+  ),
+  "bar-chart": (
+    <>
+      <path d="M18 20V10" />
+      <path d="M12 20V4" />
+      <path d="M6 20v-6" />
+    </>
+  ),
+  "user-plus": (
+    <>
+      <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" />
+      <circle cx="9" cy="7" r="4" />
+      <path d="M19 8v6" />
+      <path d="M22 11h-6" />
+    </>
+  ),
+  check: <path d="M20 6 9 17l-5-5" />,
 } as const satisfies Record<string, ReactNode>;
 
 export type IconName = keyof typeof PATHS;
