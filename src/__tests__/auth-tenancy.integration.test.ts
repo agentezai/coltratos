@@ -37,6 +37,17 @@ function randomEmail() {
 
 const createdUserIds: string[] = []
 
+async function insertProceso() {
+  const { data, error } = await admin.from('proceso').insert({
+    secop_process_number: `TC-TEST-${Date.now()}-${Math.random().toString(36).slice(2)}`,
+    entidad_contratante: 'Entidad Test',
+    objeto: 'Objeto de prueba para test de aislamiento RLS',
+    modalidad: 'licitacion_publica',
+  }).select('id').single()
+  if (error) throw new Error(`insertProceso: ${error.message}`)
+  return data!
+}
+
 async function createVerifiedUser(email: string, password: string) {
   const { data, error } = await admin.auth.admin.createUser({
     email,
@@ -116,11 +127,12 @@ describe('TC-007 — RLS cross-tenant isolation on analisis (NFR-04)', () => {
       .eq('user_id', sessionB!.user.id)
       .single()
 
-    // Insert an analisis row for empresa B using admin (bypasses RLS)
+    // Insert a proceso + analisis for empresa B using admin (bypasses RLS)
+    const proceso = await insertProceso()
     await admin.from('analisis').insert({
       empresa_id: memberB!.empresa_id,
-      proceso_lookup_status: 'unverified',
-      verdict: 'amarillo',
+      proceso_id: proceso.id,
+      pliego_ids: [],
     })
 
     // Now sign in as user A and try to read empresa B's analisis
@@ -159,12 +171,14 @@ describe('TC-008 — RLS cross-tenant isolation on requisito (NFR-04)', () => {
       .eq('user_id', (await clientB.auth.getUser()).data.user!.id)
       .single()
 
-    // Insert analisis + requisito for empresa B via admin
-    const { data: analisis } = await admin.from('analisis').insert({
+    // Insert proceso + analisis + requisito for empresa B via admin
+    const proceso = await insertProceso()
+    const { data: analisis, error: analisisError } = await admin.from('analisis').insert({
       empresa_id: memberB!.empresa_id,
-      proceso_lookup_status: 'unverified',
-      verdict: 'verde',
+      proceso_id: proceso.id,
+      pliego_ids: [],
     }).select('id').single()
+    expect(analisisError).toBeNull()
 
     await admin.from('requisito').insert({
       analisis_id: analisis!.id,
