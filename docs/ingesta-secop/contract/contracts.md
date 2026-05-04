@@ -6,10 +6,19 @@ Write each failing test before implementing the corresponding behavior.
 
 ## Phase P1: Schema + Env
 
-### Behavior: build fails on missing env var (REQ-013)
+### Behavior: build fails on missing OPENAI_API_KEY (REQ-020)
+
+**Given** `OPENAI_API_KEY` not set in process.env
+**When** `lib/env.ts` is imported (at build time)
+**Then** Zod throws with message referencing `OPENAI_API_KEY`
+
+**Test file:** `src/__tests__/env.test.ts`
+**Framework:** vitest
+
+### Behavior: build fails on missing DATOS_GOV_APP_TOKEN (REQ-020)
 
 **Given** `DATOS_GOV_APP_TOKEN` not set in process.env
-**When** `lib/env.ts` is imported (at build time)
+**When** `lib/env.ts` is imported
 **Then** Zod throws with message referencing `DATOS_GOV_APP_TOKEN`
 
 **Test file:** `src/__tests__/env.test.ts`
@@ -95,11 +104,11 @@ Write each failing test before implementing the corresponding behavior.
 **Test file:** `src/__tests__/cron-sync-secop.test.ts`
 **Framework:** vitest
 
-### Behavior: backfill uses 90-day filter (REQ-002, TC-002)
+### Behavior: backfill uses open-fase filter (REQ-002, TC-002)
 
 **Given** `secop_sync_state.last_updated_at = null`
 **When** cron fires (mocked SODA client)
-**Then** SODA client called with backfill filter including `fecha_de_publicacion_del_proceso > <90days>`
+**Then** SODA client called with open-fase filter condition
 
 **Test file:** `src/__tests__/cron-sync-secop.test.ts`
 **Framework:** vitest
@@ -120,13 +129,71 @@ Write each failing test before implementing the corresponding behavior.
 **Then** still 10 rows; no duplicates
 
 **Test file:** `src/__tests__/cron-sync-secop.test.ts`
-**Framework:** vitest (DB integration or mocked Supabase)
+**Framework:** vitest
+
+### Behavior: prune removes closed procesos (REQ-007, TC-005)
+
+**Given** `secop_procesos` has 5 rows; 2 have `fecha_cierre` in the past
+**When** cron sync batch completes
+**Then** DELETE called; 2 rows removed; 3 remain
+
+**Test file:** `src/__tests__/cron-sync-secop.test.ts`
+**Framework:** vitest
+
+### Behavior: cron calls embedding phase (REQ-008)
+
+**Given** cron sync completes successfully
+**When** response returned
+**Then** `runEmbeddingPhase` called with supabase service client; result in response body
+
+**Test file:** `src/__tests__/cron-sync-secop.test.ts`
+**Framework:** vitest (mock runEmbeddingPhase)
+
+---
+
+## Phase P5: Embeddings
+
+### Behavior: new rows are embedded (REQ-008, TC-006)
+
+**Given** 5 rows with `embedded_at IS NULL`
+**When** `runEmbeddingPhase` called (mocked OpenAI)
+**Then** OpenAI called; all 5 rows updated with non-null `embedding`; `embedded_at` set; `embedding_cost_log` has 1 new row
+
+**Test file:** `src/__tests__/secop-embeddings.test.ts`
+**Framework:** vitest
+
+### Behavior: unchanged rows are skipped (REQ-008, NFR-07, TC-007)
+
+**Given** 5 rows with `socrata_updated_at <= embedded_at`
+**When** `runEmbeddingPhase` called
+**Then** OpenAI not called; `embedding_cost_log` row has `rows_embedded = 0`
+
+**Test file:** `src/__tests__/secop-embeddings.test.ts`
+**Framework:** vitest
+
+### Behavior: changed rows are re-embedded (REQ-008)
+
+**Given** 3 rows with `socrata_updated_at > embedded_at`
+**When** `runEmbeddingPhase` called
+**Then** OpenAI called for those 3 rows only; `embedded_at` updated to now
+
+**Test file:** `src/__tests__/secop-embeddings.test.ts`
+**Framework:** vitest
+
+### Behavior: cost logged every run (REQ-010)
+
+**Given** any invocation of `runEmbeddingPhase` (even with 0 rows)
+**When** function completes
+**Then** exactly 1 row inserted into `embedding_cost_log`
+
+**Test file:** `src/__tests__/secop-embeddings.test.ts`
+**Framework:** vitest
 
 ---
 
 ## Phase P4: /api/procesos
 
-### Behavior: page_size > 100 returns 400 (REQ-012, TC-009)
+### Behavior: page_size > 100 returns 400 (REQ-019, TC-013)
 
 **Given** GET `/api/procesos?page_size=101`
 **When** Zod parses query params
@@ -144,16 +211,52 @@ Write each failing test before implementing the corresponding behavior.
 **Test file:** `src/__tests__/procesos-endpoint.test.ts`
 **Framework:** vitest
 
-### Behavior: departamento multi-value filter (REQ-008, TC-007)
+### Behavior: structural path — no OpenAI call (REQ-015, TC-009)
 
-**Given** DB has rows for Bolívar, Cundinamarca, and Antioquia
-**When** GET `/api/procesos?departamento=Bolívar,Cundinamarca`
-**Then** only Bolívar and Cundinamarca rows in `data`; Antioquia absent; `total` reflects filtered count
+**Given** GET `/api/procesos?departamento=Bolívar` with no `q`
+**When** handler executes
+**Then** OpenAI not called; all rows have `match_score=null`
 
 **Test file:** `src/__tests__/procesos-endpoint.test.ts`
 **Framework:** vitest
 
-### Behavior: enrichment present for empresa with pliego + analisis (REQ-011, TC-013)
+### Behavior: vector path — match_score present (REQ-013, TC-010)
+
+**Given** rows with non-null embeddings in DB
+**When** GET `/api/procesos?q=software gestión`
+**Then** OpenAI called once (query embedding); rows have `match_score` float between 0 and 1; rows ordered descending by match_score
+
+**Test file:** `src/__tests__/procesos-endpoint.test.ts`
+**Framework:** vitest
+
+### Behavior: profile-match derives filters (REQ-014, TC-011)
+
+**Given** company_profiles has `alcance_comercial.unspsc = ["43232300"]`, `valor_max = 500000000`
+**When** GET `/api/procesos?profile_match=true`
+**Then** only rows with `unspsc = "43232300"` AND `cuantia <= 500000000` returned; no company_profiles data in response
+
+**Test file:** `src/__tests__/procesos-endpoint.test.ts`
+**Framework:** vitest
+
+### Behavior: search_log row created (REQ-016, TC-012)
+
+**Given** authenticated empresa calls GET `/api/procesos?q=software&departamento=Bolívar`
+**When** handler returns 200
+**Then** `search_log` has 1 new row: `company_id` matches empresa, `query="software"`, `filter_object` includes departamento, `result_ids` matches response ids
+
+**Test file:** `src/__tests__/procesos-endpoint.test.ts`
+**Framework:** vitest
+
+### Behavior: departamento multi-value filter (REQ-012, TC-008)
+
+**Given** DB has rows for Bolívar, Cundinamarca, and Antioquia
+**When** GET `/api/procesos?departamento=Bolívar,Cundinamarca`
+**Then** only Bolívar and Cundinamarca rows in `data`; Antioquia absent
+
+**Test file:** `src/__tests__/procesos-endpoint.test.ts`
+**Framework:** vitest
+
+### Behavior: enrichment present for empresa with pliego + analisis (REQ-018, TC-014)
 
 **Given** empresa A has a `pliego` and a completed `analisis` for `id_proceso = "X"` with semaforo `verde`
 **When** empresa A calls `GET /api/procesos` and "X" appears in the page
@@ -162,16 +265,7 @@ Write each failing test before implementing the corresponding behavior.
 **Test file:** `src/__tests__/procesos-endpoint.test.ts`
 **Framework:** vitest
 
-### Behavior: enrichment null when no empresa interaction (REQ-011, TC-014)
-
-**Given** empresa has no pliego or analisis for any proceso
-**When** `GET /api/procesos`
-**Then** all rows: `has_pliego=false`, `has_analisis=false`, `last_sem=null`, `last_analisis_id=null`
-
-**Test file:** `src/__tests__/procesos-endpoint.test.ts`
-**Framework:** vitest
-
-### Behavior: enrichment tenant-isolated (REQ-011)
+### Behavior: enrichment tenant-isolated (REQ-018)
 
 **Given** empresa A has pliego for "X"; empresa B does not
 **When** empresa B calls `GET /api/procesos`
@@ -180,7 +274,7 @@ Write each failing test before implementing the corresponding behavior.
 **Test file:** `src/__tests__/procesos-endpoint.test.ts`
 **Framework:** vitest
 
-### Behavior: stats reflect active filters (REQ-014, TC-015)
+### Behavior: stats reflect active filters (REQ-021, TC-015)
 
 **Given** 100 total rows; 30 in Bolívar; 5 in Bolívar closing this week
 **When** GET `/api/procesos?departamento=Bolívar`
@@ -189,23 +283,20 @@ Write each failing test before implementing the corresponding behavior.
 **Test file:** `src/__tests__/procesos-endpoint.test.ts`
 **Framework:** vitest
 
-### Behavior: full-text search (REQ-009, TC-008)
+### Behavior: direct lookup returns local row (REQ-022)
 
-**Given** rows with nombre "software" and rows without
-**When** GET `/api/procesos?q=software`
-**Then** only matching rows returned
+**Given** `id_proceso = "CO1.BDOS.X"` exists in `secop_procesos`
+**When** GET `/api/procesos/CO1.BDOS.X` (authenticated)
+**Then** returns the local row as JSON; SODA not called
 
-**Test file:** `src/__tests__/procesos-endpoint.test.ts`
+**Test file:** `src/__tests__/procesos-direct-lookup.test.ts`
 **Framework:** vitest
 
-### Behavior: closing_soon excludes past fecha_cierre (RN-007, TC-010)
+### Behavior: direct lookup falls back to SODA (REQ-022)
 
-**Given** rows with `fecha_cierre` in past and future
-**When** GET `/api/procesos?sort=closing_soon`
-**Then** past-dated rows not in response; future rows ordered ascending
+**Given** `id_proceso = "CO1.BDOS.CLOSED"` not in `secop_procesos` (pruned or never synced)
+**When** GET `/api/procesos/CO1.BDOS.CLOSED` (authenticated)
+**Then** SODA called with that id; SODA row returned as JSON
 
-**Test file:** `src/__tests__/procesos-endpoint.test.ts`
+**Test file:** `src/__tests__/procesos-direct-lookup.test.ts`
 **Framework:** vitest
-
-<!-- Phase P5 removed — frontend behaviors live in the procesos-listing spec contracts -->
-**Framework:** vitest + React Testing Library

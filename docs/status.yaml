@@ -4,15 +4,18 @@ features:
     created: "2026-05-01"
     action_type: FEATURE
     profile: code
-    updated: "2026-05-01"
-    revision_count: 2
-    last_revision: "Remove P5 (→ procesos-listing); upgrade P4 with enrichment + stats + multi-select filters"
+    updated: "2026-05-04"
+    revision_count: 4
+    last_revision: "Rename API filter params valor_min/max → cuantia_min/max in spec, P4 plan, verify"
   procesos-listing:
     status: draft
     created: "2026-05-01"
     action_type: FEATURE
     profile: code
     depends_on: ingesta-secop
+    updated: "2026-05-04"
+    revision_count: 1
+    last_revision: "Discovery scope alignment; cuantia_min/max; T1/T3/T4 task plans updated"
   domain-model-primitives:
     status: confirmed
     run_completed_at: "2026-04-30"
