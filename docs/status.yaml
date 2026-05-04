@@ -1,11 +1,48 @@
 features:
-  domain-model:
-    status: approved
-    created: "2026-04-25"
-    approved_at: "2026-04-25"
-    updated: "2026-04-27"
-    revision_count: 5
-    last_revision: "Apply semaforo-aggregation T0 (9 items) + categoria immutability (RN-016) + UC-03 RLS fix. Schema: 3 columns on requisito (categoria narrow + is_habilitante + is_habilitante_source) + 2 CHECKs; semaforo_rules_version on analisis; new semaforo.ts and habilitante-patterns.ts under src/types/domain/. REQ-018-022, RN-016-018, TC-026-031 added. UC-03 rewritten against analisis."
+  ingesta-secop:
+    status: draft
+    created: "2026-05-01"
+    action_type: FEATURE
+    profile: code
+    updated: "2026-05-01"
+    revision_count: 2
+    last_revision: "Remove P5 (→ procesos-listing); upgrade P4 with enrichment + stats + multi-select filters"
+  procesos-listing:
+    status: draft
+    created: "2026-05-01"
+    action_type: FEATURE
+    profile: code
+    depends_on: ingesta-secop
+  domain-model-primitives:
+    status: confirmed
+    run_completed_at: "2026-04-30"
+    verified_at: "2026-04-30"
+    action_type: FEATURE
+    profile: code
+    created: "2026-04-30"
+    approved_at: "2026-04-30"
+    revision_count: 1
+    last_revision: "Split from domain-model spec rev 5. TypeScript/Zod layer: branded IDs, enum literals, Zod schemas for 8 entities, Kysely Database interface, barrel exports."
+  domain-model-postgres:
+    status: confirmed
+    action_type: FEATURE
+    profile: code
+    created: "2026-04-30"
+    approved_at: "2026-04-30"
+    run_completed_at: "2026-05-01"
+    verified_at: "2026-05-01"
+    revision_count: 1
+    last_revision: "Split from domain-model spec rev 5. Postgres layer: migration (9 tables), bifurcated RLS policies, set_empresa_profile_updated_at trigger, all CHECK constraints."
+  domain-model-extraction-contracts:
+    status: confirmed
+    action_type: FEATURE
+    profile: code
+    created: "2026-04-30"
+    approved_at: "2026-04-30"
+    run_completed_at: "2026-04-30"
+    verified_at: "2026-04-30"
+    revision_count: 1
+    last_revision: "Split from domain-model spec rev 5. Extraction contracts layer: RequisitoExtractionPayloadSchema, ExtractorLogger, Semaforo/SemaforoStats/RequisitoCategoria types, HABILITANTE_HEADING_PATTERNS constants."
   pdf-ingestion:
     status: approved
     created: "2026-04-26"
@@ -62,3 +99,27 @@ features:
     run_completed_at: "2026-04-30"
     action_type: FEATURE
     profile: code
+  coltratos-app-ui:
+    status: in-review
+    created: "2026-05-01"
+    approved_at: "2026-05-01"
+    run_completed_at: "2026-05-01"
+    action_type: FEATURE
+    profile: code
+  fix-auth-confirm-pkce-2026-05-01:
+    status: in-review
+    action_type: FIX
+    profile: code
+    created: "2026-05-01"
+    approved_at: "2026-05-01"
+    run_completed_at: "2026-05-01"
+    original_feature: auth-and-tenancy
+  company-profiling-onboarding:
+    status: draft
+    created: "2026-05-01"
+    action_type: FEATURE
+    profile: code
+    owner: Carlos Villa Mercado
+    updated: "2026-05-01"
+    revision_count: 1
+    last_revision: "Align with product description: documento uploads, simplified financiera, Jurídica as alert track, objeto+CV model"

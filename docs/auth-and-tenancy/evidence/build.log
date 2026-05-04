@@ -1,20 +1,29 @@
 Result: PASS
 Warnings: 0
 Errors: 0
+Run date: 2026-05-04
 
 ▲ Next.js 16.2.4 (Turbopack)
-✓ Compiled in 2.7s
-✓ TypeScript: clean
-✓ 12 static pages generated
+✓ Compiled in 2.2s
+✓ TypeScript: clean (no errors)
+✓ 19 pages generated
 
 Routes:
   ○ /                    static
   ○ /_not-found          static
-  ƒ /auth/confirm        dynamic
-  ○ /dashboard           static  ← S003
+  ƒ /auth/confirm        dynamic  (token_hash + PKCE code flows)
+  ○ /dashboard           static
+  ○ /dashboard/alertas   static
+  ○ /dashboard/analisis  static
+  ƒ /dashboard/analisis/[id] dynamic
+  ○ /dashboard/config    static
+  ○ /dashboard/creditos  static
+  ○ /dashboard/equipo    static
+  ○ /dashboard/procesos  static
+  ○ /dashboard/upload    static
   ○ /forgot-password     static
   ○ /login               static
   ○ /reset-password      static
   ○ /signup              static
-  ○ /signup/check-email  static  ← S004
+  ○ /signup/check-email  static
   ƒ Proxy (Middleware)

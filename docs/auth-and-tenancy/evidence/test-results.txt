@@ -1,18 +1,23 @@
-Result: PASS
-Test Files: 6 passed (6)
-Tests:      26 passed (26)
-Failed:     0
-Skipped:    0
-Duration:   886ms
+Run date: 2026-05-04
+Duration: ~13s
 
-Files:
-  src/__tests__/auth-actions.test.ts        (11 tests)
-  src/__tests__/auth-confirm-route.test.ts  (4 tests)
-  src/__tests__/auth-client-types.test-d.ts (type checks)
-  src/__tests__/rsc-purity.test.ts          (2 tests)
-  src/__tests__/primitives-smoke.test.tsx   (smoke)
-  src/__tests__/token-parity.test.ts        (tokens)
+Summary:
+  Test Files: 2 failed | 48 passed (50 total)
+  Tests:      5 failed | 217 passed | 16 skipped (238 total)
+  Type Errors: 0
 
-Integration tests (auth-tenancy.integration.test.ts):
-  Status: READY — requires `npm run db:start` (local Supabase Docker)
-  Script: npm run test:integration
+=== FAILURES (infrastructure only — no code defects) ===
+
+[INFRASTRUCTURE] src/__tests__/auth-tenancy.integration.test.ts (4 TCs failed)
+  Error: ECONNREFUSED 127.0.0.1:54321
+  Cause: Supabase local Docker not running. Requires `npm run db:start`.
+  Failing: TC-001, TC-007, TC-008, TC-009
+
+[INFRASTRUCTURE + POLLUTION] src/__tests__/domain/migration.integration.test.ts (1 TC failed)
+  Error: duplicate key on pliego_file_hash_key (TC-012)
+  Cause: Test pollution — leftover row from prior run. Clean DB state needed.
+
+=== FIXED during verification run ===
+
+[FIXED] sidebar.stories.tsx: pathname?.startsWith guard + nextjs.navigation.pathname in meta
+[FIXED] login.stories.tsx: searchParams → query key in @storybook/nextjs-vite navigation params
