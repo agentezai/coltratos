@@ -63,3 +63,29 @@
 {"event":"spec_created","spec":"auth-theme","task_count":3,"domains_referenced":["auth"],"timestamp":"2026-04-30T00:00:00Z"}
 {"event":"spec_approved","spec":"auth-theme","timestamp":"2026-04-30T00:00:00Z"}
 {"event":"run_completed","timestamp":"2026-04-30T13:16:00Z","spec":"auth-theme","tasks_done":6,"tasks_blocked":0,"test_count":36,"coverage_pct":null}
+{"event":"task_completed","spec":"domain-model-primitives","task_number":1,"task_title":"Type Primitives — branded IDs, enum consts, ADRs","timestamp":"2026-04-30T22:56:00Z"}
+{"event":"task_completed","spec":"domain-model-primitives","task_number":2,"task_title":"Zod Schemas — 8 entity schema files","timestamp":"2026-04-30T23:10:00Z"}
+{"event":"task_completed","spec":"domain-model-primitives","task_number":3,"task_title":"Kysely Database interface — 9 tables","timestamp":"2026-04-30T23:26:00Z"}
+{"event":"task_completed","spec":"domain-model-primitives","task_number":4,"task_title":"Barrel index.ts + typecheck gate","timestamp":"2026-04-30T23:26:00Z"}
+{"event":"run_completed","spec":"domain-model-primitives","tasks_done":4,"tasks_blocked":0,"test_count":123,"coverage_pct":null,"timestamp":"2026-04-30T23:26:00Z"}
+{"timestamp":"2026-05-01T04:37:41.236Z","type":"verify_passed","actor":"agent","details":{"spec":"domain-model-primitives"}}
+{"timestamp":"2026-05-01T04:37:41.237Z","type":"curate_needed","actor":"agent","details":{"spec":"domain-model-primitives","source":"verify_passed","notes":"Curation run pending: spec verified; check feedback.md + suggestions.md"}}
+{"event":"task_completed","spec":"domain-model-extraction-contracts","task_number":1,"task_title":"RequisitoExtractionPayloadSchema + ExtractorLogger","timestamp":"2026-04-30T23:46:00Z"}
+{"event":"task_completed","spec":"domain-model-extraction-contracts","task_number":2,"task_title":"Semaforo types + habilitante patterns + barrel additions","timestamp":"2026-04-30T23:46:00Z"}
+{"event":"run_completed","spec":"domain-model-extraction-contracts","tasks_done":2,"tasks_blocked":0,"test_count":153,"coverage_pct":null,"timestamp":"2026-04-30T23:46:00Z"}
+{"timestamp":"2026-05-01T04:54:09.234Z","type":"verify_passed","actor":"agent","details":{"spec":"domain-model-extraction-contracts"}}
+{"timestamp":"2026-05-01T04:54:09.235Z","type":"curate_needed","actor":"agent","details":{"spec":"domain-model-extraction-contracts","source":"verify_passed","notes":"Curation run pending: spec verified; check feedback.md + suggestions.md"}}
+{"event":"task_completed","spec":"domain-model-postgres","task_number":1,"task_title":"Postgres migration — 9 tables, enums, constraints, trigger, indexes","timestamp":"2026-05-01T00:08:00Z"}
+{"event":"task_completed","spec":"domain-model-postgres","task_number":2,"task_title":"RLS policies — bifurcated, hard-delete prevention, soft-delete filter","timestamp":"2026-05-01T00:08:00Z"}
+{"event":"run_completed","spec":"domain-model-postgres","tasks_done":2,"tasks_blocked":0,"test_count":153,"coverage_pct":null,"timestamp":"2026-05-01T00:08:00Z"}
+{"timestamp":"2026-05-01T05:17:49.481Z","type":"verify_passed","actor":"agent","details":{"spec":"domain-model-postgres"}}
+{"timestamp":"2026-05-01T05:17:49.482Z","type":"curate_needed","actor":"agent","details":{"spec":"domain-model-postgres","source":"verify_passed","notes":"Curation run pending: spec verified; check feedback.md + suggestions.md"}}
+{"type":"spec_created","spec":"coltratos-app-ui","task_count":10,"domains_referenced":["contratacion-publica","database","integrations"],"timestamp":"2026-05-01T00:00:00Z"}
+{"event":"run_completed","spec":"coltratos-app-ui","tasks_done":10,"tasks_blocked":0,"test_count":167,"coverage_pct":null,"timestamp":"2026-05-01T01:17:00Z"}
+{"event":"fix_spec_created","timestamp":"2026-05-01T00:00:00Z","spec":"fix-auth-confirm-pkce-2026-05-01","original_feature":"auth-and-tenancy","root_cause_hypothesis":"PKCE flow sends ?code= param; route only handled ?token_hash=+type= OTP params — missing-params guard fired before code could be inspected","task_count":1}
+{"event":"task_completed","timestamp":"2026-05-01T01:45:56Z","spec":"fix-auth-confirm-pkce-2026-05-01","task_number":1,"task_title":"Write regression tests TC-001 through TC-006 (auth-confirm route)"}
+{"event":"run_completed","timestamp":"2026-05-01T01:45:56Z","spec":"fix-auth-confirm-pkce-2026-05-01","tasks_done":1,"tasks_blocked":0,"test_count":7,"coverage_pct":null}
+{"event":"spec_edited","spec":"ingesta-secop","timestamp":"2026-05-01T00:00:00Z","revision_count":2,"tasks_added":0,"tasks_removed":1,"tasks_modified":1,"rationale":"Remove P5 (frontend → procesos-listing spec); upgrade P4 with empresa enrichment (get_empresa_enrichment fn), filter-aware stats, multi-select filters, Cache-Control private","affected_domains":["integrations","database"]}
+{"event":"spec_created","spec":"procesos-listing","timestamp":"2026-05-01T00:00:00Z","task_count":5,"domains_referenced":["integrations","database","empresa-profile","contratacion-publica"]}
+{"event":"spec_created","spec":"company-profiling-onboarding","task_count":9,"domains_referenced":["empresa-profile","contratacion-publica","database","integrations","eligibility-matching","auth"],"timestamp":"2026-05-01T00:00:00Z"}
+{"event":"spec_edited","spec":"company-profiling-onboarding","revision_count":1,"tasks_added":1,"tasks_removed":0,"tasks_modified":7,"rationale":"Align with real product description: documento uploads not declarations, simplified financial model, Jurídica removed from score, objeto contractual + CV overlap added","affected_domains":["empresa-profile","eligibility-matching","database","integrations"],"timestamp":"2026-05-01T00:00:00Z"}

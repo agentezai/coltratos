@@ -12,47 +12,50 @@ The frozen, opinionated definition of the COLTRATOS MVP: what we are building, t
 
 ## Product thesis
 
-**MUST** answer exactly one user question: *"should I bother bidding on this Proceso?"*
+**MUST** answer two sequential user questions: *(1) which open Procesos match my profile? (2) for each one, do I qualify?*
 
-The product is a web app where a registered Colombian company looks up a SECOP II Proceso de Contratación, uploads its pliego PDF, and receives a semáforo verdict (verde / amarillo / rojo) for each requisito habilitante (jurídico, técnico, financiero/de experiencia), with a citation back to the source PDF, matched against a self-entered company profile. The verdict is exportable as a shareable PDF report.
+The product is a web app where a registered Colombian company discovers open SECOP II Procesos that match their profile (via semantic search, structured filters, and a "match my profile" toggle), then uploads the pliego PDF for any Proceso of interest and receives a semáforo verdict (verde / amarillo / rojo) for each requisito habilitante (jurídico, técnico, financiero/de experiencia), with a citation back to the source PDF. The verdict is exportable as a shareable PDF report. Direct Proceso ID entry remains available as a fallback for Procesos not surfaced by discovery.
 
 **MUST NOT** be positioned, scoped, or specced as "a procurement intelligence platform," "AI-powered bid optimization," or a marketplace. Those framings invite scope creep that the timeline cannot absorb.
 
-Source: docs/mvp-definition.md §1
-<!-- added: 2026-04-28 | feature: mvp-baseline | confidence: high -->
+Source: docs/mvp-definition.md §1 + 2026-05-04 pilot-research conversation
+<!-- updated: 2026-05-04 | feature: discovery-pivot | confidence: high -->
 
 ## Audience constraint
 
-**MUST** target ten Colombian SMEs that already bid on public contracts and currently waste 2–4 hours per pliego on manual eligibility review.
+**MUST** target Colombian companies — including large contractors and active subcontractors — that bid heavily on SECOP II and need both discovery (finding the right Procesos) and eligibility screening. Pilot interviews (2026-05-04, n=6) confirmed discovery is the primary pain point: pilots do not lack time to review pliegos, they lack a reliable way to find the right Procesos in the first place.
 
-**MUST NOT** design for enterprises, consultants, or the general public-procurement-curious. A pilot that does not already lose hours to this problem is a tire-kicker and burns weeks of support time for zero learning.
+**MUST NOT** design for the general public-procurement-curious or companies that rarely bid. A pilot that does not regularly need to find and screen Procesos is a tire-kicker.
 
-Source: docs/mvp-definition.md §2
-<!-- added: 2026-04-28 | feature: mvp-baseline | confidence: high -->
+Source: docs/mvp-definition.md §2 + 2026-05-04 pilot-research conversation
+<!-- updated: 2026-05-04 | feature: discovery-pivot | confidence: high -->
 
 ## End-to-end user journey (every step is load-bearing)
 
-The MVP is functional only if all nine steps work in sequence. If any step breaks, the MVP is not functional — everything else is optional.
+The MVP is functional only if all ten steps work in sequence. If any step breaks, the MVP is not functional — everything else is optional.
 
 1. **Sign up.** Email + password, email verification, password reset.
 2. **Company profile.** Single-form profile fillable in under 15 minutes with a RUP in hand: datos legales (NIT, razón social, representante legal), capacidad financiera (ingresos operacionales 3 años, patrimonio, indicadores), experiencia (contratos previos), capacidad técnica (equipo clave). **MUST** be the source of truth the semáforo matches against — wrong profile, wrong verdict.
-3. **Start an analysis by Proceso ID.** User enters a SECOP II número de proceso (or SECOP II URL). System calls datos.gov.co SODA API, retrieves public metadata (número, entidad, objeto, modalidad, valor estimado, fechas, link), shows it for confirmation.
-4. **Upload the pliego.** User downloads the pliego manually from SECOP II and uploads it. **MUST** require an explicit declaration: *"Declaro que este es el documento oficial publicado en SECOP II, sin modificaciones."* IP, timestamp, file SHA-256, and uploader identity are recorded.
-5. **Fallback for un-API'd Procesos.** If lookup returns nothing, user manually enters número, entidad, objeto and proceeds. The Proceso link is marked `unverified`.
-6. **Extraction and matching.** System extracts requisitos habilitantes into a structured list (text, type, source page, source quote), then matches each against the profile and assigns verde / amarillo / rojo + one-sentence reason + confidence score.
-7. **Results.** Overall verdict at top (e.g. *"7 verde, 3 amarillo, 2 rojo — no aplica"*), then the requisito list, each clickable to show the source quote and open the PDF at that page.
-8. **Export.** Server-rendered PDF report with logo, company profile snapshot, requisito table, timestamp, and a disclaimer stating the analysis is automated and the user is responsible for the final bid decision.
-9. **Re-run.** User can re-run analysis on the same Proceso after editing their profile, **without** re-uploading the pliego.
+3. **Discover Procesos.** User searches open Procesos by keyword (semantic search over `objeto_a_contratar`), structured filters (modalidad, location, value range, deadline, UNSPSC code), and/or the "match my profile" toggle that auto-applies criteria from the company profile. System queries `procesos_index` (local denormalized table synced from datos.gov.co every 6 hours). Results show: número, entidad, objeto, modalidad, valor estimado, fecha de cierre.
+4. **Select a Proceso or enter ID directly.** Clicking a discovery result pre-fills the Proceso. Users who arrive with a `numero_proceso` from SECOP II can also enter it directly — system fetches from `procesos_index` first, calls datos.gov.co SODA API on miss, marks `proceso_lookup_status` accordingly.
+5. **Fallback for un-indexed Procesos.** If neither index nor API returns a result, user manually enters número, entidad, objeto and proceeds. The Proceso link is marked `unverified`.
+6. **Upload the pliego.** User downloads the pliego manually from SECOP II and uploads it. **MUST** require an explicit declaration: *"Declaro que este es el documento oficial publicado en SECOP II, sin modificaciones."* IP, timestamp, file SHA-256, and uploader identity are recorded.
+7. **Extraction and matching.** System extracts requisitos habilitantes into a structured list (text, type, source page, source quote), then matches each against the profile and assigns verde / amarillo / rojo + one-sentence reason + confidence score.
+8. **Results.** Overall verdict at top (e.g. *"7 verde, 3 amarillo, 2 rojo — no aplica"*), then the requisito list, each clickable to show the source quote and open the PDF at that page.
+9. **Export.** Server-rendered PDF report with logo, company profile snapshot, requisito table, timestamp, and a disclaimer stating the analysis is automated and the user is responsible for the final bid decision.
+10. **Re-run.** User can re-run analysis on the same Proceso after editing their profile, **without** re-uploading the pliego.
 
-Source: docs/mvp-definition.md §3
-<!-- added: 2026-04-28 | feature: mvp-baseline | confidence: high -->
+Source: docs/mvp-definition.md §3 + 2026-05-04 pilot-research conversation
+<!-- updated: 2026-05-04 | feature: discovery-pivot | confidence: high -->
 
 ## In-scope surface
 
 - **Auth:** email + password, email verification, password reset. One user per company. **MUST NOT** add SSO, SAML, or roles.
 - **Multi-tenancy:** row-level isolation by `company_id`, enforced on every table and every query. See `domains/database.md`.
 - **Storage:** pliegos in Supabase storage with per-tenant prefix. **MUST** auto-delete after 90 days unless the user pins. Verdicts stored indefinitely.
-- **SECOP II Proceso lookup:** single integration with datos.gov.co SODA API, by ID, server-side cached 24h. Graceful fallback to manual entry. **MUST NOT** ship a browse, filter, or search index. See `domains/integrations.md`.
+- **Proceso discovery:** semantic search over `objeto_a_contratar` (pgvector + OpenAI text-embedding-3-small), structured filters (modalidad, location, value range, deadline, UNSPSC), "match my profile" toggle. Data source: `procesos_index` table synced from datos.gov.co SODA API every 6 hours. See `domains/integrations.md`.
+- **SECOP II Proceso lookup (fallback):** direct lookup by `numero_proceso` via datos.gov.co SODA API, server-side cached 24h. Graceful fallback to manual entry when neither index nor API returns a result. See `domains/integrations.md`.
+<!-- updated: 2026-05-04 | feature: discovery-pivot | confidence: high -->
 - **PDF handling:** text-layer extraction first, OCR fallback for image-only pages, libraries (not regex) for tables. Pages with no extractable content **MUST** be flagged in the result, not silently dropped.
 - **Extraction:** Claude Sonnet with prompt caching on system prompt and document. Output is schema-validated JSON. On schema-validation failure, retry once with a repair prompt; on second failure, surface a partial result with a warning.
 - **Semáforo:** **MUST** be deterministic rules over extracted requisitos and profile. The LLM does extraction; rules do matching. Mixing them produces unexplainable verdicts.
@@ -74,9 +77,21 @@ After 60 days with 10 onboarded pilots, the MVP is validated only if **all six**
 3. Extraction accuracy on the eval set is stable ≥85% and not declining.
 4. Cost ceiling held on every analysis run in the period.
 5. Zero data-leakage incidents across tenants.
-6. ≥70% of analyses are linked to a verified Proceso ID (not manual fallback).
+6. ≥70% of analyses originate from discovery (not direct Proceso ID entry or manual fallback).
 
 If those numbers don't hit, the MVP works mechanically but not commercially. The decision shifts from "build more" to "find better pilots or kill it." Decide that in advance, in writing, before being emotionally invested in the next feature.
 
 Source: docs/mvp-definition.md §7
 <!-- added: 2026-04-28 | feature: mvp-baseline | confidence: high -->
+
+## Discovery success metrics (Sprint-2 gate)
+
+These four metrics gate the discovery feature specifically. Measure after the first 30 days of pilots using discovery. All four **MUST** be instrumented at ship — not added later.
+
+1. **Discovery → analysis conversion ≥20%.** Of Procesos clicked through in discovery results, ≥20% result in a pliego upload + analysis run. See `quality-bars.md` bar #6.
+2. **Pilot-judged relevance ≥70%.** Of analyzed Procesos originating from discovery, ≥70% rated "relevant" by the pilot (thumbs survey on results page). See `quality-bars.md` bar #7.
+3. **Discovery vs manual entry ratio ≥70%.** Of all analyses, ≥70% originate from discovery (not direct ID entry or manual fallback). See `quality-bars.md` bar #8.
+4. **Catalog uniqueness ≥1 new Proceso per pilot per week.** Pilots report finding ≥1 Proceso per week they had not seen on SECOP II. See `quality-bars.md` bar #9.
+
+Source: docs/product/mvp-definition.md §5 + 2026-05-04 pilot-research conversation
+<!-- updated: 2026-05-04 | feature: discovery-pivot | confidence: high -->

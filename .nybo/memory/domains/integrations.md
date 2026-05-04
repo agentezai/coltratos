@@ -2,13 +2,13 @@
 
 ## What this file is and when to load it
 
-The three external integrations the COLTRATOS MVP depends on, with the constraints and failure modes for each. Load this file at the start of any session that calls an external API, designs caching/retry behavior, sets up storage paths, or estimates per-analysis cost. The MVP **MUST NOT** add a fourth external integration without revisiting product scope.
+The four external integrations the COLTRATOS MVP depends on, with the constraints and failure modes for each. Load this file at the start of any session that calls an external API, designs caching/retry behavior, sets up storage paths, or estimates per-analysis cost. The MVP **MUST NOT** add a fifth external integration without revisiting product scope.
 
 ## Conventions
 
-- **MUST** call the datos.gov.co SODA API by `numero_proceso` only — single-record lookup, no browse/search. Source: docs/mvp-definition.md §5 (SECOP II Proceso lookup).
-<!-- added: 2026-04-28 | feature: mvp-baseline | confidence: high -->
-- **MUST** cache datos.gov.co responses server-side with a 24-hour TTL — Procesos rarely change once published. Source: docs/mvp-definition.md §5 (SECOP II Proceso lookup).
+- **MUST** use datos.gov.co SODA API in exactly two patterns: (a) **bulk sync** — fetch all currently-open Procesos into `procesos_index` on a 6-hour cadence, storing `numero_proceso`, `entidad`, `objeto_a_contratar`, `modalidad`, `valor_estimado`, `fecha_apertura`, `fecha_cierre`; (b) **single-record lookup** by `numero_proceso` as fallback for Procesos not found in the index. **MUST NOT** add a third usage pattern without updating this file. Source: docs/mvp-definition.md §5 (SECOP II Proceso lookup) + 2026-05-04 pilot-research conversation
+<!-- updated: 2026-05-04 | feature: discovery-pivot | confidence: high -->
+- **MUST** cache datos.gov.co single-record lookup responses server-side with a 24-hour TTL — Procesos rarely change once published. (Bulk sync runs on its own 6h cadence; TTL does not apply to the sync job.) Source: docs/mvp-definition.md §5 (SECOP II Proceso lookup)
 <!-- added: 2026-04-28 | feature: mvp-baseline | confidence: high -->
 - **MUST** fall back gracefully to manual entry when the lookup returns nothing or errors — never block the user behind the integration. Source: docs/mvp-definition.md §3 step 5, §5.
 <!-- added: 2026-04-28 | feature: mvp-baseline | confidence: high -->
@@ -30,10 +30,15 @@ The three external integrations the COLTRATOS MVP depends on, with the constrain
 <!-- added: 2026-04-28 | feature: mvp-baseline | confidence: high -->
 - **MUST NOT** scrape SECOP II for pliegos — the document is not in the API; manual upload is the constraint. Source: docs/mvp-definition.md §5 (SECOP II Proceso lookup), §6.
 <!-- added: 2026-04-28 | feature: mvp-baseline | confidence: high -->
+- **MUST** use OpenAI `text-embedding-3-small` for embedding `objeto_a_contratar` fields during bulk sync into `procesos_index`. Embeddings stored as pgvector in Supabase. Cost ceiling: <$2/year at MVP scale (≈ 50k Procesos/year × 128 tokens × $0.00002/1k tokens). **MUST** be included in the cost-observability dashboard. Source: docs/product/mvp-definition.md §5 + 2026-05-04 pilot-research conversation
+<!-- updated: 2026-05-04 | feature: discovery-pivot | confidence: high -->
 
 ## Patterns
 
 **datos.gov.co SODA — Procesos dataset.** The dataset ID referenced in the MVP doc is `p6dx-8zbt` (or current equivalent — verify before first integration call). Fields surfaced to the user: `numero`, `entidad`, `objeto`, `modalidad`, `valor estimado`, `fecha de apertura`, `fecha de cierre`, plus a link back to the SECOP II detail page. The full JSON response is persisted as a snapshot in `analyses.proceso_metadata_snapshot` at the moment of analysis (see `domains/database.md`).
+
+**datos.gov.co SODA — Bulk sync for discovery.** The bulk sync job fetches all Procesos with `estado = abierto` every 6 hours. Fields synced into `procesos_index`: `numero_proceso`, `entidad`, `objeto_a_contratar`, `modalidad`, `cuantia_proceso`, `fecha_de_publicacion_del_proceso`, `fecha_limite_de_recepcion`. After sync, OpenAI `text-embedding-3-small` computes embeddings on `objeto_a_contratar` for any new or updated row (stored as pgvector). Embeddings for unchanged rows are preserved. Sync errors are logged and increment a `sync_failure_count` metric but do **not** block analysis flow — the single-record lookup fallback remains available.
+<!-- updated: 2026-05-04 | feature: discovery-pivot | confidence: high -->
 
 **Anthropic prompt-caching layout.** The cacheable prefix is (a) the system prompt and (b) the extracted document content; the instruction tail varies per analysis. Cache hits on the document body across re-runs (user re-runs after profile edit, journey step 9) must be observable in the per-analysis cost log so regressions are visible.
 
