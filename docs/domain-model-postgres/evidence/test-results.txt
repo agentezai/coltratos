@@ -1,0 +1,29 @@
+## Test Results — domain-model-postgres
+Date: 2026-05-01
+Command: npm run test
+
+Total: 221
+Passed: 214
+Failed: 5 (pre-existing) + 1 (fixture pollution)
+Skipped: 15 (cascade from fixture pollution) + 2 (pre-existing)
+Type Errors: 0
+
+--- Failures ---
+
+[PRE-EXISTING — not introduced by this spec]
+src/__tests__/auth-tenancy.integration.test.ts — 5 failures
+  All: AuthRetryableFetchError: fetch failed (admin.auth.admin.createUser)
+  Cause: Supabase Admin Auth API unreachable from local env (confirmed same on main)
+
+[NEW — test isolation issue]
+src/__tests__/domain/migration.integration.test.ts — 1 failure
+  TC-012: insertPliego: duplicate key value violates unique constraint "pliego_file_hash_key"
+  TC-001, TC-002 fail same way → cascade → 15 tests skip (describe block setup failed)
+  Cause: Integration tests use hardcoded fixture hashes (aaa..., bbb...).
+  The remote DB retained rows from the first run. No beforeAll cleanup.
+  Note: The failure CONFIRMS the unique constraint is working correctly.
+
+--- Passing highlights ---
+TC-006 ✓  enum values (pliego_tipo, rejects invalid value)
+TC-013 ✓  set_empresa_profile_updated_at trigger (bumps profile_updated_at on nombre change)
+All unit + type tests: 153/153 ✓

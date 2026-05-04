@@ -1,0 +1,11 @@
+## Build — domain-model-postgres
+Date: 2026-05-01
+Command: npm run build
+
+Result: PASS
+Errors: 0
+Warnings: 0
+TypeScript: 0 errors (Finished TypeScript in 3.0s)
+
+Routes compiled: 10 (9 static, 1 dynamic)
+Turbopack compiled successfully in 2.2s
