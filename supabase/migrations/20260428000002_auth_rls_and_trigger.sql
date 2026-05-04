@@ -148,13 +148,19 @@ CREATE POLICY "proceso_select"  ON public.proceso  FOR SELECT TO authenticated U
 CREATE POLICY "proceso_insert"  ON public.proceso  FOR INSERT TO authenticated WITH CHECK (true);
 CREATE POLICY "proceso_update"  ON public.proceso  FOR UPDATE TO authenticated USING (true) WITH CHECK (true);
 
-CREATE POLICY "pliego_select"   ON public.pliego   FOR SELECT TO authenticated USING (true);
+-- pliego: filter soft-deleted rows on SELECT; hard-delete blocked (RN-004)
+CREATE POLICY "pliego_select"   ON public.pliego   FOR SELECT TO authenticated USING (deleted_at IS NULL);
 CREATE POLICY "pliego_insert"   ON public.pliego   FOR INSERT TO authenticated WITH CHECK (true);
 CREATE POLICY "pliego_update"   ON public.pliego   FOR UPDATE TO authenticated USING (true) WITH CHECK (true);
+CREATE POLICY "pliego_no_hard_delete" ON public.pliego
+  AS RESTRICTIVE FOR DELETE TO authenticated USING (false);
 
-CREATE POLICY "anexo_proceso_select" ON public.anexo_proceso FOR SELECT TO authenticated USING (true);
+-- anexo_proceso: same soft-delete + hard-delete pattern
+CREATE POLICY "anexo_proceso_select" ON public.anexo_proceso FOR SELECT TO authenticated USING (deleted_at IS NULL);
 CREATE POLICY "anexo_proceso_insert" ON public.anexo_proceso FOR INSERT TO authenticated WITH CHECK (true);
 CREATE POLICY "anexo_proceso_update" ON public.anexo_proceso FOR UPDATE TO authenticated USING (true) WITH CHECK (true);
+CREATE POLICY "anexo_proceso_no_hard_delete" ON public.anexo_proceso
+  AS RESTRICTIVE FOR DELETE TO authenticated USING (false);
 
 CREATE POLICY "segmento_select" ON public.segmento FOR SELECT TO authenticated USING (true);
 CREATE POLICY "segmento_insert" ON public.segmento FOR INSERT TO authenticated WITH CHECK (true);
@@ -190,8 +196,10 @@ AS $$
 DECLARE
   v_empresa_id uuid := gen_random_uuid();
 BEGIN
-  INSERT INTO public.empresa (id, created_at)
-    VALUES (v_empresa_id, now());
+  -- Placeholder nombre/nit — onboarding flow prompts user to complete empresa profile.
+  -- nit uses a unique suffix to satisfy the UNIQUE constraint.
+  INSERT INTO public.empresa (id, nombre, nit, created_at)
+    VALUES (v_empresa_id, 'Mi Empresa', 'PENDIENTE-' || left(v_empresa_id::text, 8), now());
 
   INSERT INTO public.empresa_member (empresa_id, user_id, role)
     VALUES (v_empresa_id, NEW.id, 'owner');
