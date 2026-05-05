@@ -81,6 +81,9 @@ features:
     approved_at: "2026-04-27"
     action_type: FEATURE
     profile: code
+    updated: "2026-05-05"
+    revision_count: 1
+    last_revision: "Rev 2 (breaking): full rewrite to matching + aggregation pipeline — runSemaforoMatching(requisitos, profile); 3 per-tipo matchers; N≥5 per-tipo thresholds (30%/50%); jurídico-definitorio knockout; DEFINITORIO_DOCUMENT_TYPES; confidence formulas per tipo; SEMAFORO_RULES_VERSION v2.0.0; 7 tasks (T1–T7)"
   project-bootstrap:
     status: shipped
     created: "2026-04-27"

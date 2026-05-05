@@ -1,69 +1,129 @@
-# Verification Plan
+# Verification Plan — semaforo-aggregation
 
 ## T1: Thresholds + ADRs
 
-### Test Scenarios
-- `lib/semaforo/thresholds.ts` exports `VERDE_THRESHOLD = 0.9`, `AMARILLO_THRESHOLD = 0.7`, `SEMAFORO_RULES_VERSION = 'v1.0.0'`, all `as const`.
-- `SEMAFORO_RULES_VERSION` matches the regex `/^v\d+\.\d+\.\d+$/`.
-- File contains zero imports beyond TypeScript primitives.
-- ADR-011 and ADR-012 exist with all required sections (Context, Decision, Rationale, Alternatives Considered, Consequences) and Status: Accepted.
+**Gate criteria:** `lib/semaforo/thresholds.ts` exports all 8 named constants as `as const` literal types;
+`SEMAFORO_RULES_VERSION === 'v2.0.0'`; zero imports in the file; ADR-011 through ADR-014 exist
+under `.nybo/foundation/adrs/` with Status: Accepted and all required sections.
 
-### Gate Criteria
-`npm run typecheck` passes. Both ADRs are present and reviewed. The `thresholds.ts` file is pure data with no imports.
-
----
-
-## T2: aggregateSemaforo
-
-### Test Scenarios
-- Function exported from `lib/semaforo/aggregate.ts` with signature `(requisitos: Requisito[]) => Semaforo`.
-- Returns a `Semaforo` for empty arrays, all-null inputs, all-cumple inputs, all-failing inputs, and mixed inputs — never throws.
-- Knockout rule applies BEFORE percentage rule at both overall and per-categoría levels.
-- Percentage thresholds use the constants from `thresholds.ts`; literal `0.9`/`0.7` do not appear in `aggregate.ts`.
-- `console.warn` is the only side effect; it fires only on `general`-categoría requisitos.
-- Production line count (excluding blank + comment-only) is ≤ 80.
-- No imports of `@supabase/*`, `@anthropic-ai/sdk`, `node:*`, common loggers, `process.env`.
-
-### Gate Criteria
-The function compiles in strict mode, the grep tests in T3 pass against this file, and the unit tests in T3 hit 100% branch coverage. Code-economy soft check below 80 lines (or PR review acknowledges the overshoot in writing).
+**Test scenarios:**
+- Import and verify each constant value matches spec values
+- Grep `thresholds.ts` for `import` — expect zero matches
+- `DEFINITORIO_DOCUMENT_TYPES.length === 5` and all 5 entries present
+- `OBTAINABLE_DOCUMENT_TYPES.length === 7`
 
 ---
 
-## T3: Tests + Golden Corpus + Isolation Grep + Public Barrel
+## T2: Jurídico Matcher
 
-### Test Scenarios
-- Table-driven unit tests cover every threshold boundary (`0.69` / `0.7` / `0.89` / `0.9`), every knockout combination, every edge case (empty, all-null, contract violation), every blockers-list rule, every stats invariant.
-- 5 golden fixtures (`01-all-habilitantes-fail.json`, `02-borderline-89pct-amarillo.json`, `03-borderline-90pct-verde.json`, `04-all-sin-info.json`, `05-mixed-realistic.json`) exist with `_comment`, `input`, `expected`; every requisito carries `is_habilitante_source`.
-- Golden replay test passes for all 5 fixtures (deeply-equal comparison).
-- Provider-isolation grep test passes with zero violations under `lib/semaforo/**` (excluding `__tests__/`, `*.test.*`, `tests/**`).
-- `is_habilitante_source` distribution check passes — ≥80% of habilitante-true requisitos across all fixtures carry `'structural'`.
-- `vitest --coverage` reports 100% branch coverage on `aggregate.ts` and `thresholds.ts`.
-- `lib/semaforo/index.ts` re-exports `aggregateSemaforo`, `VERDE_THRESHOLD`, `AMARILLO_THRESHOLD`, `SEMAFORO_RULES_VERSION`.
+**Gate criteria:** 100% branch coverage on `juridico-matcher.ts`; every definitorio and obtainable
+type handled; unknown type triggers exactly one `console.warn` and returns rojo; all reasons ≤200 chars.
 
-### Gate Criteria
-All 4 test files pass in CI: unit tests, golden replay, provider-isolation grep, fixture-distribution check. Branch coverage 100%. Public barrel resolves the expected exports. The ≤80-line code-economy target is a PR-review heuristic only (no CI gate).
+**Test scenarios:**
+- `rup_vigente = true` → verde, confidence 1.0
+- `rup_vigente = false` → rojo, definitorio true, confidence 1.0
+- `rup_vigente = undefined` → amarillo, confidence 0.3
+- `tipo_societario` match → verde; mismatch → rojo definitorio
+- `paz_y_salvo_tributario` present+vigente → verde; absent → amarillo 0.5
+- Unknown `document_type` → warn + rojo definitorio false + confidence 0.0
+- All reason strings: `reason.length ≤ 200`
 
 ---
 
-## End-to-End Verification
+## T3: Financiero Matcher
 
-**Final acceptance — the integrated aggregation stage:**
+**Gate criteria:** 100% branch coverage on `financiero-matcher.ts`; verde only at ≥10% margin;
+confidence formula verified at 5% (0.5), 10% (1.0), 0% (0.0), -5% (0.5); multi-year logic correct.
 
-1. T0 schema additions are applied via `domain-model` migration; new columns visible in Supabase: `requisito.categoria`, `requisito.is_habilitante`, `requisito.is_habilitante_source`, `analisis.semaforo_rules_version`.
-2. The `Semaforo`, `SemaforoStats`, `RequisitoCategoria`, `IsHabilitanteSource` types are exported from `@/types`.
-3. `HABILITANTE_HEADING_PATTERNS` and `HABILITANTE_PATTERNS_VERSION` are exported from `@/types`.
-4. `requisitos-extraction` has been edited (separate spec revision) to (a) denormalize `categoria` from segmento onto each emitted requisito, (b) implement tiered `is_habilitante` classification (structural-first, LLM-fallback), (c) populate `is_habilitante_source` on every requisito, (d) update its golden corpus, and (e) add the ≥80%-structural acceptance test.
-4. Build a small E2E test (or a manual reproduction script) that:
-   a. Loads a fixture pliego from `tests/fixtures/golden/semaforo/05-mixed-realistic.json` (or constructs one inline).
-   b. Calls `aggregateSemaforo(requisitos)`.
-   c. Inspects the result.
-5. Result conforms to the `Semaforo` shape: `overall ∈ {verde, amarillo, rojo}`; `byCategoria` has all 4 keys; `blockers` is sorted; `stats` invariants hold.
-6. Repeat with a deliberately-empty `Requisito[]` — output is `rojo`/all-amarillo per RN-005.
-7. Repeat with a `general`-categoría requisito injected — `console.warn` fires once; the rest of the algorithm proceeds.
-8. Repeat with a habilitante-failing in juridico + 95% cumple in tecnico — overall rojo; juridico rojo; tecnico verde; the failing requisito appears in blockers.
-9. Run the provider-isolation grep — zero violations.
-10. Run the coverage report — 100% branches on `aggregate.ts` and `thresholds.ts`.
-11. Confirm `SEMAFORO_RULES_VERSION` is `'v1.0.0'` and is exported from `'@/lib/semaforo'`.
-12. (For the orchestrator integration, when its spec ships) confirm that `Analisis.semaforo_rules_version` is populated alongside `Analisis.semaforo` in a single UPDATE.
+**Test scenarios:**
+- `actual = 1.65`, `threshold = 1.5` (10% margin) → verde, confidence 1.0
+- `actual = 1.575`, `threshold = 1.5` (5% margin) → amarillo, confidence 0.5
+- `actual = 1.5`, `threshold = 1.5` (0% margin) → amarillo, confidence 0.0
+- `actual = 1.425`, `threshold = 1.5` (-5%) → rojo, confidence 0.5
+- `actual = 3.0`, `threshold = 1.5` (100% margin) → verde, confidence 1.0
+- Multi-year: year1 pass, year2 fail → rojo
+- Multi-year: year1 fail verde_margin, year2 pass → amarillo
+- Missing fiscal year → amarillo, confidence 0.3
+- Unsupported indicator → warn + rojo
+- No inline literal `0.10` in `financiero-matcher.ts`
 
-**Gate Criteria:** All steps complete. `npm run test`, `npm run typecheck`, and the coverage gate all pass. The 5 golden fixtures replay verbatim. The code-economy soft check is at-or-under 80 lines.
+---
+
+## T4: Técnico / Experiencia Matcher
+
+**Gate criteria:** 100% branch coverage; each UNSPSC tier produces correct verdict and confidence;
+cosine boundary (0.80 qualifies, 0.79 does not); valor_cop_min pre-filter excludes correctly.
+
+**Test scenarios:**
+- Exact UNSPSC → verde, confidence 1.0
+- Parent UNSPSC (6-digit prefix match) → amarillo, confidence 0.7
+- Cosine = 0.88 → amarillo, confidence 0.88
+- Cosine = 0.80 → amarillo, confidence 0.80 (boundary — qualifies)
+- Cosine = 0.79 → rojo (below minimum)
+- No match any tier → rojo, confidence 0.0
+- `valor_cop_min = 500M`, contract `valor_cop = 400M` → excluded from matching → rojo
+
+---
+
+## T5: Aggregator
+
+**Gate criteria:** 100% branch coverage; all small-N worked examples pass; invariant holds; overall
+derivation correctly mirrors worst-tipo and definitorio blockers.
+
+**Test scenarios (from RN-009 worked examples):**
+- N=3, 1 non-definitorio rojo → tipo-amarillo, `threshold_applied = false`
+- N=4, 2 non-definitorio rojos → tipo-amarillo, `threshold_applied = false`
+- N=5, 1 rojo at 20% → tipo-verde, `threshold_applied = true`
+- N=10, 2 rojos at 20%, 0 amarillo → tipo-verde, `threshold_applied = true`
+- N=10, 4 rojos at 40% → tipo-rojo, `threshold_applied = true`
+- N=10, 6 amarillo at 60%, 0 rojo → tipo-amarillo, `threshold_applied = true`
+- Empty tipo → `{ verdict: 'amarillo', threshold_applied: false }`
+- Definitorio rojo in N=3 → tipo-rojo (definitorio overrides N<5 rule)
+- `n_rojo + n_amarillo + n_verde === n` for all cases
+- `deriveOverall`: definitorio blocker → rojo; all verde → verde; worst-tipo propagates
+
+---
+
+## T6: Integration Entry Point
+
+**Gate criteria:** `runSemaforoMatching` is deterministic and pure; unknown tipo handled without
+throw; `semaforo_rules_version` always equals `'v2.0.0'`; provider isolation grep passes.
+
+**Test scenarios:**
+- Same inputs × 2 → byte-identical `JSON.stringify` outputs
+- No I/O stubs invoked on non-violating input
+- Unknown `requisito_tipo` → `console.warn` exactly once, rojo MatchResult, no throw
+- `result.semaforo_rules_version === 'v2.0.0'`
+- `result.definitorio_blockers` = only `{ definitorio: true, verdict: 'rojo' }` entries
+- All `result.matches[*].reason.length ≤ 200`
+
+---
+
+## T7: Tests + Golden Fixtures
+
+**Gate criteria:** ≥15 golden fixtures (≥5 per tipo) all replay verbatim; 100% branch coverage
+across all `lib/semaforo/` files (excl. tests); provider-isolation grep zero violations.
+
+**Test scenarios:**
+- All golden fixture replays pass (`toEqual` deep equality)
+- Small-N transition fixtures: N=3 1-rojo→amarillo, N=5 1-rojo→verde, N=10 4-rojo→rojo
+- Coverage report: every branch in all matcher files, aggregator, and index hit
+- Provider isolation: zero matches for forbidden imports
+
+---
+
+## End-to-End Acceptance
+
+Given a realistic `ExtractedRequisito[]` and `CompanyProfileSnapshot`:
+
+1. `runSemaforoMatching` completes without throw
+2. Every `MatchResult` has `reason.length ≤ 200` and `confidence ∈ [0, 1]`
+3. `SemaforoResult.semaforo_rules_version === 'v2.0.0'`
+4. `definitorio_blockers` contains only definitorio rojo matches
+5. All `byTipo` verdicts correctly reflect per-tipo aggregation rules
+6. `overall` correctly derived from `byTipo` and `definitorio_blockers`
+7. Called twice with same inputs → byte-identical `JSON.stringify` output
+8. Provider isolation grep passes (zero forbidden imports in `lib/semaforo/`)
+9. `vitest --coverage` reports 100% branch coverage on all `lib/semaforo/` files
+
+**Final gate:** All 9 criteria pass in CI before marking the feature `shipped`.
