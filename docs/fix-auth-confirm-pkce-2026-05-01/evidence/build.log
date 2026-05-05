@@ -1,0 +1,8 @@
+Build: PASS
+Command: npm run build
+Next.js 16.2.4 (Turbopack)
+TypeScript: no errors
+Static pages: 19/19 generated
+Errors: 0
+Warnings: 0
+Route /auth/confirm compiled as Dynamic (ƒ) — correct for a server route handler.

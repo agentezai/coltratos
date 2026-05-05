@@ -1,35 +1,89 @@
 features:
-  domain-model:
+  extraction-eval-harness:
+    status: draft
+    created: "2026-05-05"
+    action_type: FEATURE
+    profile: code
+  pliego-upload:
     status: approved
-    created: "2026-04-25"
-    approved_at: "2026-04-25"
-    updated: "2026-04-27"
-    revision_count: 5
-    last_revision: "Apply semaforo-aggregation T0 (9 items) + categoria immutability (RN-016) + UC-03 RLS fix. Schema: 3 columns on requisito (categoria narrow + is_habilitante + is_habilitante_source) + 2 CHECKs; semaforo_rules_version on analisis; new semaforo.ts and habilitante-patterns.ts under src/types/domain/. REQ-018-022, RN-016-018, TC-026-031 added. UC-03 rewritten against analisis."
+    created: "2026-05-04"
+    approved_at: "2026-05-04"
+    action_type: FEATURE
+    profile: code
+  ingesta-secop:
+    status: draft
+    created: "2026-05-01"
+    action_type: FEATURE
+    profile: code
+    updated: "2026-05-04"
+    revision_count: 4
+    last_revision: "Rename API filter params valor_min/max → cuantia_min/max in spec, P4 plan, verify"
+  procesos-listing:
+    status: draft
+    created: "2026-05-01"
+    action_type: FEATURE
+    profile: code
+    depends_on: ingesta-secop
+    updated: "2026-05-04"
+    revision_count: 1
+    last_revision: "Discovery scope alignment; cuantia_min/max; T1/T3/T4 task plans updated"
+  domain-model-primitives:
+    status: confirmed
+    run_completed_at: "2026-04-30"
+    verified_at: "2026-04-30"
+    action_type: FEATURE
+    profile: code
+    created: "2026-04-30"
+    approved_at: "2026-04-30"
+    revision_count: 1
+    last_revision: "Split from domain-model spec rev 5. TypeScript/Zod layer: branded IDs, enum literals, Zod schemas for 8 entities, Kysely Database interface, barrel exports."
+  domain-model-postgres:
+    status: confirmed
+    action_type: FEATURE
+    profile: code
+    created: "2026-04-30"
+    approved_at: "2026-04-30"
+    run_completed_at: "2026-05-01"
+    verified_at: "2026-05-01"
+    revision_count: 1
+    last_revision: "Split from domain-model spec rev 5. Postgres layer: migration (9 tables), bifurcated RLS policies, set_empresa_profile_updated_at trigger, all CHECK constraints."
+  domain-model-extraction-contracts:
+    status: confirmed
+    action_type: FEATURE
+    profile: code
+    created: "2026-04-30"
+    approved_at: "2026-04-30"
+    run_completed_at: "2026-04-30"
+    verified_at: "2026-04-30"
+    revision_count: 1
+    last_revision: "Split from domain-model spec rev 5. Extraction contracts layer: RequisitoExtractionPayloadSchema, ExtractorLogger, Semaforo/SemaforoStats/RequisitoCategoria types, HABILITANTE_HEADING_PATTERNS constants."
   pdf-ingestion:
     status: approved
     created: "2026-04-26"
-    approved_at: "2026-04-26"
+    approved_at: "2026-05-04"
     action_type: FEATURE
     profile: code
-    updated: "2026-04-27"
-    revision_count: 3
-    last_revision: "Add process.env.* + @anthropic-ai/sdk to NFR-03 (cross-spec purity-grep parity); converge logger detection to enumeration; fix residual claude-extraction → requisitos-extraction stale references; fix three Documento leftovers + verify.md documento_id. No functional changes."
+    updated: "2026-05-04"
+    revision_count: 4
+    last_revision: "Rev 4 — Re-plan to align with mvp-scope §59 + queue-fed pipeline. Pure function → queue-fed worker (entrypoint side-effectful in src/services/ingestion-worker/, inner pipeline pure in lib/ingestion/). Adds OCR (Tesseract spa) + library-based tables (pdfplumber subprocess) + empty-page flagging as in-scope. ADR-005 superseded by ADR-010; new ADRs 008/009/010/011/012. T8 idempotency expanded verbatim on pliego_upload_id. NFR-03 scope lib/ingestion/** reaffirmed (worker exempt). T0 satisfied externally by domain-model-mvp rev 1. Corpus N=20 / <5% page-failure / p95 <2 min on 200 pages. requisitos-extraction RN-012 obsolescence captured as Sprint 3 TODO."
   requisitos-extraction:
     status: approved
     created: "2026-04-26"
     approved_at: "2026-04-26"
     action_type: FEATURE
     profile: code
-    updated: "2026-04-27"
-    revision_count: 2
-    last_revision: "5 cross-spec edits from semaforo-aggregation T0 + ModelMetadata import reconciliation + eligibility-matching dead-name fix. Tiered is_habilitante classifier (structural-first, LLM-fallback), categoria narrowing at Zod boundary, ≥80%-structural acceptance test. T0 fully shipped via domain-model rev 4+5."
+    updated: "2026-05-05"
+    revision_count: 3
+    last_revision: "Rev 3 — IngestionResult input, RN-007/RN-012 removed, extraction-eval-harness hard gate (RN-019), pagina_fuente+quote_fuente citation with NFKC normalization (RN-018), partial result warning+failed_categories (RN-021), explicit token log fields, section_heading structural tier post-validation, ADR-010 pipeline position (RN-020), T7 added."
   semaforo-aggregation:
     status: approved
     created: "2026-04-27"
     approved_at: "2026-04-27"
     action_type: FEATURE
     profile: code
+    updated: "2026-05-05"
+    revision_count: 1
+    last_revision: "Rev 2 (breaking): full rewrite to matching + aggregation pipeline — runSemaforoMatching(requisitos, profile); 3 per-tipo matchers; N≥5 per-tipo thresholds (30%/50%); jurídico-definitorio knockout; DEFINITORIO_DOCUMENT_TYPES; confidence formulas per tipo; SEMAFORO_RULES_VERSION v2.0.0; 7 tasks (T1–T7)"
   project-bootstrap:
     status: shipped
     created: "2026-04-27"
@@ -48,3 +102,51 @@ features:
     branch: "feat/design-system"
     action_type: FEATURE
     profile: code
+  auth-and-tenancy:
+    status: in-review
+    created: "2026-04-28"
+    approved_at: "2026-04-28"
+    run_completed_at: "2026-04-28"
+    action_type: FEATURE
+    profile: code
+  auth-theme:
+    status: in-review
+    created: "2026-04-30"
+    approved_at: "2026-04-30"
+    run_completed_at: "2026-04-30"
+    action_type: FEATURE
+    profile: code
+  coltratos-app-ui:
+    status: in-review
+    created: "2026-05-01"
+    approved_at: "2026-05-01"
+    run_completed_at: "2026-05-01"
+    action_type: FEATURE
+    profile: code
+  fix-auth-confirm-pkce-2026-05-01:
+    status: in-review
+    action_type: FIX
+    profile: code
+    created: "2026-05-01"
+    approved_at: "2026-05-01"
+    run_completed_at: "2026-05-01"
+    original_feature: auth-and-tenancy
+  company-profiling-onboarding:
+    status: approved
+    created: "2026-05-01"
+    approved_at: "2026-05-04"
+    action_type: FEATURE
+    profile: code
+    owner: Carlos Villa Mercado
+    updated: "2026-05-05"
+    revision_count: 2
+    last_revision: "MVP scope: single form, versioned snapshots, no RUES, no Jurídica, 7 tasks (T1–T3 + T5–T8)"
+  domain-model-mvp:
+    status: approved
+    created: "2026-05-04"
+    approved_at: "2026-05-04"
+    action_type: CREATE
+    profile: code
+    updated: "2026-05-04"
+    revision_count: 1
+    last_revision: "Rev 1: (a) Authority resolution — single source of truth for MVP schema; supersedes domain-model-{primitives, extraction-contracts, postgres}. (b) Ingestion schema — adds pliego_uploads ingestion columns + pdf_pages table per pdf-ingestion rev 4 dependencies."

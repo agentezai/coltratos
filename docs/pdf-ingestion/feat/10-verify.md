@@ -3,85 +3,153 @@
 ## T1: Types and Error Hierarchy
 
 ### Test Scenarios
-- `instanceof PdfIngestionError` is true for `NoTextLayerError`, `EncryptedPdfError`, `EmptyPdfError`, `MalformedPdfError`.
+- `instanceof PdfIngestionError` is true for `NoTextLayerError`, `EncryptedPdfError`, `EmptyPdfError`, `MalformedPdfError`, `OcrFailedError`, `TableParseFailedError`, `StorageFetchFailedError` (7 subclasses).
 - Each subclass exposes the correct `code` literal.
-- `Segment` is structurally `Omit<SegmentoInsert, 'id'|'pliego_id'|'created_at'|'page_range_start'|'page_range_end'> & { pageRange: [number, number] }` with `headingNormalized`, `headingOriginal` (both `string | null`), and `isSynthetic: boolean`.
-- ADR files (004, 005, 006, 007) exist with `status: accepted` frontmatter.
+- `IngestionResult` is structurally `{ schema_version: string; pages: Page[] }`; `Page` has `page_number`, `text`, `tables`, `extraction_method`, `confidence`, `flags`.
+- ADR files (004, 005-stub-superseded, 007, 008, 009, 010, 011, 012) exist with the correct status frontmatter — ADR-005 status `superseded` and references ADR-010.
 
 ### Gate Criteria
-`npm run typecheck` passes. Error-hierarchy unit test passes. All four ADR files present.
+`npm run typecheck` passes. Error-hierarchy unit test passes. All eight ADR files present with correct statuses.
 
 ---
 
-## T2: PDF Text Extractor
+## T2: Storage Fetch
 
 ### Test Scenarios
-- Happy path: 3-page PDF returns 3 entries with non-empty `text` and `page` `[1,2,3]`.
-- Encrypted, scan-only (sub-threshold), empty, malformed → correct `PdfIngestionError` subclass with `cause` set.
-- Empty pages preserved (text: '').
+- Happy path: stub Supabase Storage client returns buffer; `fetchPliegoBuffer(id)` resolves with the buffer; SHA-256 round-trip asserted.
+- 404: stub returns not-found; `fetchPliegoBuffer(id)` rejects with `StorageFetchFailedError`; `cause` is set.
+- Storage key format: spy asserts `companies/<company_id>/pliegos/<sha256>.pdf`.
 
 ### Gate Criteria
-All five failure modes throw the correct subclass. Per-page preservation asserted. No forbidden imports.
+All three scenarios pass; SHA-256 round-trip assertion passes.
 
 ---
 
-## T3: Heuristic Categorizer
+## T3: PDF Text Extractor
 
 ### Test Scenarios
-- `normalizeForMatch('JURÍDICA') === 'juridica'` (the mandatory formula works as specified).
-- Each header family matches three accent/case variants (15 cases minimum).
-- Lines that don't match any pattern return `null`.
-- Pattern priority test: when a line could match multiple families, first declared family wins.
-- Source grep test: no `/...../i` (case-insensitive flag) regex literals appear in `lib/ingestion/categorize.ts` — patterns must operate on normalized text only.
+- 3-page PDF returns 3 entries with `page_number` `[1, 2, 3]`.
+- Encrypted, malformed, empty failure modes throw the correct subclass with `cause` set.
+- Empty pages preserved (`text: ''`).
 
 ### Gate Criteria
-Table-driven tests pass. Priority test passes. Grep test confirms no case-insensitive regex flags.
+All four failure modes throw the correct subclass. Per-page preservation asserted. No forbidden imports.
 
 ---
 
-## T4: Segment Assembler
+## T4: OCR Fallback
 
 ### Test Scenarios
-- Front-matter (content before first header) emits a synthetic `general` segment with `orden: 0`, `isSynthetic: true`, both heading fields `null`.
-- 3-page synthetic input with one header per page yields 3 ordered segments with correct `pageRange`, categorías, and heading fields populated for header segments (`isSynthetic: false`, both heading fields non-null).
-- No-header document yields exactly one synthetic segment spanning all pages.
-- Empty header-only line at end-of-document does not emit an empty segment.
-- Property-based fuzz (50 randomized inputs): all six output invariants hold, including the RN-011 triple-equivalence (`isSynthetic === true ⇔ headingNormalized === null ⇔ headingOriginal === null`).
-- Determinism: identical input produces deeply-equal output across 100 invocations.
-- `headingNormalized` for a header segment exactly equals `normalizeForMatch(headingOriginal)` — guarantees the persisted normalized form is the one the categorizer matched against.
+- Tesseract spy receives `lang: 'spa'`.
+- OCR success returns `{text, confidence}` in `[0, 1]`.
+- Low-confidence (<0.5) flags page with `'ocr_low_confidence'` (assembler-side, but OCR layer returns confidence faithfully).
+- OCR failure raises `OcrFailedError`.
 
 ### Gate Criteria
-All invariants asserted. Property-based fuzz passes. Determinism confirmed. Heading-formula equivalence asserted.
+Spanish lang pack assertion green; failure mode green.
 
 ---
 
-## T5: Public API Entry Point
+## T5: Table Extractor
 
 ### Test Scenarios
-- Smoke test: `parsePliegoPdf` on a fixture buffer resolves to a non-empty `Segment[]`.
-- Empty-buffer guard throws `EmptyPdfError` without invoking pdf-parse (verified via spy).
-- Determinism on a fixture buffer.
-- Barrel re-exports: all 4 error classes importable from `lib/ingestion`.
-- **Purity scan (NFR-03):** scans `lib/ingestion/**` excluding `__tests__/` and `*.test.*` within that path; treats `tests/**` as out-of-scope; zero matches for forbidden imports.
-- **Purity self-test:** the scan correctly fails when a temporary file with a forbidden import is added (and removes the file afterward).
+- 2-column synthetic fixture → TableJson with row width 2.
+- 3-column synthetic fixture → TableJson with row width 3.
+- Per-page subprocess failure → caught and surfaced as `'table_parse_failed'` flag (asserted via T6 integration).
+- No `node:fs` import in `lib/ingestion/tables.ts`.
 
 ### Gate Criteria
-All tests pass. Purity scan returns zero matches in scope and demonstrates working detection via self-test. `npm run typecheck` passes; no `any` in public surface.
+All four scenarios pass; NFR-03 grep clean.
 
 ---
 
-## T6: Validation Corpus, Acceptance Test, Benchmark
+## T6: Page Assembler
 
 ### Test Scenarios
-- **Corpus quality:** aggregate category-match rate across 5 real pliegos ≥ 0.80.
-- **Encrypted/scan-only fixtures** throw the correct typed errors.
-- **`corpus.yaml` schema** validation: every entry has `source_entity`, `modalidad`, `year`, `manual_labels`, `date_added`; `manual_labels` resolves to an existing JSON file; `date_added` is ISO-8601.
-- **Performance:** vitest bench p95 across the corpus < 3000ms.
-- **Synthetic/heading invariant on real outputs:** every produced segment satisfies the RN-011 triple-equivalence — asserted as part of the acceptance test, not just unit tests.
-- **Determinism at corpus level:** re-running the acceptance test produces identical results.
+- Page-contiguity invariant: 5-page input where page 4 is empty surfaces all 5 pages with page 4 having `extraction_method='empty'` + `'no_text_extracted'`.
+- OCR fallback decision: sub-threshold page invokes OCR (spy); above-threshold page does not.
+- Empty-page flag: 0-text page surfaces with `text: ''`, `extraction_method: 'empty'`, `'no_text_extracted'` flag.
+- Determinism: identical input produces deeply-equal output across two invocations.
 
 ### Gate Criteria
-Both `npm run test` and `npm run test:bench` pass on CI. Match rate, p95, and manifest gates green.
+All four scenarios pass.
+
+---
+
+## T7: Error State Mapping
+
+### Test Scenarios
+- Each of the 7 error subclasses → expected `ingestion_failure_reason`.
+- Unknown error type → `'unknown'`.
+- Adding a new error subclass without updating mapping causes typecheck failure (exhaustiveness check).
+
+### Gate Criteria
+Mapping is complete and exhaustive.
+
+---
+
+## T8: Queue Worker (Idempotency)
+
+### Test Scenarios
+- **(a)** Status writes are upserts: re-call `markRunning` on running row → no error, single row.
+- **(b)** Page writes upsert: re-write same 12 pages → still 12 rows, no duplicates.
+- **(c1)** `completed` short-circuits: spy on inner pipeline never called.
+- **(c2)** `running` recent → returns early.
+- **(c3)** `running` stale (>10 min) → reprocesses.
+- **(d)** Concurrency control: pgmq visibility timeout configured ≥30 min OR advisory-lock SQL present.
+
+### Gate Criteria
+All 6 idempotency assertions pass.
+
+---
+
+## T9: Validation Corpus (N=20)
+
+### Test Scenarios
+- Manifest contains 20 entries; all 6 keys present per entry; `tipo` ∈ `{pliego_condiciones, pliego_definitivo}`.
+- Golden sketch files resolve.
+- Manual table-quality review documented in `tests/fixtures/pliegos/table-review.md` for 5 sampled pliegos.
+
+### Gate Criteria
+Manifest schema valid; golden files exist; manual review document present.
+
+---
+
+## T10: Acceptance — <5% Page Failure Rate
+
+### Test Scenarios
+- **Page-failure rate:** `(flagged pages) / (total pages) < 0.05` over the 20-pliego corpus.
+- **Encrypted fixture:** `ingestion_failure_reason = 'encrypted_pdf'`.
+- **Malformed fixture:** `ingestion_failure_reason = 'pdf_unreadable'`.
+- **Scan-only fixture:** OCR fallback triggers; pages have `extraction_method = 'ocr'`.
+- **Manifest schema:** validates over 20 entries.
+
+### Gate Criteria
+All gates green on CI.
+
+---
+
+## T11: Performance Benchmark
+
+### Test Scenarios
+- **Performance:** vitest bench p95 < 120000ms across pliegos ≤200 pages.
+- **Memory probe:** RSS delta < 1GB per fixture (soft target, logged).
+
+### Gate Criteria
+p95 gate green on CI.
+
+---
+
+## Cross-Cutting: Scoped Purity Scan
+
+### Test Scenarios
+- Scans `lib/ingestion/**`, excludes `__tests__/` and `*.test.*`; treats `tests/**` as out-of-scope.
+- **`src/services/ingestion-worker/` is OUT of scope by design (per ADR-010, ADR-011).**
+- Forbidden imports: `@supabase/*`, `@anthropic-ai/sdk`, `node:fs`, `node:fs/promises`, `node:net`, `node:http`, `node:https`, enumerated logger modules, `process.env.[A-Z_]+`.
+- Self-test: temporary forbidden-import file is detected; cleanup makes scan green again.
+
+### Gate Criteria
+Zero matches in scope. Self-test demonstrates working detection.
 
 ---
 
@@ -89,12 +157,13 @@ Both `npm run test` and `npm run test:bench` pass on CI. Match rate, p95, and ma
 
 **Final acceptance test:**
 
-1. Confirm T0 (domain-model edit) has shipped — `general` enum value, `page_range_*` columns, dual heading columns, `is_synthetic` column, and both CHECK constraints exist in the database.
-2. Run `npm run test` after a clean install — T1–T5 unit tests pass; T6 acceptance test runs against all 5 corpus pliegos.
-3. Match rate ≥ 0.80; manifest schema valid; RN-011 triple-equivalence holds on every produced segment.
-4. Run `npm run test:bench` — p95 < 3000ms.
-5. Manually inspect one produced `Segment[]` and confirm: ordering, page-range correctness, `headingOriginal` matches the source PDF visually, `headingNormalized === normalizeForMatch(headingOriginal)`, `isSynthetic` correlates with heading nullability.
+1. Confirm `domain-model-mvp` rev 1 is shipped — `pliego_uploads` ingestion columns, `pdf_pages` table, RLS, CHECK constraints. (T0 satisfied externally.)
+2. Run `npm run test` after a clean install — T1–T8 unit/integration tests pass; T10 acceptance test runs against all 20 corpus pliegos.
+3. Page-failure rate < 5%; manifest schema valid; encrypted/malformed/scan-only fixtures map to correct failure reasons.
+4. Run `npm run test:bench` — p95 < 120000ms.
+5. Manually inspect one `pdf_pages` result and confirm: page contiguity (1..N), `extraction_method` correctness, OCR'd page has `confidence` populated, table-bearing pages have non-empty `tables`.
 6. `npm run typecheck` — zero errors.
-7. Grep `lib/ingestion/` for `supabase`, `node:fs`, `logger` (excluding test files); zero matches.
+7. Grep `lib/ingestion/` for `supabase`, `node:fs`, `logger` (excluding test files); zero matches. (`src/services/ingestion-worker/` is exempt by design.)
+8. Manual table-quality review on 5 sampled pliegos passes (REQ-023).
 
-**Gate Criteria:** All seven steps pass. Match rate ≥ 0.80, p95 < 3000ms, RN-011 triple-equivalence universally holds, zero typecheck errors, zero in-scope purity violations. Spec is shippable.
+**Gate Criteria:** All eight steps pass. Page-failure rate < 5%, p95 < 120000ms, zero typecheck errors, zero in-scope purity violations, manual table review documented. Spec is shippable.

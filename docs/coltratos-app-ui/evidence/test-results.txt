@@ -1,0 +1,16 @@
+Run: 2026-05-01
+Command: npx vitest run --project unit --project types
+
+RESULT: PASS
+Test Files : 38 passed (38)
+Tests      : 167 passed (167)
+Type Errors: 0
+Duration   : ~3s
+
+New test files (this spec):
+  src/__tests__/nav-shell.test.tsx       — 3 tests  (T1)
+  src/__tests__/sem-pill.test.tsx        — 3 tests  (T2)
+  src/__tests__/mock-data.test-d.ts      — 1 type   (T2)
+  src/__tests__/upload-flow.test.tsx     — 4 tests  (T5)
+  src/__tests__/result-tabs.test.tsx     — 2 tests  (T7)
+Total new: 13 tests

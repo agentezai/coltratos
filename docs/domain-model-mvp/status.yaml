@@ -1,0 +1,8 @@
+status: approved
+action_type: CREATE
+profile: code
+created: "2026-05-04"
+approved_at: "2026-05-04"
+updated: "2026-05-04"
+revision_count: 1
+last_revision: "Rev 1: (a) Authority resolution — single source of truth for MVP schema; supersedes domain-model-{primitives, extraction-contracts, postgres}. (b) Ingestion schema — adds pliego_uploads ingestion columns + pdf_pages table per pdf-ingestion rev 4 dependencies."

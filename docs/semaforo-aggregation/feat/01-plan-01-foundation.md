@@ -2,101 +2,104 @@
 
 ## Scope
 
-- `lib/semaforo/thresholds.ts` — NEW. Named const exports for threshold values and `SEMAFORO_RULES_VERSION`.
-- `.nybo/foundation/adrs/ADR-011.md` — NEW. "Threshold values for semáforo verdicts (v1)."
-- `.nybo/foundation/adrs/ADR-012.md` — NEW. "Sin información handling: amarillo, not rojo."
+- `lib/semaforo/thresholds.ts` — NEW (replaces v1 thresholds file). All versioned constants for v2 matching engine.
+- `.nybo/foundation/adrs/ADR-011.md` — UPDATE. Supersedes v1 threshold-value ADR.
+- `.nybo/foundation/adrs/ADR-012.md` — UPDATE. N≥5 per-tipo cutoff decision.
+- `.nybo/foundation/adrs/ADR-013.md` — NEW. Confidence derivation approach.
+- `.nybo/foundation/adrs/ADR-014.md` — NEW. `is_definitorio` static-list-in-matching decision.
 
 ## Changes
 
-### `thresholds.ts`
+### `lib/semaforo/thresholds.ts`
 
 ```typescript
 // lib/semaforo/thresholds.ts
-//
-// Versioning protocol (RN-011): any change to a threshold or to the knockout
-// rule definition requires:
-//   (a) editing this file,
-//   (b) bumping SEMAFORO_RULES_VERSION,
-//   (c) updating golden fixtures with explicit new expected outputs,
-//   (d) writing an ADR documenting the rationale.
-// PR review enforces all four. The orchestrator persists this version on
-// Analisis.semaforo_rules_version so historical análisis stay explainable.
+// Versioning protocol (RN-015): any change to these constants requires:
+//   (a) editing this file, (b) bumping SEMAFORO_RULES_VERSION,
+//   (c) updating affected golden fixtures, (d) writing an ADR.
 
-/** Minimum cumplePct for an overall/per-categoría 'verde' (inclusive). */
-export const VERDE_THRESHOLD = 0.9 as const
+export const SEMAFORO_RULES_VERSION = 'v2.0.0' as const
 
-/** Minimum cumplePct for an overall/per-categoría 'amarillo' (inclusive). */
-export const AMARILLO_THRESHOLD = 0.7 as const
+// Per-tipo threshold aggregation (RN-009)
+export const MIN_N_FOR_THRESHOLD = 5 as const
+export const ROJO_THRESHOLD = 0.30 as const      // >30% rojo → tipo-rojo (N≥5 only)
+export const AMARILLO_THRESHOLD = 0.50 as const  // >50% amarillo → tipo-amarillo (N≥5 only)
 
-/**
- * Version stamp persisted on every Analisis.semaforo_rules_version row.
- * Bump on any change to thresholds, knockout rule, or sin-info handling.
- * Format: vMAJOR.MINOR.PATCH (semver-shaped string).
- */
-export const SEMAFORO_RULES_VERSION = 'v1.0.0' as const
+// Financiero confidence (RN-010)
+export const FINANCIERO_VERDE_MARGIN = 0.10 as const  // ≥10% over threshold → verde
+
+// Técnico cosine minimum for a qualifying match (RN-011)
+export const TECNICO_COSINE_MIN = 0.80 as const
+
+// Jurídico is_definitorio classification (RN-016)
+// Changes to this list are SEMAFORO_RULES_VERSION-bumping events.
+export const DEFINITORIO_DOCUMENT_TYPES = [
+  'tipo_societario',
+  'rup_vigente',
+  'inhabilidades_incompatibilidades',
+  'objeto_social_requerido',
+  'capital_social_minimo',
+] as const satisfies readonly string[]
+
+// Jurídico known-obtainable (non-definitorio) types — absence → amarillo heuristic (RN-013, RN-016)
+export const OBTAINABLE_DOCUMENT_TYPES = [
+  'paz_y_salvo_tributario',
+  'paz_y_salvo_parafiscal',
+  'poliza_responsabilidad',
+  'certificado_rut',
+  'certificado_rup_copia',
+  'registro_camara_comercio_renovado',
+  'certificado_existencia_representacion',
+] as const satisfies readonly string[]
 ```
 
-- All three are `const` exports — TypeScript narrows them at use sites, preventing accidental literal-number drift inside `aggregate.ts`.
-- The aggregation function (T2) imports these — it MUST NOT inline `0.9` / `0.7` / `'v1.0.0'` anywhere. TC-014's grep test enforces this.
+All exports are `as const` literal types. The aggregator and matchers import from this file — numeric literals MUST NOT be inlined elsewhere (TC-017 grep enforces this).
 
-### ADR-011 (`.nybo/foundation/adrs/ADR-011.md`)
+### ADR-011 (update)
 
-Title: **Threshold values for semáforo verdicts (v1)** · Status: **Accepted**
+Title: **v2 matching engine: per-tipo matchers + N≥5 threshold aggregation** · Status: **Accepted**
 
-Sections:
+Supersedes v1 ADR-011 (simple 90%/70% threshold on aggregated verdicts).
 
-- **Context.** COLTRATOS produces a verde/amarillo/rojo verdict from per-requisito eligibility verdicts. Threshold values determine how strict the eligibility signal is — too lenient and users bid on procesos they'll lose; too strict and they pass on procesos they could have won.
-- **Decision.** v1 uses `VERDE_THRESHOLD = 0.9`, `AMARILLO_THRESHOLD = 0.7`, knockout rule on `is_habilitante=true AND cumple=false`, sin-información excluded from the percentage denominator.
-- **Rationale.**
-  - 90% leaves narrow margin for error appropriate for high-stakes bid decisions (the user is committing real labor and capital based on the verdict).
-  - 70% as the amarillo floor reflects "you could probably qualify with effort" — the actionable middle state where the UI prompts the user to address gaps.
-  - Excluding sin-info from the denominator prevents extraction gaps from artificially deflating scores. ADR-012 covers the all-null edge case separately.
-  - Knockout rule on habilitantes is non-negotiable: Colombian procurement law makes habilitantes literal blockers — failing one means legally ineligible to bid, regardless of any aggregate score.
-- **Alternatives Considered.**
-  - **Per-categoría weighting** (financial-heavier than technical) — rejected for v1: lacks the empirical data to weight defensibly. Pursue in v1.1+ if calibration data shows a categoría drives bid-loss outcomes disproportionately.
-  - **Strict thresholds (95% / 80%)** — rejected: would produce too many rojos on pliegos where a few minor non-habilitante failures don't actually block the bid.
-  - **Lenient thresholds (80% / 50%)** — rejected: too many verdes on pliegos with significant gaps; erodes user trust in the verdict.
-- **Validation Plan.** Once **N≥10 paying users** have produced **N≥50 análisis**, compare semáforo verdicts against actual bid outcomes (did empresa bid? did they win/lose?) and recalibrate. **v1.1 work item, not a v1 ship blocker.** The `SEMAFORO_RULES_VERSION` stamp on every `Analisis` row makes recalibration possible without data loss.
-- **Consequences.**
-  - **Positive.** Defendable rules; isolated implementation; easy to tune; auditable per-análisis via the persisted version stamp.
-  - **Negative.** Thresholds are unvalidated against real outcomes for v1.
-  - **Mitigation.** ADR-012 sin-info handling reduces false rojos; the version stamp enables historical recalibration.
+Key sections:
+- **Decision**: replace aggregation-only with three per-tipo matchers; replace 90%/70% verde-percentage with 30%/50% rojo/amarillo percentage thresholds per tipo; add jurídico-definitorio knockout; apply thresholds only when N≥5 per tipo.
+- **Rationale**: v1 assumed `cumple` was set upstream by extraction — discovery revealed matching was missing. Per-tipo thresholds prevent a large batch of técnico misses from contaminating a strong jurídico result and vice versa. The N≥5 cutoff prevents a single non-definitorio miss in a small pliego from producing rojo.
+- **Validation**: same v1.1 plan — calibrate against N≥50 análisis outcomes.
 
-### ADR-012 (`.nybo/foundation/adrs/ADR-012.md`)
+### ADR-012 (update)
 
-Title: **Sin información handling: amarillo, not rojo** · Status: **Accepted**
+Title: **N≥5 per-tipo cutoff: non-monotone transition is intentional** · Status: **Accepted**
 
-Sections:
+- **Decision**: threshold logic (30%/50%) applies only when a tipo has ≥5 requisitos. Below N=5, only definitorio knockout fires; non-definitorio rojos are treated as tipo-amarillo.
+- **Rationale**: the N=4→N=5 transition (1 non-definitorio rojo: amarillo→verde) is non-monotone and intentional. Large pliegos tolerate small percentages of misses without penalizing the verdict; small pliegos are more conservatively evaluated because there is no denominator to absorb individual misses. The cutoff is documented in spec RN-009 with worked examples.
 
-- **Context.** When a requisito's `cumple` verdict is `null` (extraction couldn't determine eligibility from the empresa profile and pliego text), aggregation must decide how to treat it.
-- **Decision.** Sin-información requisitos are **EXCLUDED from the percentage denominator**. If ALL requisitos are sin-información, overall verdict is `amarillo` (NOT `rojo`).
-- **Rationale.** Treating "we couldn't tell" as "ineligible" produces misleading rojos that drive users away from procesos they might actually qualify for. `amarillo` correctly communicates "manual review needed here" without making a confident negative claim. Excluding from the denominator means a partially-extracted pliego is judged on the requisitos we DID extract, not penalized for the gaps.
-- **Alternatives Considered.**
-  - **Treat null as rojo** — rejected: produces false rojos on incomplete profiles; user-hostile.
-  - **Treat null as amarillo at the aggregation level (count in denominator, treat as 0.5)** — rejected: implicit weighting introduces an opaque math layer; users can't reason about why their score is what it is.
-  - **Exclude null from denominator AND default all-null to rojo** — rejected: the denominator-zero case (all null) needs an explicit verdict; rojo here would conflate "ineligible" with "couldn't tell."
-- **Consequences.**
-  - **Positive.** No false rojos from extraction gaps; users see a defensible verdict aligned with how they think about partial information.
-  - **Negative.** A pliego with extensive missing data can produce `verde` if the few-determined requisitos all cumple — potentially overconfident.
-  - **Mitigation.** `stats.cumplePct` exposes the denominator and `stats.sinInfo` is surfaced prominently in the UI so users see when the verdict is based on partial data. Future work item: a UI quality gate that warns the user when `sinInfo / total > 0.3` even if overall is verde.
+### ADR-013 (new)
 
-### Design Rationale (Single Responsibility)
+Title: **Confidence derived from evidence quality, not extraction confidence** · Status: **Accepted**
 
-Splitting thresholds and ADRs into T1 (instead of bundling into T2 with the function) means:
-- The aggregation function (T2) cannot accidentally hardcode a literal — the file it lives in doesn't have any.
-- Threshold tuning becomes a single-file PR, with `git blame` pointing directly at the rule change.
-- ADR authoring is co-located with the constants they justify; future readers see them together.
+- **Decision**: `MatchResult.confidence` is computed per-tipo from matching evidence quality (margin size, UNSPSC tier, heuristic resolution). `extraction_confidence` is a separate passthrough field.
+- **Rationale**: extraction confidence answers "how sure is the LLM that it read this correctly." Matching confidence answers "how clearly does the rule apply." Mixing them produces a combined number that answers neither question and obscures which step introduced uncertainty.
+
+### ADR-014 (new)
+
+Title: **`is_definitorio` classification: static pattern list in matching layer** · Status: **Accepted**
+
+- **Decision**: jurídico requisitos are classified as definitorio by checking `document_type` against `DEFINITORIO_DOCUMENT_TYPES` in `thresholds.ts`. The extraction layer and LLM do NOT set this flag.
+- **Rationale**: definitorio is a legal judgment that changes only when procurement law or project knowledge evolves — not per-pliego. Static list is auditable, zero-cost at match time, and versionable. Adding a `document_type` to the definitorio list is a `SEMAFORO_RULES_VERSION`-bumping event with an ADR entry.
+
+## Design Rationale
+
+Concentrating all constants and ADRs in T1 means matchers (T2/T3/T4) import from one file with no numeric literals. Threshold tuning is a single-file PR; `git blame` points directly at the rule change. All four ADRs are co-located with the constants they justify.
 
 ## Dependencies
 
-Requires **T0** (in `domain-model` spec): `Semaforo`, `SemaforoStats`, `RequisitoCategoria`, and `SemaforoColor` (already exists) types must be exported from `@/types`. The `Requisito` shape must include `categoria` and `is_habilitante`.
+T0 (domain-model-mvp): `CompanyProfileSnapshot`, `ExtractedRequisito`, `MatchResult`, `SemaforoResult`, `TipoVerdict`, `RequisitoTipo` types exported from `@/types`.
 
 ## Done When
 
-- [ ] `lib/semaforo/thresholds.ts` exists with three named const exports (`VERDE_THRESHOLD`, `AMARILLO_THRESHOLD`, `SEMAFORO_RULES_VERSION`).
-- [ ] All three exports are `as const` literal types.
-- [ ] `SEMAFORO_RULES_VERSION` matches the regex `/^v\d+\.\d+\.\d+$/` (initial: `'v1.0.0'`).
-- [ ] `.nybo/foundation/adrs/ADR-011.md` exists with all sections above and Status: Accepted.
-- [ ] `.nybo/foundation/adrs/ADR-012.md` exists with all sections above and Status: Accepted.
-- [ ] `npm run typecheck` passes.
-- [ ] No imports beyond TypeScript primitives (`as const`); the file is pure data.
+- [ ] `lib/semaforo/thresholds.ts` exports all named constants listed above as `as const` literals.
+- [ ] `SEMAFORO_RULES_VERSION === 'v2.0.0'`.
+- [ ] `DEFINITORIO_DOCUMENT_TYPES` is a `readonly string[]` with exactly 5 entries.
+- [ ] `OBTAINABLE_DOCUMENT_TYPES` is a `readonly string[]` with exactly 7 entries.
+- [ ] ADR-011 through ADR-014 exist under `.nybo/foundation/adrs/` with Status: Accepted and all required sections.
+- [ ] `npm run typecheck` passes. Zero non-primitive imports in `thresholds.ts`.

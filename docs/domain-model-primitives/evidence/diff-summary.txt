@@ -1,0 +1,45 @@
+## Diff Summary — domain-model-primitives
+
+### Scope
+All changes are untracked (new files). No existing production code was modified except:
+- tests/bootstrap.test.ts: removed stale @ts-expect-error (barrel now exists)
+- docs/status.yaml: updated domain-model-primitives entry
+- .nybo/events.jsonl: appended task events
+
+### New Files (feature-specific)
+
+**Source — src/types/**
+- src/types/domain/primitives.ts
+- src/types/domain/empresa.ts
+- src/types/domain/proceso.ts
+- src/types/domain/pliego.ts
+- src/types/domain/anexo-proceso.ts
+- src/types/domain/segmento.ts
+- src/types/domain/analisis.ts
+- src/types/domain/requisito.ts
+- src/types/domain/prompt-cache.ts
+- src/types/db.ts
+- src/types/index.ts
+
+**Tests — src/__tests__/domain/**
+- primitives.test.ts, primitives.test-d.ts
+- empresa.test.ts, proceso.test.ts, pliego.test.ts, anexo-proceso.test.ts
+- segmento.test.ts, analisis.test.ts, requisito.test.ts
+- db.test-d.ts, barrel.test-d.ts
+
+**ADRs**
+- .nybo/foundation/adrs/ADR-001-kysely.md
+- .nybo/foundation/adrs/ADR-002-zod.md
+- .nybo/foundation/adrs/ADR-003-rls-tenant-isolation.md
+- .nybo/foundation/adrs/ADR-008-pliego-anexoproceso-split.md
+
+**Docs**
+- docs/domain-model-primitives/feat/99-progress.md
+- docs/domain-model-primitives/suggestions.md
+- docs/domain-model-primitives/evidence/ (this directory)
+
+### Totals
+- New files: 21 source + test files, 4 ADRs, supporting docs
+- Total lines added: ~1,224 across src/types and src/__tests__/domain
+- Modified: tests/bootstrap.test.ts (-1 @ts-expect-error directive), docs/status.yaml (+6 lines)
+- Deleted: src/types/domain/.gitkeep (placeholder replaced by real files)

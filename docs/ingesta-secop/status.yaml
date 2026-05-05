@@ -1,0 +1,9 @@
+status: draft
+created: "2026-05-01"
+action_type: FEATURE
+profile: code
+feature_id: secop-ingestion-and-listing
+owner: Carlos Villa Mercado
+updated: "2026-05-04"
+revision_count: 4
+last_revision: "Rename API filter params valor_min/max → cuantia_min/max in spec REQ-012, API contract, P4 Zod schema, SQL function params, verify.md; ac?.valor_max (company profile JSONB field) preserved"

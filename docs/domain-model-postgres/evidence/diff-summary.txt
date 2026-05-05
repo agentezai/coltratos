@@ -1,0 +1,19 @@
+## Diff Summary — domain-model-postgres (updated: 2026-05-01)
+
+### New files
+- supabase/migrations/20260425000000_domain_model.sql  (172 lines — DDL T1)
+- supabase/migrations/20260428000002_auth_rls_and_trigger.sql  (updated — T2 RLS)
+- src/__tests__/domain/migration.integration.test.ts   (280 lines — integration tests)
+
+### Modified files
+- supabase/migrations/20260428000002_auth_rls_and_trigger.sql
+  - pliego_select: USING(true) → USING(deleted_at IS NULL)
+  - anexo_proceso_select: USING(true) → USING(deleted_at IS NULL)
+  - Added pliego_no_hard_delete (RESTRICTIVE DELETE)
+  - Added anexo_proceso_no_hard_delete (RESTRICTIVE DELETE)
+  - Fixed handle_new_user() to provide nombre/nit placeholders (NOT NULL constraint)
+
+### Applied to remote Supabase (project: forydacajjebroouwwjn / coltratos)
+- Migration 1: domain_model — applied ✓
+- Migration 2: auth_rls_and_trigger — applied ✓
+- 9 tables created, RLS enabled, 28 policies created, 2 triggers created

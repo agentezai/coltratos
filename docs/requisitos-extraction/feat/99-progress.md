@@ -1,6 +1,6 @@
 # Progress Tracker
 
-**Status:** Not Started
+**Status:** Not Started (Rev 3 approved 2026-05-05)
 
 **Current Task:** T1 — provider-agnostic foundation. T0 is shipped via domain-model rev 4 + rev 5.
 
@@ -24,17 +24,21 @@
 - [ ] Implement Task 3: `lib/extraction/anthropic/validation.ts` (`parseAndValidatePayload`, `verifyCitation`, `assembleRequisitos`) — all pure.
 - [ ] Verify Task 3: unit tests for valid/malformed/schema-invalid JSON, NFD substring match, paraphrase mismatch (no throw), over-length quote, missing segment.
 
-### T4: AnthropicRequisitosExtractor (rev 2: + tiered classifier + categoria narrowing)
-- [ ] Implement Task 4: `lib/extraction/anthropic/extractor.ts` and `cost.ts`. DI constructor, sync input validation, **per-segment structural habilitancia pre-classification using `HABILITANTE_HEADING_PATTERNS` (REQ-019, RN-016)**, parallel-per-categoría calls with AbortController, **categoria-narrowing on every emitted Requisito (REQ-006, RN-015)**, streaming cost reduction with ceiling enforcement, 1× Zod retry, contract-violation + cost telemetry logging. Every emitted `Requisito` carries `categoria` (narrow), `is_habilitante`, `is_habilitante_source` (`'structural'` or `'llm'`; never `'manual'` in v1).
-- [ ] Verify Task 4: unit tests covering all behaviors above using a stub Anthropic client. Critical cases: cost-ceiling breach correctly aborts in-flight calls; structural-tier match bypasses LLM habilitancia classification (TC-020); `categoria === 'general'` payload rejected via Zod `.refine()` (TC-021); zero emitted requisitos carry `categoria === 'general'` (TC-022).
+### T4: AnthropicRequisitosExtractor (rev 3: per-page input, partial results, post-validation structural tier)
+- [ ] Implement Task 4: `lib/extraction/anthropic/extractor.ts` and `cost.ts`. DI constructor, sync input validation (`ingestionResult.pages.length > 0`), parallel-per-categoría calls (all pages to each call) with AbortController, **post-validation structural habilitante classification via LLM-emitted `section_heading` + `HABILITANTE_HEADING_PATTERNS` (REQ-019, RN-016)**, **categoria-narrowing on every emitted Requisito (REQ-006, RN-015)**, streaming cost reduction with ceiling enforcement, 1× Zod retry, **partial result with `warning` + `failed_categories` on single-category second failure (REQ-009, RN-021)**, cost telemetry logging with distinct token fields (REQ-011).
+- [ ] Verify Task 4: unit tests covering all behaviors above using a stub Anthropic client. Critical cases: cost-ceiling breach correctly aborts in-flight calls; structural-tier match via `section_heading` post-validation (TC-020); `categoria === 'general'` payload rejected via Zod `.refine()` (TC-021); zero emitted requisitos carry `categoria === 'general'` (TC-022); one-category second Zod failure → partial result with warning (TC-025); all-category second Zod failure → `ExtractorSchemaValidationError` (TC-026); token log has distinct cache fields (TC-027).
 
 ### T5: Mock + Public Barrels
 - [ ] Implement Task 5: `lib/extraction/mock/extractor.ts`, `lib/extraction/mock/index.ts`, `lib/extraction/anthropic/index.ts`, `lib/extraction/index.ts`.
 - [ ] Verify Task 5: unit tests for mock substitution + canned-output behavior; provider-isolation grep over `lib/extraction/mock/` returns zero `@anthropic-ai/sdk` matches.
 
-### T6: Corpus + Acceptance + Provider-Isolation Grep (rev 2: + ≥80% structural gate)
-- [ ] Implement Task 6: 3 golden fixtures with **`is_habilitante` + `is_habilitante_source` annotations** per requisito (REQ-014); `corpus.yaml`; real-Anthropic acceptance test (`tests/acceptance/requisitos-extraction.real.test.ts`); mock orchestrator test (`tests/acceptance/requisitos-extraction.mock.test.ts`); provider-isolation grep (`tests/ci/extraction-provider-isolation.test.ts`).
-- [ ] Verify Task 6: corpus acceptance test passes with ≥85% average agreement; cache-hit ratio ≥0.85 after warmup; mock test passes without API key; isolation grep passes with zero forbidden matches; **TC-019: ≥80% of habilitante-true requisitos (corpus-wide) carry `is_habilitante_source === 'structural'`** (REQ-020); zero emitted requisitos have `categoria === 'general'` (TC-022).
+### T6: Corpus + Acceptance + Provider-Isolation Grep (rev 3: ingestionResult fixtures, pagina_fuente citations, partial-result assertions)
+- [ ] Implement Task 6: 3 golden fixtures using **`ingestionResult.json`** (replacing `segments.json`) with **`pagina_fuente` + `quote_fuente`** citations (replacing `citation_segment_id` / `citation_quote`); `corpus.yaml`; real-Anthropic acceptance test; mock orchestrator test; provider-isolation grep.
+- [ ] Verify Task 6: corpus acceptance test passes with ≥85% average agreement; cache-hit ratio ≥0.85 after warmup; mock test passes without API key; isolation grep passes with zero forbidden matches; TC-019: ≥80% structural; TC-022: zero `categoria === 'general'`; clean fixtures produce `warning === undefined`.
+
+### T7: extraction-eval-harness Verified Gate
+- [ ] Implement Task 7: `.github/workflows/extraction-eval.yml` triggers on `lib/extraction/**` PRs; writes pass/fail summary to `eval-results/index.md` keyed by git hash (aggregate recall ≥0.85, per-tipo ≥0.80). Partial results count as recall=0 for failed categories.
+- [ ] Verify Task 7: `nybo-verify` confirms a passing harness entry for the current git hash before marking `Verified`; CI eval workflow passes on a clean extraction run.
 
 ---
 

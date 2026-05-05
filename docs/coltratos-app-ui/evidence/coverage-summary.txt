@@ -1,0 +1,19 @@
+Run: 2026-05-01
+Command: npx vitest run --project unit --coverage
+
+Overall:
+  Statements : 71.22% (198/278)
+  Branches   : 64.07% (132/206)
+  Functions  : 58.92%  (66/112)
+  Lines      : 72.24% (190/263)
+
+Feature files coverage (spot):
+  src/components/shell/sidebar.tsx  — 100% statements, 97% branches ✓
+  src/components/ui/icon.tsx        — 100% ✓
+  src/components/page/sem-pill.tsx  — 100% (via sem-pill.test.tsx) ✓
+  src/components/page/stat-card.tsx — 33% (render-only, no unit test)
+  src/lib/mock/index.ts             — 100% (used by multiple tests) ✓
+
+Low coverage (expected — RSC pages use mock data, no server-side logic):
+  src/components/page/* (data-table, page-header, pagination, toolbar) — 0–23%
+  Reason: purely presentational, tested implicitly via page renders in build.

@@ -71,3 +71,35 @@ When verifying a feature that touches the analysis pipeline, evidence **MUST** i
 
 If any of the five cannot be measured for the change being verified, say so explicitly in the verify report — do not omit it.
 <!-- added: 2026-04-28 | feature: mvp-baseline | confidence: high -->
+
+## Discovery success metrics (bars #6–9)
+
+These four metrics gate the discovery feature, not the analysis pipeline. Measure after the first 30 days of pilots using discovery.
+
+### 6. Discovery → analysis conversion ≥20%
+
+**MUST** instrument: of Procesos viewed in discovery results (click-through to detail), ≥20% **MUST** result in a pliego upload + analysis run. Below 20% means pilots are browsing but not acting — either relevance is poor or the friction to upload is too high.
+
+Source: docs/product/mvp-definition.md §5 + 2026-05-04 pilot-research conversation
+<!-- updated: 2026-05-04 | feature: discovery-pivot | confidence: high -->
+
+### 7. Pilot-judged relevance ≥70%
+
+**MUST** instrument: of analyzed Procesos originating from discovery, ≥70% **MUST** be rated "relevant" by the pilot in a simple thumbs survey surfaced on the results page. Below 70% means the search/filter/match-my-profile logic surfaces too many irrelevant Procesos.
+
+Source: docs/product/mvp-definition.md §5 + 2026-05-04 pilot-research conversation
+<!-- updated: 2026-05-04 | feature: discovery-pivot | confidence: high -->
+
+### 8. Discovery vs manual entry ratio ≥70%
+
+**MUST** instrument: ≥70% of all analyses **MUST** originate from discovery (click-through from `procesos_index` results), not from direct Proceso ID entry or manual fallback. Below 70% means discovery is not the dominant entry path and the value prop is not landing.
+
+Source: docs/product/mvp-definition.md §5 + 2026-05-04 pilot-research conversation
+<!-- updated: 2026-05-04 | feature: discovery-pivot | confidence: high -->
+
+### 9. Catalog uniqueness ≥1 new Proceso per pilot per week
+
+**MUST** survey: pilots **MUST** report finding ≥1 Proceso per week in Coltratos that they had not seen on SECOP II before. This is the delta value of discovery over the baseline of "I already know which Procesos exist." If pilots find nothing new, the 6h sync and semantic search are adding no value over manually checking SECOP II.
+
+Source: docs/product/mvp-definition.md §5 + 2026-05-04 pilot-research conversation
+<!-- updated: 2026-05-04 | feature: discovery-pivot | confidence: high -->

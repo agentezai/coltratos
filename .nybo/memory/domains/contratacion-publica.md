@@ -42,8 +42,11 @@ The shared vocabulary of Colombian public procurement as it applies to COLTRATOS
 - **Analysis** — One run of the extraction-and-matching pipeline against one PliegoUpload + one Company profile snapshot. Re-runs create new rows, not mutations.
 - **datos.gov.co SODA API** — Open-data portal API used to look up Proceso metadata by `numero_proceso`. See `domains/integrations.md`.
 - **SECOP II** — The Colombian public-procurement portal where Procesos are published and pliegos are downloaded. **MUST NOT** be scraped.
+- **Discovery** — The surface that surfaces open Procesos matching a company's profile criteria. Distinct from **Lookup** (direct fetch by `numero_proceso`). Discovery reads from `procesos_index`; Lookup calls datos.gov.co SODA API directly. Source: 2026-05-04 pilot-research conversation
+- **procesos_index** — Local denormalized table of currently-open SECOP II Procesos with precomputed embeddings on `objeto_a_contratar`, kept in sync with datos.gov.co on a 6-hour cadence. The data source for the discovery surface. Source: 2026-05-04 pilot-research conversation
 
-**Lookup by ID, never by browse.** The user always brings a `numero_proceso` from outside Coltratos. The product surface for finding a Proceso is one input field plus a confirmation card — nothing more.
+**Two paths to a Proceso: Discovery (primary) and Lookup (fallback).** Discovery queries `procesos_index` via semantic search and structured filters — the user does not need to know the `numero_proceso` in advance. Direct Lookup by `numero_proceso` is the fallback for Procesos the user already holds from SECOP II or that are not yet in the index. Source: 2026-05-04 pilot-research conversation
+<!-- updated: 2026-05-04 | feature: discovery-pivot | confidence: high -->
 
 ## Gotchas
 

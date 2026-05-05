@@ -10,10 +10,10 @@
 
 ### Interface module (`lib/extraction/types.ts`)
 
-- Import only domain types from `@/types`: `AnalisisId`, `Empresa`, `ModelMetadata`, `Pliego`, `Requisito`, `Segment`. **No SDK imports, no `node:*` imports, no `process.env` reads, no logger imports.**
-- Export `interface ExtractorInput` (REQ-002): `{ pliego: Pliego, segments: Segment[], empresa: Empresa, analisisId: AnalisisId }`.
+- Import only domain types from `@/types`: `AnalisisId`, `Empresa`, `IngestionResult`, `ModelMetadata`, `Pliego`, `Requisito`, `RequisitoCategoria`. Remove `Segment` — no longer in the input contract. **No SDK imports, no `node:*` imports, no `process.env` reads, no logger imports.**
+- Export `interface ExtractorInput` (REQ-002): `{ pliego: Pliego, ingestionResult: IngestionResult, empresa: Empresa, analisisId: AnalisisId }`.
 - **Re-export** `type { ModelMetadata } from '@/types'` (REQ-003) — the canonical declaration is in domain-model's `src/types/db.ts`. **Do NOT declare `interface ModelMetadata` in this file**; a parallel declaration produces structurally-equivalent-but-nominally-distinct types and breaks orchestrator wiring (TC-023).
-- Export `interface ExtractorOutput` (REQ-003): `{ requisitos: Requisito[], costUsd: number, modelMetadata: ModelMetadata }`.
+- Export `interface ExtractorOutput` (REQ-003): `{ requisitos: Requisito[], costUsd: number, modelMetadata: ModelMetadata, warning?: string, failed_categories?: RequisitoCategoria[] }`.
 - Export `interface RequisitosExtractor` (REQ-001): single method `extract(input: ExtractorInput): Promise<ExtractorOutput>`.
 - Export `type ExtractorErrorCode` (REQ-004) as the discriminated literal union of the 5 error codes.
 - Export `abstract class ExtractorError extends Error` with `abstract readonly code: ExtractorErrorCode` and `readonly cause?: unknown`. Constructor takes `message` and optional `cause`.
@@ -50,6 +50,8 @@ Requires **T0** (in `domain-model` spec, revs 4 + 5 — both shipped): the type-
 ## Done When
 
 - [ ] `lib/extraction/types.ts` exists, compiles in strict mode, and exports the 3 interfaces (`ExtractorInput`, `ExtractorOutput`, `RequisitosExtractor`), 1 type alias (`ExtractorErrorCode`), abstract base class, and 5 error subclasses. **Re-exports** `type { ModelMetadata } from '@/types'` — does NOT declare it locally (TC-023).
+- [ ] `ExtractorInput` uses `ingestionResult: IngestionResult` (not `segments: Segment[]`). Grep for `Segment` in `lib/extraction/types.ts` returns zero matches.
+- [ ] `ExtractorOutput` includes `warning?: string` and `failed_categories?: RequisitoCategoria[]`.
 - [ ] Grep for `@anthropic-ai/sdk`, `@supabase/*`, `process.env`, `node:`, or any logger module within `lib/extraction/types.ts` returns zero matches.
 - [ ] Grep for `interface ModelMetadata` or `type ModelMetadata` within `lib/extraction/types.ts` returns zero matches (TC-023).
 - [ ] A throwaway compile-check file `lib/extraction/__compile_check__.ts` (gitignored or removed before merge) confirms `class StubExtractor implements RequisitosExtractor { extract(...) { ... } }` typechecks against the interface using ONLY domain types — no Anthropic types reachable.

@@ -1,281 +1,239 @@
 # TDD Contract: semaforo-aggregation
 
-Markdown TDD guide for nybo-run. The Executor Agent reads this file and writes failing tests
-before implementing each task (Red phase), then implements (Green), then refactors (Refactor).
+Markdown TDD guide for nybo-run. Executor reads this before implementing each task —
+write failing tests first (Red), implement (Green), refactor (Refactor).
 
-Framework throughout: **vitest** (per CORE.md / project conventions).
+Framework: **vitest** (per CORE.md).
 
 ---
 
 ## Task T1: Thresholds + ADRs
 
-### Behavior: thresholds.ts exports the three constants (REQ-011)
+### Behavior: constants export with correct values (REQ-012)
 
-**Given** the file `lib/semaforo/thresholds.ts`
-**When** imported and inspected
-**Then** `VERDE_THRESHOLD === 0.9`, `AMARILLO_THRESHOLD === 0.7`, `SEMAFORO_RULES_VERSION === 'v1.0.0'`; all three are typed as their literal values (`as const`)
-
-**Test file:** `lib/semaforo/__tests__/thresholds.test.ts`
-**Framework:** vitest
-
----
-
-### Behavior: SEMAFORO_RULES_VERSION matches semver shape (REQ-011, RN-011)
-
-**Given** the imported `SEMAFORO_RULES_VERSION`
-**When** matched against `/^v\d+\.\d+\.\d+$/`
-**Then** the regex matches
+**Given** `import { SEMAFORO_RULES_VERSION, MIN_N_FOR_THRESHOLD, ROJO_THRESHOLD, AMARILLO_THRESHOLD, FINANCIERO_VERDE_MARGIN, TECNICO_COSINE_MIN, DEFINITORIO_DOCUMENT_TYPES, OBTAINABLE_DOCUMENT_TYPES } from 'lib/semaforo/thresholds'`
+**When** each constant is inspected
+**Then** `SEMAFORO_RULES_VERSION === 'v2.0.0'`; `MIN_N_FOR_THRESHOLD === 5`; `ROJO_THRESHOLD === 0.30`; `AMARILLO_THRESHOLD === 0.50`; `FINANCIERO_VERDE_MARGIN === 0.10`; `TECNICO_COSINE_MIN === 0.80`; `DEFINITORIO_DOCUMENT_TYPES.length === 5`; `OBTAINABLE_DOCUMENT_TYPES.length === 7`
 
 **Test file:** `lib/semaforo/__tests__/thresholds.test.ts`
-**Framework:** vitest
 
----
-
-### Behavior: thresholds.ts is pure data (zero non-primitive imports)
+### Behavior: thresholds.ts has zero imports
 
 **Given** the source of `lib/semaforo/thresholds.ts`
 **When** scanned for `import` statements
-**Then** zero imports are found (TypeScript `as const` is built-in, not an import)
+**Then** zero found
 
-**Test file:** `lib/semaforo/__tests__/thresholds.purity.test.ts`
-**Framework:** vitest
-
----
-
-## Task T2: aggregateSemaforo
-
-### Behavior: pure + deterministic (REQ-001, REQ-002, RN-001, RN-007)
-
-**Given** any `Requisito[]` input
-**When** `aggregateSemaforo(input)` is called twice and the input is `structuredClone`d before/after
-**Then** both outputs are deeply equal AND the input is unchanged
-
-**Test file:** `lib/semaforo/__tests__/aggregate.test.ts`
-**Framework:** vitest
+**Test file:** `lib/semaforo/__tests__/thresholds.test.ts`
 
 ---
 
-### Behavior: knockout rule fires on a single failing habilitante (REQ-004, RN-003)
+## Task T2: Jurídico Matcher
 
-**Given** 10 requisitos, 9 with `cumple: true`, 1 with `is_habilitante: true, cumple: false`
-**When** aggregated
-**Then** `output.overall === 'rojo'`; the failing requisito appears in `output.blockers`
+### Behavior: definitorio types — resolved match → verde (REQ-004, RN-004)
 
-**Test file:** `lib/semaforo/__tests__/aggregate.test.ts`
-**Framework:** vitest
+**Given** `req = { document_type: 'rup_vigente' }` AND `profile.legal_data.rup_vigente = true`
+**When** `matchJuridico(req, profile)` called
+**Then** `{ verdict: 'verde', confidence: 1.0, definitorio: true, reason.length ≤ 200 }`
 
----
+**Test file:** `lib/semaforo/__tests__/juridico-matcher.test.ts`
 
-### Behavior: knockout applies per categoría independently (REQ-004, RN-003)
+### Behavior: definitorio types — confirmed failure → rojo (REQ-004, REQ-005, RN-005)
 
-**Given** 1 habilitante-failing in juridico, 10 cumple-true in tecnico
-**When** aggregated
-**Then** `byCategoria.juridico === 'rojo'`; `byCategoria.tecnico === 'verde'`; `overall === 'rojo'`
+**Given** `req = { document_type: 'rup_vigente' }` AND `profile.legal_data.rup_vigente = false`
+**When** matched
+**Then** `{ verdict: 'rojo', definitorio: true, confidence: 1.0 }`
 
-**Test file:** `lib/semaforo/__tests__/aggregate.test.ts`
-**Framework:** vitest
+**Test file:** `lib/semaforo/__tests__/juridico-matcher.test.ts`
 
----
+### Behavior: definitorio unresolved → amarillo (RN-013)
 
-### Behavior: percentage thresholds inclusive at lower bound (REQ-005, RN-004)
+**Given** `req = { document_type: 'rup_vigente' }` AND `profile.legal_data.rup_vigente = undefined`
+**When** matched
+**Then** `{ verdict: 'amarillo', definitorio: true, confidence: 0.3 }`
 
-**Given** 10 requisitos, 9 cumple-true, 1 cumple-false, no habilitantes
-**When** aggregated
-**Then** `stats.cumplePct === 0.9`; `overall === 'verde'`
+**Test file:** `lib/semaforo/__tests__/juridico-matcher.test.ts`
 
-**Given** 100 requisitos, 89 cumple-true, 11 cumple-false
-**When** aggregated
-**Then** `stats.cumplePct === 0.89`; `overall === 'amarillo'`
+### Behavior: obtainable type absent → amarillo heuristic (REQ-004, RN-013)
 
-**Given** 10 requisitos, 7 cumple-true, 3 cumple-false
-**When** aggregated
-**Then** `stats.cumplePct === 0.7`; `overall === 'amarillo'`
+**Given** `req = { document_type: 'paz_y_salvo_tributario' }` AND document absent in profile
+**When** matched
+**Then** `{ verdict: 'amarillo', definitorio: false, confidence: 0.5 }`
 
-**Given** 100 requisitos, 69 cumple-true, 31 cumple-false
-**When** aggregated
-**Then** `stats.cumplePct === 0.69`; `overall === 'rojo'`
+**Test file:** `lib/semaforo/__tests__/juridico-matcher.test.ts`
 
-**Test file:** `lib/semaforo/__tests__/aggregate.test.ts`
-**Framework:** vitest
+### Behavior: unknown document_type → warn + rojo (RN-003)
 
----
+**Given** `req = { document_type: 'unknown_type_xyz' }` AND a `console.warn` spy
+**When** matched
+**Then** warn called once; `{ verdict: 'rojo', definitorio: false, confidence: 0.0, reason: 'Requisito sin correspondencia en el perfil' }`
 
-### Behavior: sin-info excluded from denominator (REQ-005, RN-004)
+**Test file:** `lib/semaforo/__tests__/juridico-matcher.test.ts`
 
-**Given** 10 requisitos: 8 cumple-true, 0 cumple-false, 2 cumple-null
-**When** aggregated
-**Then** `stats.cumplePct === 1.0`; `overall === 'verde'`
+### Behavior: all reasons ≤ 200 chars (REQ-010, RN-003)
 
-**Test file:** `lib/semaforo/__tests__/aggregate.test.ts`
-**Framework:** vitest
+**Given** all possible code paths through `matchJuridico`
+**When** each produces a `MatchResult`
+**Then** `result.reason.length ≤ 200` in every case
+
+**Test file:** `lib/semaforo/__tests__/juridico-matcher.test.ts`
 
 ---
 
-### Behavior: all-sin-info → amarillo with cumplePct = 0 (no NaN) (REQ-007, RN-006, RN-012)
+## Task T3: Financiero Matcher
 
-**Given** 5 requisitos all with `cumple: null`, no habilitantes failing
-**When** aggregated
-**Then** `overall === 'amarillo'`; `stats.cumplePct === 0`; not `NaN`
+### Behavior: verde at ≥10% margin (REQ-006, RN-006, RN-010)
 
-**Test file:** `lib/semaforo/__tests__/aggregate.test.ts`
-**Framework:** vitest
+**Given** `req = { indicador: 'liquidez_corriente', threshold: 1.5, operador: '>=' }` AND `profile.ejercicios_fiscales[0].indicadores.liquidez_corriente = 1.65`
+**When** `matchFinanciero(req, profile)` called
+**Then** `{ verdict: 'verde', confidence: 1.0 }`
 
----
+**Test file:** `lib/semaforo/__tests__/financiero-matcher.test.ts`
 
-### Behavior: empty array → rojo with empty buckets (REQ-006, RN-005)
+### Behavior: confidence formula boundary cases (RN-010)
 
-**Given** `requisitos: []`
-**When** aggregated
-**Then** `overall === 'rojo'`; `byCategoria.juridico === byCategoria.financiero === byCategoria.tecnico === byCategoria.experiencia === 'amarillo'`; `blockers === []`; `stats === { total: 0, cumple: 0, noCumple: 0, sinInfo: 0, cumplePct: 0 }`
+**Given** threshold = 1.5 AND:
+- actual = 1.575 (5% margin) → confidence = 0.5
+- actual = 1.5 (0% margin) → confidence = 0.0
+- actual = 1.425 (-5%) → confidence = 0.5 (rojo)
+- actual = 3.0 (100% margin) → confidence = 1.0 (clamped)
 
-**Test file:** `lib/semaforo/__tests__/aggregate.test.ts`
-**Framework:** vitest
+**When** each matched
+**Then** confidence values match exactly
 
----
+**Test file:** `lib/semaforo/__tests__/financiero-matcher.test.ts`
 
-### Behavior: empty categoría → amarillo (REQ-008, RN-009)
+### Behavior: multi-year all-fail → rojo (RN-007)
 
-**Given** 5 cumple-true requisitos all in juridico, zero requisitos in other categorías
-**When** aggregated
-**Then** `byCategoria.juridico === 'verde'`; the other three categorías are `'amarillo'`
+**Given** `req = { years_required: 2 }` AND year1 misses threshold, year2 meets it
+**When** matched
+**Then** `{ verdict: 'rojo' }`
 
-**Test file:** `lib/semaforo/__tests__/aggregate.test.ts`
-**Framework:** vitest
+**Test file:** `lib/semaforo/__tests__/financiero-matcher.test.ts`
 
----
+### Behavior: no inline literals in financiero-matcher.ts
 
-### Behavior: general-categoría requisito triggers warn + exclusion (REQ-009, RN-008)
-
-**Given** 1 requisito with `categoria: 'general'` + 5 valid juridico cumple-true requisitos AND a `console.warn` spy installed
-**When** aggregated
-**Then** the warn was called once with the literal message `'[semaforo-aggregation] contract violation: general-categoria requisito received'`; the function does NOT throw; `stats.total === 5`; `overall === 'verde'`
-
-**Test file:** `lib/semaforo/__tests__/aggregate.test.ts`
-**Framework:** vitest
-
----
-
-### Behavior: blockers list contains only habilitante-failing requisitos (REQ-010, RN-010)
-
-**Given** requisitos: req-A `is_habilitante: true, cumple: false`; req-B `is_habilitante: false, cumple: false`; req-C `is_habilitante: true, cumple: null`; req-D `is_habilitante: true, cumple: true`
-**When** aggregated
-**Then** `blockers === [req-A]`; req-B / req-C / req-D are NOT present
-
-**Test file:** `lib/semaforo/__tests__/aggregate.test.ts`
-**Framework:** vitest
-
----
-
-### Behavior: blockers list deterministic ordering (REQ-010, RN-010)
-
-**Given** multiple habilitante-failing requisitos across categorías with varied descripciones, in shuffled input order
-**When** aggregated twice with two different orderings of the same input set
-**Then** `blockers` is identical across both calls; sorted first by categoría in fixed order (juridico, financiero, tecnico, experiencia), then by descripción ascending alphabetically
-
-**Test file:** `lib/semaforo/__tests__/aggregate.test.ts`
-**Framework:** vitest
-
----
-
-### Behavior: stats invariant + cumplePct precision (REQ-012, RN-012)
-
-**Given** any `Requisito[]` input
-**When** aggregated
-**Then** `stats.cumple + stats.noCumple + stats.sinInfo === stats.total`; `stats.cumplePct` is in `[0, 1]` and is finite (not NaN, not Infinity); rounded to 6 decimal places
-
-**Test file:** `lib/semaforo/__tests__/aggregate.test.ts`
-**Framework:** vitest
-
----
-
-### Behavior: only side effect is console.warn on contract violations (REQ-002, REQ-009, RN-001)
-
-**Given** stubs for `console.warn`/`log`/`error`/`info`, `process.env` access, `Date.now`, `Math.random`
-**When** aggregated against any non-violating input
-**Then** zero invocations of any stub
-
-**Given** the same stubs and an input containing a `categoria: 'general'` requisito
-**When** aggregated
-**Then** `console.warn` is the only stub touched; warn is called exactly once per violator
-
-**Test file:** `lib/semaforo/__tests__/aggregate.test.ts`
-**Framework:** vitest
-
----
-
-### Behavior: literal threshold numbers do not appear in aggregate.ts (REQ-011, RN-011)
-
-**Given** the source of `lib/semaforo/aggregate.ts`
-**When** grepped for the literals `0.9`, `0.7`, `90`, `70`
+**Given** the source of `lib/semaforo/financiero-matcher.ts`
+**When** grepped for `0.10`, `0.9`, `0.7`
 **Then** zero matches
 
-**Test file:** `lib/semaforo/__tests__/aggregate.purity.test.ts`
-**Framework:** vitest
+**Test file:** `lib/semaforo/__tests__/financiero-matcher.test.ts`
 
 ---
 
-## Task T3: Tests + Golden Corpus + Isolation Grep + Public Barrel
+## Task T4: Técnico / Experiencia Matcher
 
-### Behavior: golden corpus replays verbatim (REQ-014, RN-013)
+### Behavior: exact UNSPSC → verde (REQ-007, RN-011)
 
-**Given** the 5 fixtures at `tests/fixtures/golden/semaforo/` (all-habilitantes-fail, borderline-89pct, borderline-90pct, all-sin-info, mixed-realistic)
-**When** `aggregateSemaforo(fixture.input)` runs for each fixture
-**Then** the output is `toEqual(fixture.expected)` for every fixture
+**Given** `req.unspsc_required = '81111500'` AND `profile.contratos_previos[0].unspsc_codes = ['81111500']`
+**When** `matchTecnico(req, profile)` called
+**Then** `{ verdict: 'verde', confidence: 1.0 }`
 
-**Test file:** `tests/fixtures/golden/semaforo/golden.test.ts`
-**Framework:** vitest
+**Test file:** `lib/semaforo/__tests__/tecnico-matcher.test.ts`
+
+### Behavior: parent UNSPSC → amarillo 0.7 (RN-011)
+
+**Given** `req.unspsc_required = '81111500'` AND `profile.contratos_previos[0].unspsc_codes = ['81110000']`
+**When** matched
+**Then** `{ verdict: 'amarillo', confidence: 0.7 }`
+
+**Test file:** `lib/semaforo/__tests__/tecnico-matcher.test.ts`
+
+### Behavior: cosine boundary (RN-011)
+
+**Given** cosine similarity = 0.80 (minimum) AND cosine = 0.79 (below minimum)
+**When** matched
+**Then** 0.80 → amarillo; 0.79 → rojo
+
+**Test file:** `lib/semaforo/__tests__/tecnico-matcher.test.ts`
+
+### Behavior: valor_cop_min pre-filter (REQ-007)
+
+**Given** `req.valor_cop_min = 500_000_000` AND only contract with `valor_cop = 400_000_000` exists
+**When** matched
+**Then** contract excluded; no tier 1/2/3 match possible → rojo
+
+**Test file:** `lib/semaforo/__tests__/tecnico-matcher.test.ts`
 
 ---
 
-### Behavior: branch coverage 100% (NFR-02)
+## Task T5: Aggregator
 
-**Given** the test suite under `lib/semaforo/__tests__/`
-**When** `vitest run --coverage` runs against `aggregate.ts` and `thresholds.ts`
-**Then** branch coverage on each of those files is 100%
+### Behavior: all small-N worked examples (RN-009)
 
-**Test file:** (CI step / configured threshold)
-**Framework:** vitest --coverage (v8 or istanbul)
+**Given** the scenarios from RN-009 (N=3/4/5/10 with various rojo counts)
+**When** `aggregateByTipo` called per scenario
+**Then** tipo-verdict and `threshold_applied` match the worked example exactly
+
+**Test file:** `lib/semaforo/__tests__/aggregator.test.ts`
+
+### Behavior: definitorio knockout overrides N<5 rule
+
+**Given** 3 jurídico requisitos (N<5), 1 with `definitorio = true AND verdict = 'rojo'`
+**When** aggregated
+**Then** `byTipo.juridico.verdict === 'rojo'` (definitorio overrides, not tipo-amarillo)
+
+**Test file:** `lib/semaforo/__tests__/aggregator.test.ts`
+
+### Behavior: stats invariant
+
+**Given** any MatchResult[] grouped by tipo
+**When** `aggregateByTipo` called
+**Then** `tv.n_rojo + tv.n_amarillo + tv.n_verde === tv.n` for every TipoVerdict
+
+**Test file:** `lib/semaforo/__tests__/aggregator.test.ts`
 
 ---
 
-### Behavior: provider-isolation grep enforces purity (REQ-013, NFR-03)
+## Task T6: Integration Entry Point
 
-**Given** the file tree under `lib/semaforo/**` (excluding `__tests__/`, `*.test.*`, `tests/**`)
-**When** the grep test runs
-**Then** zero matches for `@supabase/`, `@anthropic-ai/sdk`, `node:fs/net/http`, `pino`/`winston`/`bunyan`/`@logtape/`, `process.env`
+### Behavior: determinism (REQ-001, RN-002)
+
+**Given** a `ExtractedRequisito[]` and `CompanyProfileSnapshot`
+**When** `runSemaforoMatching` called twice with same inputs
+**Then** `JSON.stringify(result1) === JSON.stringify(result2)`
+
+**Test file:** `lib/semaforo/__tests__/index.test.ts`
+
+### Behavior: unknown tipo → warn + rojo, no throw (REQ-002, RN-001)
+
+**Given** a requisito with `tipo: 'unknown_tipo_xyz'` AND a `console.warn` spy
+**When** `runSemaforoMatching` called
+**Then** does not throw; warn called once; the requisito's MatchResult has `verdict: 'rojo'`
+
+**Test file:** `lib/semaforo/__tests__/index.test.ts`
+
+### Behavior: provider isolation grep (REQ-014, NFR-03)
+
+**Given** `lib/semaforo/**` excluding `__tests__/`, `*.test.*`
+**When** grep runs for `@supabase/`, `@anthropic-ai/`, `node:fs`, `node:net`, `node:http`, `pino`, `winston`, `process.env`
+**Then** zero matches
 
 **Test file:** `tests/ci/semaforo-provider-isolation.test.ts`
-**Framework:** vitest
 
 ---
 
-### Behavior: golden fixtures carry realistic is_habilitante_source distribution (REQ-014, RN-014, TC-018)
+## Task T7: Tests + Golden Fixtures
 
-**Given** all `*.json` fixtures under `tests/fixtures/golden/semaforo/` and the aggregate count of requisitos with `is_habilitante === true` grouped by `is_habilitante_source` across all fixtures combined
-**When** the manifest test runs
-**Then** `count('structural') / count(total habilitante-true) >= 0.8`. If total habilitante-true count is zero, the assertion is skipped
+### Behavior: golden corpus replays verbatim (REQ-015)
 
-**Test file:** `tests/fixtures/golden/semaforo/manifest.test.ts`
-**Framework:** vitest
+**Given** all fixtures at `tests/fixtures/golden/semaforo/` (≥15 total)
+**When** `runSemaforoMatching(f.input.requisitos, f.input.profile)` per fixture
+**Then** `toEqual(f.expected)` for every fixture
 
----
+**Test file:** `tests/fixtures/golden/semaforo/golden.test.ts`
 
-### Behavior: blockers passthrough is_habilitante_source (REQ-015, RN-014)
+### Behavior: small-N transition fixtures present and passing
 
-**Given** an input where each habilitante-failing requisito carries a known `is_habilitante_source` (`'structural'` for one, `'llm'` for another)
-**When** `aggregateSemaforo(input)` runs
-**Then** each blocker in `output.blockers` carries the same `is_habilitante_source` value it had in the input — the function does NOT modify it. The function reads `is_habilitante` only; `is_habilitante_source` is passthrough metadata
+**Given** fixtures covering N=3 (1 rojo → amarillo), N=5 (1 rojo → verde), N=10 (4 rojo → tipo-rojo)
+**When** replayed
+**Then** each fixture's expected `byTipo` verdict matches the worked example from RN-009
 
-**Test file:** `lib/semaforo/__tests__/aggregate.test.ts`
-**Framework:** vitest
+**Test file:** `tests/fixtures/golden/semaforo/golden.test.ts`
 
----
+### Behavior: 100% branch coverage
 
-### Behavior: public barrel resolves expected exports (T3 Done When)
+**Given** the test suite runs `vitest --coverage`
+**When** coverage computed for all files under `lib/semaforo/` (excl. tests)
+**Then** branch coverage = 100% on each file
 
-**Given** `import { aggregateSemaforo, VERDE_THRESHOLD, AMARILLO_THRESHOLD, SEMAFORO_RULES_VERSION } from '@/lib/semaforo'`
-**When** typechecked
-**Then** all four named exports resolve
-
-**Test file:** `lib/semaforo/__tests__/barrel.test-d.ts`
-**Framework:** vitest (type-only)
+**Test file:** (CI coverage gate)

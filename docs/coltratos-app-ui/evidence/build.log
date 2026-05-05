@@ -1,0 +1,26 @@
+Run: 2026-05-01
+Command: npm run build
+
+RESULT: PASS
+Errors: 0
+Warnings: 0
+TypeScript: PASS (0 errors)
+
+Output:
+✓ Compiled successfully in ~2s
+✓ TypeScript clean
+✓ 19/19 static pages generated
+
+Routes built:
+○ /dashboard (static)
+○ /dashboard/alertas (static)
+ƒ /dashboard/analisis/[id] (dynamic)
+○ /dashboard/analisis (static)
+○ /dashboard/config (static)
+○ /dashboard/creditos (static)
+○ /dashboard/equipo (static)
+○ /dashboard/procesos (static)
+○ /dashboard/upload (static — Suspense boundary added)
+
+Note: /dashboard/upload initially failed build with "useSearchParams() should be wrapped
+in a suspense boundary". Fixed by splitting into UploadInner + Suspense wrapper.

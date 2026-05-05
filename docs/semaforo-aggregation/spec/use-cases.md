@@ -4,172 +4,128 @@
 
 | Actor | Description |
 |-------|-------------|
-| Orchestrator | The future `analisis-orchestration` service that calls `aggregateSemaforo` after extraction completes, persists the verdict + version on `Analisis`, and transitions the state machine to `completed`. |
-| `aggregateSemaforo` (this feature) | Pure function under `lib/semaforo/`. Stateless, deterministic, console.warn-only side effect for contract violations. |
-| End User | Procurement consultant or empresa owner reading the verdict in the FE. Consumes the `Semaforo` shape verbatim. |
-| Engineer (rules-changer) | The person modifying threshold values. Bound by the versioning protocol (RN-011) — a threshold change without a `SEMAFORO_RULES_VERSION` bump fails PR review. |
-
----
+| Orchestrator | Future `analisis-orchestration` service that calls `runSemaforoMatching` after extraction, persists `semaforo_rules_version + overall` on `Analisis`, and transitions the analysis state to `completed`. |
+| `runSemaforoMatching` (this feature) | Pure function under `lib/semaforo/`. Stateless, deterministic, `console.warn` on unknown tipo is the only side effect. |
+| End User | Procurement consultant or empresa owner reading the verdict in the FE. Sees overall verde/amarillo/rojo + per-requisito reasons. |
+| Engineer (rules-changer) | Person modifying matcher logic, thresholds, or `DEFINITORIO_DOCUMENT_TYPES`. Bound by versioning protocol (RN-015) — any change without a `SEMAFORO_RULES_VERSION` bump fails PR review. |
 
 ## User Stories
 
-### US-01 — Get a defensible go/no-go verdict from a `Requisito[]`
-
-**As an** orchestrator (and via it, an end user)
-**I want** to call `aggregateSemaforo(requisitos)` and receive a `Semaforo` with `overall`, `byCategoria`, `blockers`, and `stats`
-**So that** the user can read a single verde/amarillo/rojo and understand *why* in 10 seconds without parsing 47 individual requisitos
-
-### US-02 — Honor the legal knockout rule on habilitantes
-
-**As an** end user familiar with Colombian procurement law
-**I want** any single failing habilitante to force the overall verdict to `rojo`
-**So that** the verdict reflects legal eligibility (not aggregate "probably good") — failing one habilitante means the empresa is literally ineligible to bid, regardless of how strong everything else looks
-
-### US-03 — Handle missing information honestly
-
-**As an** end user with an incomplete empresa profile
-**I want** "couldn't determine" requisitos to NOT be punished as failures, but I also want the UI to surface them clearly
-**So that** I'm not driven away from procesos I might actually qualify for, and I know to complete my profile to get a confident verdict
-
-### US-04 — Survive contract violations without losing the análisis
-
-**As an** engineer
-**I want** the function to log contract violations (empty inputs, `general`-categoría requisitos) but still produce a verdict from valid data
-**So that** an upstream extraction quirk doesn't crash a paying user's análisis — the violation surfaces in our logs while the user still gets a useful result
-
-### US-05 — Tune thresholds without breaking historical análisis
-
-**As an** engineer or product owner doing v1.1 calibration against real bid outcomes
-**I want** the threshold values isolated in one file with a version constant, and the version stamped on every `Analisis` row
-**So that** I can change `0.7 → 0.65` in a single PR with a new ADR + golden-fixture updates, and historical análisis remain explainable against the rules that produced them — recalibration without data loss
-
----
+| ID | Story |
+|----|-------|
+| US-01 | As an orchestrator, I want to pass extracted requisitos and the company profile and receive a deterministic overall verdict with per-requisito reasons and confidence, so the result can be persisted and displayed to the user. |
+| US-02 | As an end user, I want definitorio jurídico failures (RUP suspended, tipo societario mismatch) to always produce overall rojo regardless of other verdicts, so I know immediately when a structural bar exists. |
+| US-03 | As an end user, I want financiero requisitos matched against my registered financial indicators with a numeric confidence score and a reason that names the specific indicator and threshold, so I can verify the verdict without reading the pliego. |
+| US-04 | As an end user, I want técnico/experiencia requisitos matched against my past contracts using UNSPSC codes and object similarity, so I understand whether my documented experience qualifies. |
+| US-05 | As an orchestrator, I want the threshold logic to apply per-tipo with an N≥5 minimum, so that a pliego with 3 jurídico requirements is not unfairly penalized for a single non-definitorio miss the way a 10-item batch would be. |
+| US-06 | As an end user, I want to be able to re-run the analysis after updating my company profile and get a new verdict, while the original analysis remains unchanged as an audit record. |
 
 ## Use Case Scenarios
 
-### UC-01 — Aggregate a complete análisis to a verdict (US-01)
+### UC-01 — Full matching run
 
-**Preconditions:**
-- `requisitos-extraction` has produced a `Requisito[]` with each requisito carrying `categoria`, `is_habilitante`, `cumple`, `semaforo`, `descripcion`.
-- The orchestrator has the array in memory.
+**Actors:** Orchestrator, `runSemaforoMatching`
 
-#### Main Scenario
+**Main Scenario:**
+1. Orchestrator calls `runSemaforoMatching(requisitos, profile)` with the full `ExtractedRequisito[]` and the pinned `CompanyProfileSnapshot`.
+2. Each requisito is dispatched to the correct matcher by `tipo`.
+3. Each matcher produces a `MatchResult` with `verdict`, `reason` (≤200 chars), `confidence` (0–1), and `extraction_confidence`.
+4. `aggregateByTipo` computes per-tipo verdicts (N≥5 threshold or N<5 knockout-only).
+5. `deriveOverall` computes overall verdict from per-tipo verdicts and `definitorio_blockers`.
+6. `SemaforoResult` returned with `semaforo_rules_version = 'v2.0.0'`.
+7. Orchestrator persists `overall` and `semaforo_rules_version` on the `Analisis` row.
 
-1. Orchestrator calls `aggregateSemaforo(requisitos)`.
-2. Function evaluates the knockout rule:
-   a. Scans for any requisito with `is_habilitante === true AND cumple === false`.
-   b. If found, sets `overall = 'rojo'` immediately and skips percentage computation for the overall verdict (per-categoría sub-verdicts are still computed, each applying knockout independently).
-3. Otherwise, function computes `cumplePct = count(cumple === true) / count(cumple !== null)`.
-4. Function maps `cumplePct` to overall via thresholds: `>= 0.9 → verde`, `>= 0.7 → amarillo`, `< 0.7 → rojo`.
-5. For each `categoria ∈ {juridico, financiero, tecnico, experiencia}`: function applies the same knockout-then-percentage logic to ONLY the requisitos of that categoría.
-6. Function builds the `blockers` list (RN-010): habilitantes-with-cumple-false only, sorted `(categoria fixed-order, descripcion alpha)`.
-7. Function builds `stats` (REQ-012): `total`, `cumple`, `noCumple`, `sinInfo`, `cumplePct` rounded to 6 decimals.
-8. Function returns the `Semaforo` object.
+**Alternate Scenario — unknown tipo:**
+At step 2, a requisito has an unrecognized `tipo`. `console.warn` fires; a rojo `MatchResult` with `confidence = 0.0` is inserted. Analysis continues and completes.
 
-#### Alternative Scenarios
-
-**2a. No habilitante fails** — proceed to percentage computation directly.
-
-**5a. A categoría has zero requisitos** — `byCategoria[c] = 'amarillo'` per RN-009.
-
-#### Error Scenarios
-
-None — the function never throws. Contract violations route through `console.warn` (UC-04).
-
-**Postconditions:** Orchestrator persists `Analisis.semaforo = result.overall` and `Analisis.semaforo_rules_version = SEMAFORO_RULES_VERSION`; transitions `Analisis.estado: analyzing → completed`.
+**Error Scenario — empty requisitos:**
+`requisitos = []` produces `overall = 'rojo'` and all tipo-verdicts `= 'amarillo'` (empty-tipo fallback). Orchestrator persists without throwing.
 
 ---
 
-### UC-02 — Knockout rule fires on a failing habilitante (US-02)
+### UC-02 — Jurídico-definitorio knockout
 
-**Preconditions:** A `Requisito[]` where at least one requisito has `is_habilitante === true AND cumple === false`.
+**Actors:** End User (reading verdict), Orchestrator
 
-#### Main Scenario
+**Main Scenario:**
+1. Extracted pliego includes `{ document_type: 'rup_vigente' }`.
+2. Profile has `rup_vigente = false`.
+3. `matchJuridico` classifies `is_definitorio = true` (from `DEFINITORIO_DOCUMENT_TYPES`), checks profile → mismatch confirmed → `{ verdict: 'rojo', definitorio: true, confidence: 1.0 }`.
+4. `definitorio_blockers` contains this match.
+5. `deriveOverall`: `definitorio_blockers.length > 0` → overall = `'rojo'` regardless of financiero/técnico verdicts.
+6. End user sees overall rojo with reason `"RUP suspendido o cancelado — inhabilidad legal para presentar oferta"`.
 
-1. Function iterates the array (or short-circuits on the first match — implementation choice; both are pure).
-2. On finding any habilitante-failing requisito, the overall verdict is `rojo` regardless of how many other requisitos cumple.
-3. The same evaluation runs per categoría: a categoría with a habilitante-failing requisito gets `byCategoria[c] = 'rojo'`.
-4. The failing requisito appears in `blockers`.
-
-#### Alternative Scenarios
-
-**1a. Multiple habilitantes fail across multiple categorías** — all of them appear in `blockers`, sorted deterministically; each affected categoría gets `'rojo'`.
-
-**Postconditions:** Overall is `rojo`, `blockers` is non-empty, the UI surfaces the legal blockers prominently.
+**Alternate — definitorio unresolved:**
+`rup_vigente = undefined` in profile → `{ verdict: 'amarillo', definitorio: true, confidence: 0.3 }`. Not added to `definitorio_blockers`. Overall may still be verde if all other tipos are verde.
 
 ---
 
-### UC-03 — Sin-información handling (US-03)
+### UC-03 — Financiero numeric threshold match
 
-**Preconditions:** Some or all input requisitos have `cumple === null`.
+**Actors:** End User, Orchestrator
 
-#### Main Scenario (partial nulls)
+**Main Scenario:**
+1. Extracted `{ indicador: 'liquidez_corriente', threshold: 1.5, operador: '>=', years_required: 2 }`.
+2. Profile `ejercicios_fiscales`: year 2024 = 1.65 (10% margin, verde), year 2023 = 1.58 (5.3% margin, amarillo).
+3. `matchFinanciero`: both years meet threshold; most recent year has verde margin; prior year is tight (5.3% margin).
+4. Verdict: amarillo (tight margin in prior year). Confidence: `clamp(0.053/0.10, 0, 1) = 0.53`.
+5. Reason: `"Liquidez corriente 1.58 cumple umbral 1.5 con margen ajustado (5.3%) — año 2023"`.
 
-1. Function counts `total = requisitos.length`, `cumple = count(true)`, `noCumple = count(false)`, `sinInfo = count(null)`.
-2. `cumplePct = cumple / (total - sinInfo)` — sin-info excluded from denominator.
-3. If `total - sinInfo === 0` (denominator zero), `cumplePct = 0` (NOT `NaN`).
-4. The verdict follows the usual percentage rules over this filtered denominator.
-
-#### Alternative Scenarios
-
-**Main Scenario (all nulls)**: every requisito has `cumple === null`.
-1. `cumplePct = 0` (denominator-zero guard).
-2. Per RN-006, overall is `'amarillo'` — NOT `'rojo'`.
-3. Per-categoría sub-verdicts: each categoría that has at least one requisito (all null) is `'amarillo'`; categorías with zero requisitos are `'amarillo'` per RN-009. Both paths converge — the result is amarillo across the board, communicating "we don't have grounds for a confident verdict."
-
-**Postconditions:** `stats.sinInfo` is non-zero; the FE surfaces the count prominently so the user knows the verdict is based on partial data and can complete the profile to reduce sinInfo.
+**Error Scenario — missing fiscal year:**
+`ejercicios_fiscales` does not include year 2023 → `{ verdict: 'amarillo', confidence: 0.3, reason: 'Datos financieros del año 2023 no disponibles en perfil' }`.
 
 ---
 
-### UC-04 — Empty / contract-violation inputs (US-04)
+### UC-04 — Técnico capacity match
 
-**Preconditions:** Either `requisitos.length === 0` OR at least one requisito has `categoria === 'general'`.
+**Actors:** End User, Orchestrator
 
-#### Main Scenario (empty array)
+**Main Scenario:**
+1. Extracted `{ tipo: 'experiencia', unspsc_required: '81111500', valor_cop_min: 500_000_000 }`.
+2. Profile `contratos_previos`: one contract with `unspsc_codes = ['81111500'], valor_cop = 800_000_000`.
+3. Pre-filter: contract passes valor_cop_min check.
+4. Tier 1: exact UNSPSC match → `{ verdict: 'verde', confidence: 1.0 }`.
+5. Reason: `"Contrato Ministerio de Salud (2023) con UNSPSC 81111500 — coincidencia exacta"`.
 
-1. `requisitos.length === 0`.
-2. Function returns `{ overall: 'rojo', byCategoria: { juridico: 'amarillo', financiero: 'amarillo', tecnico: 'amarillo', experiencia: 'amarillo' }, blockers: [], stats: { total: 0, cumple: 0, noCumple: 0, sinInfo: 0, cumplePct: 0 } }`.
-3. Per RN-005, `overall` is `rojo` to surface "extraction produced nothing" as a strong signal; per-categoría stays `amarillo` to communicate "no data" rather than "everything fine."
+**Alternate Scenario — cosine fallback:**
+No exact or parent UNSPSC match; cosine similarity = 0.88 → `{ verdict: 'amarillo', confidence: 0.88 }`.
 
-#### Main Scenario (general-categoría requisito present)
-
-1. Function detects `requisito.categoria === 'general'` during the initial scan.
-2. For each offender, calls `console.warn('[semaforo-aggregation] contract violation: general-categoria requisito received', { requisitoId, segmentoId })` exactly once.
-3. Excludes the offender(s) from all aggregation. `stats.total` reflects the post-exclusion count.
-4. The function does NOT throw — the análisis still produces a verdict from the remaining valid requisitos.
-
-#### Error Scenarios
-
-**1e. (none).** The function is total: it returns a `Semaforo` for every input, including empty arrays and contract-violating ones.
-
-**Postconditions:** A useful verdict reaches the user even on imperfect inputs; engineering sees the violation in logs to trace it back to extraction.
+**Error Scenario — valor_cop too low:**
+All contracts have `valor_cop < valor_cop_min` → all excluded from matching → rojo.
 
 ---
 
-### UC-05 — Threshold tuning is versioned (US-05)
+### UC-05 — Per-tipo N≥5 threshold aggregation
 
-**Preconditions:** v1.1 calibration: an engineer wants to lower `AMARILLO_THRESHOLD` from `0.7` to `0.65` based on observed user behavior.
+**Actors:** Orchestrator, End User
 
-#### Main Scenario
+**Main Scenario (N=10, 4 rojo):**
+1. 10 técnico requisitos; 4 matched as rojo (non-definitorio), 6 verde.
+2. `aggregateByTipo`: N=10 ≥ 5 → threshold applies. `4/10 = 40% > 30%` → tipo-verdict = rojo.
+3. `byTipo.tecnico = { verdict: 'rojo', threshold_applied: true }`.
+4. `deriveOverall`: tipo-rojo found → overall = rojo.
 
-1. Engineer edits `lib/semaforo/thresholds.ts`:
-   - `AMARILLO_THRESHOLD = 0.65`
-   - `SEMAFORO_RULES_VERSION = 'v1.1.0'`
-2. Engineer runs the test suite. Some golden fixtures fail because the new threshold maps a previously-rojo case to amarillo.
-3. Engineer updates the affected golden fixtures with the new expected outputs.
-4. Engineer writes ADR-013 (the next available number) documenting the rationale (data link, expected impact, rollback plan).
-5. PR opens. CI runs and passes (grep + tests + coverage all green).
-6. PR review verifies: (a) version bumped, (b) fixtures updated, (c) ADR present. Without all three, review fails per RN-011.
-7. PR merges. Future análisis are stamped with `'v1.1.0'`. Historical análisis still carry `'v1.0.0'` and remain explainable against ADR-011's thresholds.
+**Alternate Scenario (N=5, 1 rojo):**
+1. 5 técnico requisitos; 1 rojo, 4 verde.
+2. `1/5 = 20% < 30%` → threshold doesn't fire. 0 amarillo → tipo-verde.
+3. `byTipo.tecnico = { verdict: 'verde', threshold_applied: true }`.
 
-#### Error Scenarios
-
-**1e. Engineer forgets to bump `SEMAFORO_RULES_VERSION`** — PR review catches this; CI also flags via a regex test that compares the current value against the most recent commit modifying `thresholds.ts`.
-
-**Postconditions:** Threshold changes are auditable; recalibration does not lose data; the orchestrator's persistence of the version on each `Analisis` row makes it possible to back-fill historical "what would the v1.1 verdict have been?" analyses without re-running extraction.
+**Alternate Scenario (N=3, 1 rojo non-definitorio):**
+1. 3 jurídico requisitos; 1 rojo (paz_y_salvo absent), 2 verde.
+2. N=3 < 5 → knockout-only. Non-definitorio rojo → tipo-amarillo.
+3. `byTipo.juridico = { verdict: 'amarillo', threshold_applied: false }`.
 
 ---
 
-## UX/UI References
+### UC-06 — Re-run isolation
 
-No UI surface in this spec. The output `Semaforo` shape **is** the FE contract. The future `semaforo-result` FE spec consumes it verbatim per RN-002.
+**Actors:** End User, Orchestrator
+
+**Main Scenario:**
+1. Analysis A-001 completed: `overall = 'rojo'`, `semaforo_rules_version = 'v2.0.0'`, profile snapshot v1 pinned.
+2. User updates company profile → profile v2 created (new immutable snapshot).
+3. Orchestrator creates new `Analisis` row A-002, passes profile snapshot v2 to `runSemaforoMatching`.
+4. A-002 produces new `SemaforoResult`. Orchestrator persists A-002; A-001 is NOT mutated.
+5. User sees both A-001 (historical) and A-002 (latest) in the UI.
+
+**Invariant:** `CompanyProfileSnapshot` passed to `runSemaforoMatching` is always the version pinned at analysis creation time — never re-fetched. This is an orchestrator responsibility, not enforced inside `lib/semaforo/`.

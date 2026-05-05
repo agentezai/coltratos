@@ -1,4 +1,15 @@
-# T3: Tests + Golden Corpus + Isolation Grep + Public Barrel
+# SUPERSEDED — v1 Tests + Corpus + Isolation Grep
+
+This file was the v1 T3 plan for corpus tests and provider isolation.
+
+**Superseded by the v2 spec (2026-05-05).** The v2 test plan is:
+
+- **T7**: [01-plan-07-tests.md](./01-plan-07-tests.md)
+
+See [00-overview.md](./00-overview.md) for the full task index.
+
+---
+<!-- original v1 content preserved below for reference -->
 
 ## Scope
 

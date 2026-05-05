@@ -36,10 +36,17 @@ type Expected =
   | "trophy"
   | "rocket"
   | "build"
-  | "trend";
+  | "trend"
+  | "file-text"
+  | "target"
+  | "archive"
+  | "dollar-sign"
+  | "bar-chart"
+  | "user-plus"
+  | "check";
 
 describe("Icon name registry (REQ-011)", () => {
-  test("IconName equals the 28-entry registry exactly", () => {
+  test("IconName equals the 35-entry registry exactly", () => {
     expectTypeOf<IconName>().toEqualTypeOf<Expected>();
   });
 });

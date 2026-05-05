@@ -1,50 +1,105 @@
-# T1: Types and Error Hierarchy
+# T1: Types, Error Hierarchy, and ADRs
 
 ## Scope
 
-- `lib/ingestion/errors.ts` - new file: `PdfIngestionError` base + 4 typed subclasses
-- `src/types/segment.ts` - new file: `Segment` type alias derived from the (post-T0) `Segmento` Zod schema
-- `src/types/index.ts` - barrel: re-export `Segment` (and any new heading-related re-exports if needed)
-- `.nybo/foundation/adrs/ADR-004-pdf-parse.md` - new ADR documenting pdf-parse choice
-- `.nybo/foundation/adrs/ADR-005-pure-function-ingestion.md` - new ADR documenting the purity contract
-- `.nybo/foundation/adrs/ADR-006-heuristic-segmentation.md` - new ADR documenting regex-over-LLM choice
-- `.nybo/foundation/adrs/ADR-007-corpus-growth.md` - new ADR documenting validation corpus size and quality gates over time
+- `lib/ingestion/errors.ts` — new file: `PdfIngestionError` base + 7 typed subclasses
+- `lib/ingestion/ports/ingestion-status-repository.ts` — new file: `IngestionStatusRepository` interface (port)
+- `src/types/ingestion.ts` — new file: `IngestionResult`, `Page`, `TableJson`, `ExtractionMethod`, `PageFlag`, `IngestionFailureReason`
+- `src/types/index.ts` — barrel: re-export the new types
+- `.nybo/foundation/adrs/ADR-004-pdf-parse.md` — new ADR
+- `.nybo/foundation/adrs/ADR-005-pure-function-ingestion.md` — **new STUB authored on 2026-05-04**, status: Superseded by ADR-010 (preserves the rev-1 decision in the historical record)
+- `.nybo/foundation/adrs/ADR-007-corpus-growth.md` — new ADR (updated content: N=20 / <5% page-failure / p95 <2 min on 200 pages)
+- `.nybo/foundation/adrs/ADR-008-pdfplumber-subprocess.md` — new ADR
+- `.nybo/foundation/adrs/ADR-009-off-vercel-worker-host.md` — new ADR
+- `.nybo/foundation/adrs/ADR-010-queue-worker-boundary.md` — new ADR
+- `.nybo/foundation/adrs/ADR-011-writeback-via-repository-port.md` — new ADR
+- `.nybo/foundation/adrs/ADR-012-supabase-pgmq-job-dispatch.md` — new ADR
 
 ## Changes
 
 ### Error Hierarchy
 
-- `PdfIngestionError extends Error` with `readonly code: 'NO_TEXT_LAYER' | 'ENCRYPTED' | 'EMPTY' | 'MALFORMED'` and a `cause?: unknown` property.
-- Subclasses set `code` in their constructor and carry the original error (when wrapping pdf-parse) via `cause`.
-- All subclasses set `name = this.constructor.name` so stack traces are readable.
-- Export both the base class and each subclass from `errors.ts`.
+`PdfIngestionError extends Error` with `readonly code` discriminator and a `cause?: unknown` property. Seven subclasses, each setting a unique `code`:
 
-### Segment Type
+| Subclass | code | Maps to ingestion_failure_reason |
+|----------|------|----------------------------------|
+| `NoTextLayerError` | `'NO_TEXT_LAYER'` | (page-level flag, not a failure reason) |
+| `EncryptedPdfError` | `'ENCRYPTED'` | `'encrypted_pdf'` |
+| `EmptyPdfError` | `'EMPTY'` | `'pdf_unreadable'` |
+| `MalformedPdfError` | `'MALFORMED'` | `'pdf_unreadable'` |
+| `OcrFailedError` | `'OCR_FAILED'` | `'ocr_timeout'` |
+| `TableParseFailedError` | `'TABLE_PARSE_FAILED'` | (page-level flag, not a failure reason) |
+| `StorageFetchFailedError` | `'STORAGE_FETCH_FAILED'` | `'unknown'` |
 
-- `Segment` is `Omit<SegmentoInsert, 'id' | 'pliego_id' | 'created_at' | 'page_range_start' | 'page_range_end'> & { pageRange: [number, number] }`, where `SegmentoInsert` is the Zod-inferred insert type from the post-T0 `domain-model` (rev 3 — `pliego_id` FK, not `documento_id`).
-- `SegmentoInsert` already contains `heading_normalized: string | null`, `heading_original: string | null`, `is_synthetic: boolean` after T0; map these to `headingNormalized`, `headingOriginal`, `isSynthetic` at the persistence boundary (in the future orchestration spec). The TS shape exposed by this feature uses camelCase: `headingNormalized`, `headingOriginal`, `isSynthetic`.
-- Export `Segment` and re-export `SegmentoCategoria` from `src/types/index.ts` so consumers import from a single barrel.
+All subclasses set `name = this.constructor.name` so stack traces are readable. Export base + all subclasses from `errors.ts`.
+
+### IngestionStatusRepository port
+
+Interface only — no Supabase imports under `lib/`. Defines the contract:
+
+```typescript
+export interface IngestionStatusRepository {
+  loadStatus(id: string): Promise<{
+    ingestion_status: 'pending' | 'running' | 'completed' | 'failed'
+    ingestion_started_at: Date | null
+  }>
+  markRunning(id: string): Promise<void>
+  writePages(id: string, pages: Page[]): Promise<void>
+  markCompleted(id: string): Promise<void>
+  markFailed(id: string, reason: IngestionFailureReason, cause: unknown): Promise<void>
+}
+```
+
+The Supabase implementation lives in `src/services/ingestion-worker/` (T8); only the interface lives in `lib/`.
+
+### IngestionResult / Page / TableJson types
+
+```typescript
+export type ExtractionMethod = 'text_layer' | 'ocr' | 'table_parser' | 'empty'
+export type PageFlag = 'no_text_extracted' | 'ocr_low_confidence' | 'table_parse_failed' | 'image_only'
+export type IngestionFailureReason = 'pdf_unreadable' | 'ocr_timeout' | 'page_limit_exceeded' | 'encrypted_pdf' | 'unknown'
+
+export interface TableJson { rows: string[][] }
+export interface Page {
+  page_number: number  // 1-indexed
+  text: string
+  tables: TableJson[]
+  extraction_method: ExtractionMethod
+  confidence: number | null  // 0..1
+  flags: PageFlag[]
+}
+export interface IngestionResult {
+  schema_version: string  // semver, v1.0
+  pages: Page[]
+}
+```
+
+Field names mirror `pdf_pages` columns 1:1 (snake_case at persistence boundary). RLS / RN-014 / RN-017 from `domain-model-mvp` are upstream — this layer just produces the shape.
 
 ### ADRs
 
-- **ADR-004** — pdf-parse chosen for Node-native, zero-config text extraction; alternatives (pdfjs-dist, pdf2json) considered but deferred.
-- **ADR-005** — ingestion is a pure function; orchestration owns persistence, dedup, observability — keeps the parser deterministic and cacheable.
-- **ADR-006** — regex heuristics over LLM segmentation — bounds Claude cost, keeps determinism, falls back to synthetic `general` rather than escalating.
-- **ADR-007** — Validation corpus size and quality gates over time. v1 launch: N=5, ≥80% match. First paying user: N≥20, ≥85% match, ≥4 entity types. Pricing >$50/empresa/month: N≥50, ≥90% match, ≥6 entity types. Corpus stored under `tests/fixtures/pliegos/` with `corpus.yaml` manifest. Manual labeling required per addition (deliberate friction). The v1 ship gate is unchanged by this ADR — it adds product-level gates only.
+- **ADR-004** — pdf-parse for Node-native, zero-config text extraction; alternatives (pdfjs-dist, pdf2json) considered but deferred. Status: Accepted.
+- **ADR-005 (STUB)** — Pure-function service boundary. Originally captured the rev-1 ingestion contract. *This stub is authored on 2026-05-04 to capture a decision that was planned in rev 1 but never authored on disk before being superseded in rev 4.* Status: **Superseded by ADR-010**.
+- **ADR-007 (UPDATED)** — Validation corpus size and quality gates over time. v1 launch: **N=20, <5% page-failure rate, p95 <2 min on 200 pages**. First paying user: N≥50, <3% page-failure. Pricing >$50/empresa/month: N≥100, <2% page-failure. Corpus stored under `tests/fixtures/pliegos/` with `corpus.yaml` manifest. Manual table-quality review (REQ-023) at every revision. Includes second-strategy condition: **promote pdf-ingestion to its own domain** when OCR + tables ship. Status: Accepted.
+- **ADR-008** — Library-based table extraction via **pdfplumber** (chosen over tabula-py, camelot, regex-on-text). **Sub-decision: subprocess vs Lambda vs sidecar — subprocess wins** for MVP. **Revision trigger:** *Revisit subprocess packaging if (a) PDF processing volume exceeds ~500 pliegos/day sustained, (b) memory pressure from concurrent pdfplumber processes destabilizes the Node worker, or (c) Python dependency tree blocks Node container builds in CI.* Status: Accepted.
+- **ADR-009** — Off-Vercel worker host for Tesseract OCR. **Railway primary, Fly.io fallback.** **Switch trigger:** *cost crosses $50/mo OR cold-start p95 >60s.* **Review cadence:** *Reevaluate hosting choice at end of each sprint review based on cost-observability data.* Status: Accepted.
+- **ADR-010** — Queue-worker boundary split. *Supersedes ADR-005 because the queue-worker entrypoint requires side-effectful I/O that the pure-only boundary precluded. Pure pipeline preserved under scoped scan.* Worker entrypoint side-effectful in `src/services/ingestion-worker/`; inner pipeline pure in `lib/ingestion/`. Status: Accepted.
+- **ADR-011** — Writeback via repository port. `IngestionStatusRepository` interface in `lib/ingestion/ports/`; `SupabaseIngestionStatusRepository` impl in `src/services/ingestion-worker/`. Cross-references ADR-010. Status: Accepted.
+- **ADR-012** — Supabase Queues (pgmq) for job dispatch. *pgmq is not currently listed in Supabase's official feature-stage table and the product still has pre-release components (Partitioned Queue). If reliability issues emerge in pilot, fallback is pg-boss on the same Postgres instance — same primitive, different library, similar transactional properties.* Status: Accepted.
 
 ### Design Rationale (Single Responsibility)
 
-T1 owns nothing but type declarations and error class definitions — no runtime logic. This isolates the foundation so T2/T3 can be built and tested independently against stable contracts. Splitting `errors.ts` and `segment.ts` follows SRP at the file level.
+T1 owns nothing but type declarations, error class definitions, and the repository port interface — no runtime logic. The split between `lib/ingestion/ports/` (interface) and `src/services/ingestion-worker/` (implementation) is the seam that lets the inner pipeline stay pure under NFR-03.
 
 ## Dependencies
 
-Requires **T0** (domain-model edits, revs 2 + 3) — `general` enum value, `page_range_*` columns, dual heading columns, `is_synthetic` column, three CHECK constraints, the `Documento` → `Pliego` rename (incl. `pliego_id` FK on segmento), and the narrow `pliego_tipo` enum must all exist before this task can author `Segment`. AnexoProceso must also be schema-defined (it does not block ingestion functionality but T0 is a unit).
+Requires **T0** (`domain-model-mvp` rev 1, satisfied externally on 2026-05-04). The `pdf_pages` table and `pliego_uploads` ingestion columns must exist before this task authors `Page` / `IngestionFailureReason`.
 
 ## Done When
 
-- [ ] `lib/ingestion/errors.ts` exists with `PdfIngestionError` base + 4 subclasses; each has a unique `code`.
-- [ ] `instanceof PdfIngestionError` returns true for all four subclasses (verified by a unit test).
-- [ ] `Segment` is exported from `src/types/index.ts` with the documented shape (incl. `headingNormalized`, `headingOriginal`, `isSynthetic`, `pageRange`).
+- [ ] `lib/ingestion/errors.ts` exists with `PdfIngestionError` base + 7 subclasses; each has a unique `code`; `instanceof PdfIngestionError` returns true for every subclass.
+- [ ] `lib/ingestion/ports/ingestion-status-repository.ts` exports the `IngestionStatusRepository` interface.
+- [ ] `IngestionResult`, `Page`, `TableJson`, `ExtractionMethod`, `PageFlag`, `IngestionFailureReason` exported from `src/types/index.ts`.
+- [ ] All eight ADR files (004, 005-stub, 007, 008, 009, 010, 011, 012) present under `.nybo/foundation/adrs/` with the documented statuses (ADR-005 marked **Superseded by ADR-010**).
 - [ ] `npm run typecheck` passes in strict mode.
-- [ ] All four ADR files (004, 005, 006, 007) exist under `.nybo/foundation/adrs/` with status `accepted`.
-- [ ] No file in this task exceeds 200 lines.
+- [ ] No file in this task exceeds 250 lines.

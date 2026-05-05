@@ -2,7 +2,7 @@
 # Always loaded by every nybble skill. Keep under 50 lines.
 
 ## Project
-A SaaS platform that analyzes Colombian public procurement contract documents (pliegos) to determine if companies are eligible to bid.. Colombian SMBs and procurement consultants who need to quickly assess their eligibility for government contracts.. 20 paying users each running ≥5 analyses/month with p95 latency <60s and eligibility verdicts matching expert manual review on ≥85% of requisitos.
+A SaaS platform that helps Colombian companies discover open SECOP II Procesos matching their profile, then analyzes the pliego to determine eligibility (semáforo). Large contractors and active subcontractors who need both discovery and eligibility screening. 20 paying users each running ≥5 analyses/month with p95 latency <60s; discovery → analysis conversion ≥20%; eligibility verdicts matching expert review on ≥85% of requisitos.
 
 ## Working Directory
 src/
@@ -31,6 +31,7 @@ src/
 - MVP scope — `.nybo/memory/product/mvp-scope.md`
 - Anti-goals — `.nybo/memory/product/anti-goals.md`
 - Quality bars — `.nybo/memory/product/quality-bars.md`
+- Tech stack policy — `.nybo/memory/product/tech-stack-policy.md`
 
 ## Active Domains
 - contratacion-publica — `.nybo/memory/domains/contratacion-publica.md`

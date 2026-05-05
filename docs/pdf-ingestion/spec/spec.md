@@ -1,27 +1,50 @@
 # pdf-ingestion — Software Design Document
 
+## Changelog rev 3 → rev 4
+
+This rev re-aligns pdf-ingestion with the consolidated MVP definition (`mvp-scope.md` §59 — *"PDF handling: text-layer extraction first, OCR fallback for image-only pages, libraries (not regex) for tables. Pages with no extractable content MUST be flagged in the result, not silently dropped"*) and the queue-fed ingestion pipeline established in the 2026-05-04 pilot-research conversation. The eight changes below are the full surface of the rev:
+
+| # | Change | Cross-reference |
+|---|--------|-----------------|
+| 1 | **ADR-005 marked Superseded by ADR-010.** The rev-1 pure-only boundary precluded the queue-fed I/O entrypoint mvp-scope §59 mandates; ADR-010 replaces it with a worker boundary that splits side-effectful entry from a pure inner pipeline. | mvp-scope.md §59 |
+| 2 | **ADR-010 added (queue-worker entrypoint, scoped purity preserved).** Worker entrypoint side-effectful in `src/services/ingestion-worker/`; inner pipeline pure in `lib/ingestion/`. | mvp-scope.md §59 |
+| 3 | **ADR-011 added (writeback via repository port).** `IngestionStatusRepository` interface in `lib/ingestion/ports/`; `SupabaseIngestionStatusRepository` impl in `src/services/ingestion-worker/`. | mvp-scope.md §59 |
+| 4 | **ADR-008 sub-decision: pdfplumber via subprocess** (vs Lambda vs sidecar). Subprocess wins for MVP. | mvp-scope.md §59 (table parsing) |
+| 5 | **ADR-009 sharpened: Railway primary, Fly.io fallback** for Tesseract host (off-Vercel because Tesseract requires system install). | mvp-scope.md §59 (OCR) |
+| 6 | **ADR-012 added (Supabase pgmq for job dispatch),** with pg-boss noted as fallback if pgmq reliability issues emerge in pilot. | mvp-scope.md §59 |
+| 7 | **T8 idempotency requirement made explicit** — see REQ-019 below for the verbatim contract. | mvp-scope.md §59 |
+| 8 | **NFR-03 scope (`lib/ingestion/**`) reaffirmed** — not a relaxation; the scoped purity boundary was introduced rev 1 and is preserved unchanged. The new worker code (`src/services/ingestion-worker/`) is exempt by design (per ADR-010 + ADR-011). | mvp-scope.md §59 |
+
+Rev 3 was approved on 2026-04-27 as a pure-function pdf-ingestion contract. mvp-scope.md was consolidated on 2026-04-28 and codified the OCR + table-parsing + empty-page-flagging requirements (§59) that this rev now ships. The 2026-05-04 pilot-research conversation established the queue-fed pipeline (Supabase pgmq dispatch → off-Vercel worker → page-aware writeback). All 15 prior task checkboxes in `99-progress.md` were unchecked at re-plan time; no implementation work is lost.
+
+---
+
 ## Intention
 
-`pdf-ingestion` converts a raw pliego PDF buffer into a categorized list of `Segment` objects so the downstream extraction stage receives clean inputs. It is a **pure async function** — `(buffer: Buffer) => Promise<Segment[]>` — with zero side effects: no Supabase calls, no file I/O, no logging, no global state. Because parsing depends only on document bytes (not on the analyzing empresa), its results are safe to cache against the `Pliego` row, so two empresas analyzing the same proceso reuse the same segments.
+`pdf-ingestion` is the queue-fed worker that converts an uploaded pliego PDF into per-page extracted text + structured tables, writes one row per page into `pdf_pages`, and transitions `pliego_uploads.ingestion_status` from `pending → running → completed | failed`. The entrypoint is `processPliegoUpload(pliego_upload_id)` invoked by a Supabase Queues (pgmq) consumer running on an off-Vercel host (Railway primary, Fly.io fallback — required because Tesseract OCR is a system install).
 
-It lives under `lib/ingestion/` per the repo-wide `lib/` vs `src/services/` convention: pure utilities that receive their dependencies as parameters and have no global configuration coupling go under `lib/`; stateful or I/O-coupled services that own dependency wiring live under `src/services/`.
+The ingestion is **side-effectful at the entrypoint** (storage fetch, database writeback, queue ack) and **pure at the inner pipeline** (text → OCR → tables → page assembly). The two are split via a repository port (ADR-011): the worker depends on `IngestionStatusRepository` (interface in `lib/ingestion/ports/`); the Supabase implementation lives under `src/services/ingestion-worker/`. The inner pipeline under `lib/ingestion/` retains the rev-1 purity contract — same NFR-03 scoped scan, same forbidden-imports list — so the deterministic, testable core is unchanged in shape; only the I/O wrapper around it is new.
+
+This split is the rev-4 architectural change: the rev-1 pure-function entrypoint (ADR-005, superseded) could not host the queue-fed lifecycle that mvp-scope §59 requires; ADR-010 + ADR-011 keep the purity boundary by moving it inward one layer.
 
 ### v1 Scope
 
-**In scope:** Parse `Pliego` entities (`pliego_condiciones`, `pliego_definitivo`) into `Segment[]`. The function signature `parsePliegoPdf` was always correctly named for the user vocabulary; with [domain-model revision 3](../domain-model/spec/spec.md), the entity name now matches.
+**In scope:** Process `Pliego` uploads (`pliego_condiciones`, `pliego_definitivo`) end-to-end: storage fetch by `pliego_upload_id` → text-layer extraction → OCR fallback for sub-threshold pages → library-based table extraction → page-aware result assembly → idempotent writeback to `pdf_pages` and `pliego_uploads`. OCR (Tesseract, Spanish lang pack) and table parsing (pdfplumber via subprocess — see ADR-008) are first-class v1 features per mvp-scope §59.
 
-**Out of scope (v1):** `AnexoProceso` entities (`anexo_tecnico`, `estudio_previo`, `resolucion`, `otro`). Anexos are stored in the database (per domain-model RN-012) but are not segmented or extracted in v1. Anexo parsing may need different heuristics or a separate function altogether — deferred to v1.1+ along with OCR support. The orchestration layer (upload-flow, future spec) is responsible for routing only Pliego buffers to `parsePliegoPdf`.
+**Out of scope (v1):** `AnexoProceso` entities. Anexos are stored in the database (per `domain-model-mvp`) but are not ingested in v1. Anexo ingestion may need different heuristics or a separate pipeline altogether — deferred to v1.1+. The orchestration layer (`pliego-upload` spec) is responsible for routing only Pliego uploads onto the ingestion queue.
 
 ## Use Cases
 
 Detailed scenarios in [use-cases.md](./use-cases.md).
 
 | Use Case | Description | User Stories |
-|----------|-------------|-------------|
-| [UC-01 — Parse a clean SECOP-II pliego](./use-cases.md#uc-01--parse-a-clean-secop-ii-pliego-us-01) | Orchestrator passes a PDF buffer; function returns ordered, categorized `Segment[]` | US-01 |
-| [UC-02 — Reject unparseable PDFs with typed errors](./use-cases.md#uc-02--reject-unparseable-pdfs-with-typed-errors-us-02) | Encrypted, scanned-only, or empty PDFs return discriminated error types | US-02 |
-| [UC-03 — Fall back to synthetic `general` when headers are non-standard](./use-cases.md#uc-03--fall-back-to-general-when-headers-are-non-standard-us-03) | Pliegos with unconventional section titles still produce a usable `Segment[]` | US-03 |
-| [UC-04 — Validate against a labeled corpus](./use-cases.md#uc-04--validate-against-a-labeled-corpus-us-04) | CI runs the function over 5 real pliegos and asserts ≥80% category-match rate | US-04 |
+|----------|-------------|--------------|
+| [UC-01 — Ingest a clean SECOP-II pliego (page-aware output)](./use-cases.md#uc-01--ingest-a-clean-secop-ii-pliego-page-aware-output-us-01) | Worker fetches pliego from storage by `pliego_upload_id`, returns one page row per PDF page | US-01 |
+| [UC-02 — Surface unparseable PDFs as typed errors (corrupted + password-protected)](./use-cases.md#uc-02--surface-unparseable-pdfs-as-typed-errors-us-02) | Encrypted, malformed, or empty PDFs surface as `failed` ingestion with discriminated `ingestion_failure_reason` | US-02 |
+| [UC-04 — Validate against a labeled corpus (N=20 + page-failure-rate metric)](./use-cases.md#uc-04--validate-against-a-labeled-corpus-us-04) | CI runs the worker over 20 real pliegos and asserts <5% page-failure rate, <2 min p95 on 200-page input | US-04 |
+| [UC-05 — Scanned pliego falls through to OCR successfully](./use-cases.md#uc-05--scanned-pliego-falls-through-to-ocr-successfully-us-01) | Image-only pages trigger Tesseract OCR; OCR confidence captured per page | US-01 |
+| [UC-06 — Multi-column tables parsed into structured rows](./use-cases.md#uc-06--multi-column-tables-parsed-into-structured-rows-us-01) | 2-col and 3-col tables emerge as JSONB row arrays in `pdf_pages.tables` | US-01 |
+| [UC-07 — Unreadable page surfaces flag without dropping](./use-cases.md#uc-07--unreadable-page-surfaces-flag-without-dropping-us-02) | A page yielding no text is inserted with `'no_text_extracted'` flag, never silently dropped | US-02 |
 
 ---
 
@@ -30,34 +53,35 @@ Detailed scenarios in [use-cases.md](./use-cases.md).
 ### Functional Requirements
 
 | ID | Requirement | User Stories | Business Rules |
-|----|-------------|-------------|----------------|
-| REQ-001 | Export a single public function `parsePliegoPdf(buffer: Buffer): Promise<Segment[]>` from `lib/ingestion/index.ts` | US-01 | RN-001 |
-| REQ-002 | The function must be **pure**: no Supabase, Storage, network, or filesystem calls; no module-level state mutation; no `console.*` or other logging side effects | US-01 | RN-001 |
-| REQ-003 | Each returned `Segment` must carry: `categoria`, `contenido`, `orden` (zero-indexed, contiguous), `pageRange` (`[startPage, endPage]`, 1-indexed inclusive), `headingNormalized` (`string \| null`), `headingOriginal` (`string \| null`), `isSynthetic` (`boolean`) | US-01 | RN-002, RN-003, RN-011 |
-| REQ-004 | `Segment.categoria` must be one of: `juridico \| financiero \| tecnico \| experiencia \| general` — `general` is the fallback when no header pattern matches | US-01, US-03 | RN-004 |
-| REQ-005 | Header detection MUST normalize input via `text.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase()` before applying regex. Patterns are authored in normalized form (e.g. `/\bcapacidad\s+juridica\b/`, never `/CAPACIDAD\s+JURÍDICA/i`). | US-01 | RN-005 |
-| REQ-006 | Detect the following Colombian SECOP-II header families via regex against the normalized line: "capacidad juridica", "capacidad financiera", "capacidad tecnica", "experiencia", "requisitos habilitantes" | US-01 | RN-004, RN-005 |
-| REQ-007 | On encrypted PDFs (password-protected), throw `EncryptedPdfError` (a typed subclass of `PdfIngestionError`) | US-02 | RN-006 |
-| REQ-008 | On PDFs whose total extracted text length is below `MIN_TEXT_THRESHOLD` (200 chars), throw `NoTextLayerError` — v1 does not OCR | US-02 | RN-006, RN-009 |
-| REQ-009 | On empty/zero-page PDFs or buffers `pdf-parse` cannot decode, throw `EmptyPdfError` | US-02 | RN-006 |
-| REQ-010 | All thrown errors must extend a common `PdfIngestionError` base class with a `code` discriminator (`NO_TEXT_LAYER`, `ENCRYPTED`, `EMPTY`, `MALFORMED`) | US-02 | RN-006 |
-| REQ-011 | The function must be **deterministic**: invoking it twice on the same buffer must return deeply-equal `Segment[]` | US-01 | RN-001, RN-007 |
-| REQ-012 | Domain types `Segment` (this feature's surface), `SegmentoCategoria` (extended via T0), and the `Pliego`/`PliegoTipo` types referenced in the orchestration boundary must be imported from `@/types`, not redefined locally. The `Segment` shape's persistence-side reference is `pliego_id` (not `documento_id`) per domain-model rev 3. | US-01 | RN-008 |
-| REQ-013 | When a recognized header is matched, set `isSynthetic: false`, `headingOriginal` to the source line as it appeared in the PDF (preserving case, accents, surrounding whitespace trimmed), and `headingNormalized` to the normalized form produced by the formula in REQ-005 | US-01 | RN-005, RN-011 |
-| REQ-014 | For front-matter segments and no-header-fallback segments, set `isSynthetic: true`, `headingOriginal: null`, `headingNormalized: null` | US-01, US-03 | RN-011 |
-| REQ-015 | Provide a labeled corpus of 5 real Colombian pliegos under `tests/fixtures/pliegos/` with a `corpus.yaml` manifest listing per pliego: `source_entity`, `modalidad`, `year`, `manual_labels` (path to golden file), `date_added` (ISO date) | US-04 | RN-010 |
-| REQ-016 | Provide a vitest acceptance test that asserts category-match rate ≥80% across the corpus, where "match" means: for each golden segment, the produced segment with overlapping `pageRange` carries the same `categoria` | US-04 | RN-010 |
-| REQ-017 | Provide a vitest benchmark proving p95 parse time <3s for ≤20MB PDFs, run over the corpus | US-01 | RN-007 |
+|----|-------------|--------------|----------------|
+| REQ-002 | The **inner pipeline** under `lib/ingestion/` MUST remain pure: no Supabase, Storage, network, or filesystem calls; no module-level state mutation; no `console.*` or other logging side effects. The purity scope is `lib/ingestion/**` only — the worker entrypoint under `src/services/ingestion-worker/` is exempt by design (see NFR-03, ADR-010). | US-01 | RN-001 |
+| REQ-007 | On encrypted PDFs (password-protected), the worker MUST set `pliego_uploads.ingestion_status = 'failed'`, `ingestion_failure_reason = 'encrypted_pdf'`, and surface a user-facing error message via the status row. The inner pipeline raises `EncryptedPdfError` (a typed subclass of `PdfIngestionError`); the worker maps it to the failure-reason vocabulary defined in `domain-model-mvp` REQ-007. | US-02 | RN-006 |
+| REQ-008 | When a page's text-layer extraction yields fewer than `OCR_TRIGGER_THRESHOLD` (default 50 chars) of usable text, the inner pipeline MUST fall back to OCR (Tesseract, Spanish lang pack `spa`). OCR confidence MUST be captured and exposed on the `pdf_pages.confidence` column. | US-01 | RN-006, RN-009 |
+| REQ-009 | On empty/zero-page PDFs or buffers `pdf-parse` cannot decode, the inner pipeline raises `EmptyPdfError`; the worker maps to `ingestion_failure_reason = 'pdf_unreadable'`. | US-02 | RN-006 |
+| REQ-010 | All thrown errors from the inner pipeline MUST extend a common `PdfIngestionError` base class with a `code` discriminator (extended set: `NO_TEXT_LAYER`, `ENCRYPTED`, `EMPTY`, `MALFORMED`, `OCR_FAILED`, `TABLE_PARSE_FAILED`, `STORAGE_FETCH_FAILED`). The worker maps each `code` onto the controlled `ingestion_failure_reason` vocabulary. | US-02 | RN-006 |
+| REQ-011 | The inner pipeline MUST be **deterministic**: invoking it twice on the same PDF buffer MUST return deeply-equal page results. The worker writeback MUST be **idempotent on `pliego_upload_id`** (re-delivery from queue retry, manual replay, or crash recovery MUST NOT produce duplicate page rows or duplicate status transitions — see REQ-019). | US-01 | RN-001, RN-007 |
+| REQ-013 | **Queue-worker entrypoint signature:** `processPliegoUpload(pliego_upload_id: string): Promise<void>`. The worker is the only public surface of `src/services/ingestion-worker/`. It is invoked by the pgmq consumer (one consumer process, configurable concurrency). | US-01 | RN-013 |
+| REQ-014 | **Per-page output schema** (matches `pdf_pages` columns): `{ page_number: int (1-indexed), text: string, tables: TableJson[], extraction_method: 'text_layer'|'ocr'|'table_parser'|'empty', confidence: number|null (0..1), flags: ('no_text_extracted'|'ocr_low_confidence'|'table_parse_failed'|'image_only')[] }`. The page array is contiguous, 1-indexed, with no gaps. | US-01 | RN-002, RN-014 |
+| REQ-015 | **OCR trigger:** if `text-layer extracted text length < OCR_TRIGGER_THRESHOLD` (default 50 chars) for a page, run Tesseract with Spanish lang pack (`spa`). On OCR success, set `extraction_method = 'ocr'` and write the OCR-derived confidence to `confidence`. On OCR failure, raise `OcrFailedError` and let the worker set `ingestion_failure_reason = 'ocr_timeout'`. | US-01 | RN-006, RN-014 |
+| REQ-016 | **Table extraction:** library-based (pdfplumber via subprocess — see ADR-008). MUST support 2-column and 3-column tables. Tables emerge as JSONB row arrays on `pdf_pages.tables`. On parse failure for a page's tables, set `'table_parse_failed'` flag and proceed; never fail the whole ingestion on a per-page table issue. | US-01 | RN-014 |
+| REQ-017 | **Empty-page flag MUST surface, never silently drop.** A page yielding zero extractable content (no text-layer text, OCR also yields nothing) MUST be inserted into `pdf_pages` with `text = ''`, `extraction_method = 'empty'`, `flags = ['no_text_extracted']`. Page contiguity is preserved. | US-02 | RN-014, RN-017 |
+| REQ-018 | **Storage fetch:** the worker MUST fetch the pliego file from Supabase Storage at the per-tenant prefix `companies/<company_id>/pliegos/<sha256>.pdf` derived from the `pliego_uploads` row (`uploaded_by_company_id`, `file_sha256`). On fetch failure (object missing, network error), raise `StorageFetchFailedError`; the worker maps to `ingestion_failure_reason = 'unknown'` and includes the cause. | US-01 | RN-008, RN-013 |
+| REQ-019 | **Idempotent writeback (T8 contract — verbatim):** *Worker MUST be idempotent — keyed by `pliego_upload_id`. Re-delivery (queue retry, manual replay, crash recovery) MUST NOT produce duplicate page rows, duplicate ingestion_result writes, or duplicate status transitions. Implementation requirements: (a) Status writes are upserts keyed on `pliego_upload_id`. (b) Page-row writes use upsert on `(pliego_upload_id, page_number)`. (c) Worker checks `ingestion_status` at entry: if already 'completed', return without reprocessing; if 'processing' and last update older than [TIMEOUT, suggest 10 min], assume crash and reprocess; if 'processing' and recent, defer to in-flight worker. (d) Concurrency control: queue MUST guarantee at-most-one in-flight delivery per `pliego_upload_id` via visibility timeout, OR worker MUST acquire an advisory lock on `pliego_upload_id` before processing.* Resumability (continuing from partial work after crash) is NOT required in MVP — full reprocess on retry is acceptable. Documented as v1.1 candidate in `suggestions.md`. | US-01 | RN-007, RN-013 |
+| REQ-020 | **Eval corpus N=20.** Provide a labeled corpus of 20 real Colombian pliegos under `tests/fixtures/pliegos/` with a `corpus.yaml` manifest listing per pliego: `source_entity`, `modalidad`, `year`, `tipo`, `manual_labels` (path to golden file: per-page expected text/tables sketch), `date_added`. | US-04 | RN-010 |
+| REQ-021 | **<5% page failure rate gate.** Across the eval corpus, the aggregate fraction of pages flagged with `'no_text_extracted'`, `'ocr_low_confidence'`, or `'table_parse_failed'` MUST be <5%. CI fails otherwise. | US-04 | RN-010 |
+| REQ-022 | **200-page p95 <2 min performance gate.** A vitest benchmark over the 20-pliego corpus (filtered to pliegos ≤200 pages, ≥10 iterations per fixture) MUST show p95 end-to-end ingestion time <120000ms. | US-04 | RN-010 |
+| REQ-023 | **Manual table-quality review on 5 sampled pliegos.** A documented manual review pass on 5 sampled pliegos from the corpus, scoring extracted-table fidelity (rows correctly grouped, columns correctly split). Result is captured in `tests/fixtures/pliegos/table-review.md` and re-run when ADR-008 is revisited. | US-04 | RN-010 |
+| REQ-024 | **Domain types** — `Page`, `TableJson`, `IngestionResult`, and the `IngestionStatusRepository` port — MUST be imported from `@/types` (or `lib/ingestion/ports/`), not redefined locally in the worker. The worker writeback maps `Page` → `pdf_pages` columns 1:1 (snake_case at the persistence boundary). | US-01 | RN-008 |
 
 ### Non-Functional Requirements
 
 | ID | Category | Requirement |
 |----|----------|-------------|
-| NFR-01 | Performance | p95 parse time <3s for PDFs ≤20MB, measured via vitest bench over the corpus on CI hardware |
-| NFR-02 | Correctness | ≥80% category-match rate against the golden corpus (5 real pliegos, manually labeled) |
-| NFR-03 | Purity | A CI grep test scans `lib/ingestion/**` (excluding any `__tests__` or `.test.*` files within that path; treating `tests/**` as out-of-scope) and fails if it finds: `@supabase/*`, `@anthropic-ai/sdk`, `node:fs`, `node:fs/promises`, `node:net`, `node:http`, `node:https`, common logger modules (`pino`, `winston`, `bunyan`, `@logtape/`, plus an "in-house logger module" placeholder for future shared loggers), or `process.env.[A-Z_]+` direct reads. The forbidden list converges with [requisitos-extraction REQ-017](../../requisitos-extraction/spec/spec.md) and [semaforo-aggregation REQ-013](../../semaforo-aggregation/spec/spec.md) for cross-spec parity — pdf-ingestion has no LLM use case today, but `@anthropic-ai/sdk` is included defensively to prevent future contributors from experimenting with LLM-based segmentation inside `lib/ingestion/`. |
-| NFR-04 | File size | Each file in `lib/ingestion/` stays under 500 lines (per `.nybo/foundation/conventions.yaml`) |
-| NFR-05 | Type safety | `npm run typecheck` passes in strict mode with no `any` in the public API surface |
+| NFR-01 | Performance | End-to-end ingestion p95 < 2 min for 200-page PDFs, measured via vitest bench over the corpus (REQ-022 gate). Includes storage fetch + text extraction + OCR fallback + table extraction + writeback. |
+| NFR-02 | Correctness | <5% page failure rate across the eval corpus (REQ-021 gate). Manual table-quality review on 5 sampled pliegos (REQ-023). |
+| NFR-03 | Purity (scope-shrink reaffirmation) | A CI grep test scans `lib/ingestion/**` (excluding `__tests__/` and `*.test.*` within that path; treating `tests/**` as out-of-scope) and fails if it finds: `@supabase/*`, `@anthropic-ai/sdk`, `node:fs`, `node:fs/promises`, `node:net`, `node:http`, `node:https`, common logger modules (`pino`, `winston`, `bunyan`, `@logtape/`, plus an "in-house logger module" placeholder), or `process.env.[A-Z_]+` direct reads. **The scope is `lib/ingestion/**` only** — code under `src/services/ingestion-worker/` is exempt by design (per ADR-010, ADR-011). The scope was introduced rev 1; rev 4 reaffirms it without changing the forbidden-imports list. The worker depends on `IngestionStatusRepository` from `lib/ingestion/ports/` (interface only) — the Supabase implementation lives in `src/services/`, not under `lib/`. |
+| NFR-04 | File size | Each file in `lib/ingestion/` and `src/services/ingestion-worker/` stays under 500 lines (per `.nybo/foundation/conventions.yaml`). |
+| NFR-05 | Type safety | `npm run typecheck` passes in strict mode with no `any` in the public API surface (worker entrypoint signature, `IngestionResult`/`Page`/`TableJson`/`IngestionStatusRepository` types). |
 
 ---
 
@@ -65,118 +89,105 @@ Detailed scenarios in [use-cases.md](./use-cases.md).
 
 | Rule | Description |
 |------|-------------|
-| RN-001 | `parsePliegoPdf` is a **pure function**. It does not read or write the database, the filesystem, the network, or any logger. The caller (orchestration spec) owns persistence, dedup via `pliego.file_hash`, and observability. |
-| RN-002 | Segments are emitted in **document order**: `orden` is zero-indexed, strictly increasing, and contiguous (no gaps). |
-| RN-003 | `pageRange` is `[startPage, endPage]`, both **1-indexed and inclusive**. Page numbers reflect the PDF page index reported by `pdf-parse`. |
-| RN-004 | `categoria` is constrained to: `juridico \| financiero \| tecnico \| experiencia \| general`. `general` is the **only legitimate fallback** when no header family matches; never silently drop content. |
-| RN-005 | Header matching uses the **mandatory normalization formula** `text.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase()`. Regex patterns are authored against the normalized form. The `headingOriginal` field preserves the raw source line for UI display (Colombian users expect uppercase + accented headings); `headingNormalized` preserves the matched normalized form for analytics, re-categorization, and audit. |
-| RN-006 | Failure modes are **typed errors**, never silent fallbacks. Callers discriminate via `error.code`. v1 does not OCR scanned PDFs — they are surfaced as `NO_TEXT_LAYER`. |
-| RN-007 | The function is **deterministic** for a given input buffer. No randomness, no timestamps, no environment dependence in the output. |
-| RN-008 | Domain types come from the domain-model spec via `@/types`. This feature must not redefine `Segmento`, `Pliego`, `SegmentoCategoria`, or any heading-related shapes. Where this feature needs a shape the domain-model lacks, the domain-model is **edited first** (see Architecture Dependencies). |
-| RN-009 | The text-layer threshold (`MIN_TEXT_THRESHOLD = 200` chars) distinguishes "PDF with minimal text but real content" from "scan-only PDF". Constant, not a parameter, so behavior is reproducible. |
-| RN-010 | The validation corpus is a hard quality gate. CI must fail if either category-match rate drops below 80% or p95 latency exceeds 3s. Lowering the thresholds requires a spec revision. |
-| RN-011 | `isSynthetic === true` ⇔ `headingNormalized === null` ⇔ `headingOriginal === null`. The DB enforces this via two CHECK constraints (see Architecture Dependencies). `isSynthetic` is the **source of truth** for downstream logic; consumers must branch on `isSynthetic`, never on heading nullability. NULL describes the data shape; `isSynthetic` describes the intent. |
-| RN-012 | **Downstream consumer contract**: [`requisitos-extraction`](../../requisitos-extraction/spec/spec.md) (and any future requisito-extraction consumer) MUST exclude both `isSynthetic === true` AND `categoria === 'general'` segments from requisito extraction. Both kinds of segments are persisted for completeness and audit but are not eligible for LLM-driven extraction. |
+| RN-001 | The **inner pipeline** under `lib/ingestion/` is pure. The **worker** under `src/services/ingestion-worker/` is side-effectful at the entrypoint and depends on the inner pipeline through value-passing only (page-aware buffer in, `IngestionResult` out, then writeback through the repository port). The purity boundary moved inward one layer relative to rev 1 (ADR-005 superseded by ADR-010), but is preserved unchanged at its new scope. |
+| RN-006 | Failure modes are **typed errors** in the inner pipeline, never silent fallbacks. The worker maps `error.code` onto the controlled `ingestion_failure_reason` vocabulary defined in `domain-model-mvp` REQ-007 (`pdf_unreadable`, `ocr_timeout`, `page_limit_exceeded`, `encrypted_pdf`, `unknown`). |
+| RN-007 | The inner pipeline is **deterministic** for a given input buffer. The worker writeback is **idempotent** on `pliego_upload_id` (REQ-019). Re-delivery never produces duplicate rows. |
+| RN-008 | Domain types come from `domain-model-mvp` via `@/types` and from `lib/ingestion/ports/` for the `IngestionStatusRepository` interface. The worker MUST NOT redefine `Page`, `TableJson`, `IngestionResult`, or any domain-model column shape locally. |
+| RN-009 | The OCR trigger threshold (`OCR_TRIGGER_THRESHOLD = 50` chars) is a constant, not a parameter — same input always yields the same OCR/no-OCR decision per page. |
+| RN-010 | The validation corpus (N=20) is a hard quality gate. CI fails if either page-failure rate exceeds 5% or 200-page p95 exceeds 120s. Lowering the thresholds requires a spec revision. |
+| RN-013 | **Queue-worker boundary.** The worker is invoked exclusively by the pgmq consumer with one argument: `pliego_upload_id`. The worker fetches the file from storage, computes the `IngestionResult`, writes through the repository port, and acks the queue message. No HTTP surface, no direct user-callable function. |
+| RN-014 | **Page contiguity invariant.** The page array in `IngestionResult` is 1-indexed and contiguous. No page is silently dropped. Pages with no extractable content surface with `extraction_method = 'empty'` and the `'no_text_extracted'` flag. |
+| RN-015 | **OCR confidence captured + exposed.** When OCR runs for a page, the per-page confidence (Tesseract returns 0–100; normalize to 0..1) is written to `pdf_pages.confidence`. Below `OCR_LOW_CONFIDENCE_THRESHOLD = 0.5`, also append the `'ocr_low_confidence'` flag (page is not failed — flagged for downstream review). |
+| RN-016 | **Storage-fetch idempotency.** Fetching the same `pliego_upload_id` twice returns the same bytes (Supabase Storage objects at `companies/<company_id>/pliegos/<sha256>.pdf` are immutable per content-addressed naming; the SHA-256 in the path enforces this). |
+| RN-017 | **Ingestion-result schema versioning.** `IngestionResult` carries a `schema_version` field (string, semver). v1.0 covers the page-aware shape defined here. Schema changes require a spec edit and a new version. |
 
 ---
 
 ## Test Cases
 
-### TC-001 — Returns `Segment[]` in document order on a clean pliego (REQ-001, REQ-003, RN-002)
+### TC-001 — Page-aware output on a clean pliego (REQ-014, RN-002, RN-014)
 
-**Given** a buffer of `tests/fixtures/pliegos/clean-pliego-001.pdf`
-**When** `parsePliegoPdf(buffer)` resolves
-**Then** the result is a non-empty `Segment[]` with `orden` `[0, 1, ..., n-1]` strictly increasing, and every `pageRange[0] <= pageRange[1]`
+**Given** a fixture pliego of 12 pages with extractable text on every page
+**When** the worker runs `processPliegoUpload(id)`
+**Then** `pdf_pages` contains exactly 12 rows for that `pliego_upload_id`, with `page_number` `[1, 2, ..., 12]` contiguous, every `text` non-empty, and `pliego_uploads.ingestion_status = 'completed'`
 
-### TC-002 — Categorizes the four canonical sections correctly (REQ-006, RN-004)
+### TC-002 — Encrypted PDF maps to typed error + status row (REQ-007, REQ-010)
 
-**Given** the clean pliego corpus
-**When** parsed
-**Then** segments under "CAPACIDAD JURÍDICA" carry `categoria: 'juridico'`, "CAPACIDAD FINANCIERA" → `'financiero'`, "CAPACIDAD TÉCNICA" → `'tecnico'`, "EXPERIENCIA" → `'experiencia'`
+**Given** a password-protected fixture pliego
+**When** the worker runs
+**Then** `pliego_uploads.ingestion_status = 'failed'`, `ingestion_failure_reason = 'encrypted_pdf'`, and the inner pipeline raised `EncryptedPdfError`
 
-### TC-003 — Mandatory normalization formula (REQ-005, RN-005)
+### TC-003 — Corrupted/malformed PDF maps to typed error + status row (REQ-009, REQ-010)
 
-**Given** synthetic single-page PDFs with the same content but headers `"CAPACIDAD FINANCIERA"`, `"capacidad financiera"`, and `"Capacidad Financiera"`
-**When** each is parsed
-**Then** all three return one segment with `categoria: 'financiero'`, `isSynthetic: false`, `headingNormalized: 'capacidad financiera'`, and `headingOriginal` matching the raw form (case + accents preserved)
+**Given** a fixture file that is not a valid PDF
+**When** the worker runs
+**Then** `pliego_uploads.ingestion_status = 'failed'`, `ingestion_failure_reason = 'pdf_unreadable'`, and the inner pipeline raised `MalformedPdfError`
 
-### TC-004 — Falls back to synthetic `general` when no header matches (REQ-004, REQ-014, RN-011)
+### TC-004 — OCR fallback for image-only page (REQ-008, REQ-015, RN-015)
 
-**Given** a synthetic PDF whose only header line is `"DISPOSICIONES VARIAS"` (not in any header family)
-**When** parsed
-**Then** the result contains at least one segment with `categoria: 'general'`, `isSynthetic: true`, `headingNormalized: null`, `headingOriginal: null`; the function does not throw
+**Given** a fixture pliego where page 3 is an image-only scan (sub-threshold text-layer extraction)
+**When** the worker runs
+**Then** the `pdf_pages` row for page 3 has `extraction_method = 'ocr'`, `text` is non-empty, and `confidence` is populated
 
-### TC-005 — Encrypted PDFs throw `EncryptedPdfError` (REQ-007, REQ-010, RN-006)
+### TC-005 — Multi-column table extraction (REQ-016)
 
-**Given** a buffer of a password-protected PDF
-**When** `parsePliegoPdf(buffer)` is called
-**Then** it rejects with an `EncryptedPdfError` whose `code === 'ENCRYPTED'` and `instanceof PdfIngestionError`
+**Given** a fixture pliego with a 3-column financial-indicators table on page 5
+**When** the worker runs
+**Then** the `pdf_pages` row for page 5 has `tables` containing at least one entry whose row-array width matches the source table's column count (≥3)
 
-### TC-006 — Scan-only PDFs throw `NoTextLayerError` (REQ-008, RN-006, RN-009)
+### TC-006 — Empty-page flag surfaces (REQ-017, RN-014)
 
-**Given** a buffer of an image-only scan
-**When** parsed
-**Then** it rejects with `NoTextLayerError` whose `code === 'NO_TEXT_LAYER'`
+**Given** a fixture pliego where page 4 yields no text from text-layer or OCR
+**When** the worker runs
+**Then** the `pdf_pages` row for page 4 has `text = ''`, `extraction_method = 'empty'`, `flags` includes `'no_text_extracted'`, page is NOT missing from the output
 
-### TC-007 — Malformed buffer throws `EmptyPdfError` or `MalformedPdfError` (REQ-009, REQ-010)
+### TC-007 — Idempotent re-delivery (REQ-011, REQ-019, RN-007)
 
-**Given** a `Buffer.from('not a pdf')`
-**When** parsed
-**Then** it rejects with a typed `PdfIngestionError` (never raw `pdf-parse` exception)
+**Given** a successfully-completed `pliego_upload_id` and a re-delivery from the queue
+**When** the worker runs again on the same id
+**Then** no duplicate `pdf_pages` rows are inserted; status remains `completed`; the worker returns early (per REQ-019 (c))
 
-### TC-008 — Determinism (REQ-011, RN-007)
+### TC-008 — Storage fetch by id (REQ-018)
 
-**Given** any fixture buffer in the corpus
-**When** `parsePliegoPdf(buffer)` is invoked twice
-**Then** both results are deeply equal via `expect(a).toEqual(b)`
+**Given** a `pliego_upload_id` whose `uploaded_by_company_id` and `file_sha256` resolve to `companies/<company_id>/pliegos/<sha256>.pdf`
+**When** the worker fetches storage
+**Then** the byte buffer matches the original upload (test asserts SHA-256 equality before invoking the inner pipeline)
 
-### TC-009 — Purity scan correctly scoped (NFR-03, RN-001)
+### TC-009 — Scoped purity scan (NFR-03, RN-001)
 
-**Given** the file tree under `lib/ingestion/`
-**When** the purity grep test runs (excluding `__tests__/` and `*.test.*` within `lib/ingestion/`; treating `tests/**` as out-of-scope)
-**Then** zero matches are found for `@supabase/*`, `node:fs`, `node:net`, `node:http`, or any logger module
+**Given** the file tree under `lib/ingestion/`, with the scan rule: include `lib/ingestion/**`, exclude `__tests__/` and `*.test.*` within that path; `tests/**` is out-of-scope
+**When** the purity grep test runs
+**Then** zero matches are found for any forbidden import. The worker code under `src/services/ingestion-worker/` is **not** in scope of this test (per NFR-03 reaffirmation).
 
-### TC-010 — Corpus quality gate ≥80% (REQ-016, RN-010, NFR-02)
+### TC-010 — Eval corpus <5% page-failure rate (REQ-021, RN-010, NFR-02)
 
-**Given** the 5 fixtures in `tests/fixtures/pliegos/` and matching golden outputs in `tests/golden/segments/`
+**Given** the 20-pliego corpus
 **When** the acceptance test runs
-**Then** category-match rate is ≥0.80
+**Then** the aggregate fraction of pages flagged with any of `'no_text_extracted' | 'ocr_low_confidence' | 'table_parse_failed'` is < 0.05
 
-### TC-011 — Performance gate p95 <3s (REQ-017, NFR-01, RN-010)
+### TC-011 — Performance gate p95 <2 min on 200 pages (REQ-022, NFR-01, RN-010)
 
-**Given** the corpus
-**When** the vitest benchmark runs each pliego ≥10 times
-**Then** the p95 of `parsePliegoPdf` durations is <3000ms
+**Given** the corpus filtered to pliegos ≤200 pages
+**When** the vitest benchmark runs ≥10 iterations per fixture
+**Then** the global p95 of end-to-end `processPliegoUpload` durations is < 120000ms
 
-### TC-012 — Domain types imported, not redefined (REQ-012, RN-008)
+### TC-012 — Domain types imported, not redefined (REQ-024, RN-008)
 
-**Given** the source files under `lib/ingestion/`
-**When** scanned for local type declarations of `Segment`, `Segmento`, or `SegmentoCategoria`
-**Then** none are found (apart from re-exports); types must originate in `@/types`
+**Given** the source files under `lib/ingestion/` and `src/services/ingestion-worker/`
+**When** scanned for local declarations of `Page`, `TableJson`, `IngestionResult`
+**Then** none are found apart from the canonical declarations in `lib/ingestion/ports/` and `@/types`
 
-### TC-013 — Real header → both heading fields populated, `isSynthetic: false` (REQ-013, RN-011)
-
-**Given** a synthetic PDF with header line `"   CAPACIDAD JURÍDICA   "` (with surrounding whitespace)
-**When** parsed
-**Then** the corresponding segment has `isSynthetic: false`, `headingOriginal: 'CAPACIDAD JURÍDICA'` (trimmed), `headingNormalized: 'capacidad juridica'`
-
-### TC-014 — Synthetic segment invariants (REQ-014, RN-011)
-
-**Given** any segment in any output where `isSynthetic === true`
-**When** inspected
-**Then** `headingNormalized === null` AND `headingOriginal === null`. Conversely, `isSynthetic === false` ⇒ both heading fields are non-null.
-
-### TC-015 — `corpus.yaml` manifest schema (REQ-015)
+### TC-013 — `corpus.yaml` manifest schema (REQ-020)
 
 **Given** `tests/fixtures/pliegos/corpus.yaml`
 **When** parsed
-**Then** every entry has the keys `source_entity`, `modalidad`, `year`, `manual_labels`, `date_added`; `manual_labels` resolves to an existing path under `tests/golden/segments/`; `date_added` is an ISO-8601 date
+**Then** every entry has `source_entity`, `modalidad`, `year`, `tipo`, `manual_labels`, `date_added`; manifest contains 20 entries; every `tipo` is a valid `pliego_tipo` enum value
 
 ---
 
 ## UX/UI
 
-No UI in this spec. `pdf-ingestion` is a developer-facing pure utility consumed by the orchestration / upload-flow specs. The labeled corpus under `tests/fixtures/pliegos/` is the only "interface" reviewers interact with.
+No UI in this spec. `pdf-ingestion` is a backend worker. The user-facing surfaces (upload form, status indicator, page viewer) live in the `pliego-upload` and `coltratos-app-ui` specs.
 
 ---
 
@@ -184,51 +195,69 @@ No UI in this spec. `pdf-ingestion` is a developer-facing pure utility consumed 
 
 ### Architecture Decision Records
 
-| ADR | Title | Impact on this feature |
-|-----|-------|----------------------|
-| ADR-004 | `pdf-parse` as PDF text extractor | Locked in by the user during discovery; alternatives (pdfjs-dist, pdf2json) are out of scope for v1. ADR file authored in T1. |
-| ADR-005 | Pure-function service boundary for ingestion | The service exposes a single async function with no side effects. Persistence and dedup are the orchestration spec's responsibility. ADR file authored in T1. |
-| ADR-006 | Heuristic regex segmentation, not LLM segmentation | Bounds Claude cost; deterministic; offline-friendly. Heuristics fall back to synthetic `general` rather than escalating to LLM calls. ADR file authored in T1. |
-| ADR-007 | Validation corpus size and quality gates over time | N=5 / ≥80% is the v1 ship gate. Larger corpus and tighter accuracy bars are gated by product milestones (paying user, pricing tiers), not by CI. ADR file authored in T1. |
+| ADR | Title | Status | Impact on this feature |
+|-----|-------|--------|----------------------|
+| ADR-004 | `pdf-parse` as PDF text extractor | Accepted | Locked in by the user during discovery; alternatives (pdfjs-dist, pdf2json) are out of scope. ADR file authored in T1. |
+| ADR-005 | Pure-function service boundary for ingestion | **Superseded by ADR-010 (rev 4)** | Originally captured the rev-1 pure-function contract. Superseded because the queue-fed entrypoint requires side-effectful I/O that the pure-only boundary precluded. *This stub is authored on 2026-05-04 to capture a decision that was planned in rev 1 but never authored on disk before being superseded in rev 4.* The pure pipeline is preserved at its new scope (`lib/ingestion/**`) under ADR-010. |
+| ADR-007 | Validation corpus size and quality gates over time | Accepted (rev 4 update) | N=20 / <5% page-failure / p95 <2 min on 200 pages is the v1 ship gate (was N=5 / ≥80% match in rev 1 — tightened to align with mvp-scope §59 and the ≥85% extraction-accuracy quality bar). Larger corpora and tighter accuracy bars are gated by product milestones. ADR file updated in T9. |
+| ADR-008 | Library-based table extraction via pdfplumber | Accepted (rev 4) | pdfplumber chosen for 2-col/3-col Spanish-language pliego tables. **Sub-decision: subprocess vs Lambda vs sidecar — subprocess wins** for MVP (single-container deploy, lowest operational complexity). **Revision trigger:** *Revisit subprocess packaging if (a) PDF processing volume exceeds ~500 pliegos/day sustained, (b) memory pressure from concurrent pdfplumber processes destabilizes the Node worker, or (c) Python dependency tree blocks Node container builds in CI.* |
+| ADR-009 | Off-Vercel worker host for Tesseract OCR | Accepted (rev 4) | Tesseract requires a system install incompatible with Vercel's serverless runtime. **Railway primary, Fly.io fallback.** **Switch trigger:** *cost crosses $50/mo OR cold-start p95 >60s.* **Review cadence:** *Reevaluate hosting choice at end of each sprint review based on cost-observability data.* |
+| ADR-010 | Queue-worker boundary split | Accepted (rev 4) | *Supersedes ADR-005 because the queue-worker entrypoint requires side-effectful I/O that the pure-only boundary precluded. Pure pipeline preserved under scoped scan.* Worker entrypoint side-effectful in `src/services/ingestion-worker/`; inner pipeline pure in `lib/ingestion/`. NFR-03 scope is reaffirmed at `lib/ingestion/**`. |
+| ADR-011 | Writeback via repository port | Accepted (rev 4) | `IngestionStatusRepository` interface lives in `lib/ingestion/ports/` (interface only — no Supabase imports under `lib/`). `SupabaseIngestionStatusRepository` implementation lives under `src/services/ingestion-worker/`. Cross-references ADR-010: the port is the seam that lets the inner pipeline stay pure while the worker performs I/O. |
+| ADR-012 | Supabase Queues (pgmq) for job dispatch | Accepted (rev 4) | *pgmq is not currently listed in Supabase's official feature-stage table and the product still has pre-release components (Partitioned Queue). If reliability issues emerge in pilot, fallback is pg-boss on the same Postgres instance — same primitive, different library, similar transactional properties.* Decision recorded; revisit at end of pilot if reliability or operability issues surface. |
 
 ### Tradeoffs
 
 | Tradeoff | We chose | Over | Rationale |
 |----------|----------|------|-----------|
-| Purity boundary | Side-effect-free function | Service class with injected Supabase + logger | Determinism enables pliego-keyed caching; testability requires no mocks |
-| Module location | `lib/ingestion/` | `src/services/pdf-ingestion/` | Repo-wide convention: pure utilities under `lib/`, stateful/I-O-coupled services under `src/services/` |
-| Segmentation strategy | Regex heuristics | LLM-driven segmentation | Bounds cost; deterministic; offline-friendly |
-| Header tolerance strategy | NFD-normalize-then-match (REQ-005) | Case-insensitive regex on raw form | Decouples normalization concern from pattern definitions; patterns stay simple and readable |
-| Heading persistence | Dual form (`headingNormalized` + `headingOriginal`) | Single normalized form | Normalized form supports analytics + re-categorization; original form preserves Colombian convention (uppercase + accents) for UI fidelity |
-| Synthetic-segment marker | Explicit `isSynthetic` boolean | Inferring from NULL heading columns | NULL describes data shape; `isSynthetic` describes intent. They correlate but are distinct concerns; consumers branching on intent stay decoupled from storage shape |
-| OCR support | Out of scope (deferred to v1.1) | Tesseract or cloud OCR in v1 | Adds dependency, latency, non-determinism; v1 corpus has no scan-only pliegos |
-| Fallback policy | Emit synthetic `general` segment | Throw on unrecognized headers | Pliegos with non-standard structure are common; failing would block extraction needlessly |
-| Quality gate location | Corpus + golden outputs in CI | Property-based tests only | Real pliegos catch real-world chaos; golden review forces an explicit decision when the algorithm changes |
-| v1 entity scope | Pliego only; AnexoProceso deferred to v1.1+ | Single ingestion entry point for all proceso documents | Anexos may need different segmentation heuristics (estudios previos and resoluciones have different structural conventions than pliegos). Keeping ingestion focused on Pliego in v1 lets the corpus and acceptance test stay tight; AnexoProceso ingestion can ship as a separable function (or extend `parsePliegoPdf` with explicit branching) without disturbing the v1 quality gates. |
+| Purity boundary | Inner pipeline pure (`lib/ingestion/`); worker side-effectful (`src/services/ingestion-worker/`) | Single pure function; OR fully I/O-coupled service end-to-end | Preserves the rev-1 deterministic-core property where it matters (parsing, OCR, table extraction, page assembly) while honoring the queue-fed lifecycle that mvp-scope §59 mandates. The repository port (ADR-011) is the seam. |
+| OCR bundling | Tesseract on off-Vercel worker host (Railway primary, Fly.io fallback) | OCR API (cloud service, per-call cost) OR no OCR (rev 1 default) | mvp-scope §59 mandates OCR fallback for image-only pages. Tesseract is one-time install + zero per-call cost, well-suited to Spanish pliegos at MVP volume. Hosting moves off Vercel because Tesseract requires a system install. |
+| Table-extraction library | pdfplumber via subprocess | tabula-py (Java dep), camelot (Ghostscript dep), regex-on-text | mvp-scope §59 mandates library-based table parsing (not regex). pdfplumber is pure Python, handles 2-col/3-col Spanish tables well, and runs as a subprocess from the Node worker. ADR-008 sub-decision documents the alternatives. |
+| Queue-worker boundary | Supabase pgmq + worker process | HTTP-triggered job; cron-polled job; in-process synchronous on upload | Queue-fed gives at-least-once delivery semantics for free, decouples upload latency from extraction latency, supports retry. ADR-010/011/012 are the cluster of decisions implementing this. |
+| Page-aware output | One `pdf_pages` row per PDF page | One `ingestion_result` JSONB blob; OR segmented `Segment[]` (rev 1) | Per-page rows are queryable, indexable, and align with how downstream `requisitos-extraction` consumes the document (per-page cite-back). The rev-1 `Segment[]` structure was tied to a regex-categorizer that mvp-scope §59 obsoleted; categorization moves to `requisitos-extraction` over the per-page text. |
 
 ### Performance Goals & Metrics
 
 | Metric | Target | Measurement |
 |--------|--------|-------------|
-| p95 parse time, ≤20MB PDF | < 3s | vitest bench over corpus, ≥10 iterations per fixture |
-| p99 parse time, ≤20MB PDF | < 5s (soft) | Same benchmark; soft target — not a CI gate |
-| Memory ceiling per call | < 500MB RSS delta | Manual `process.memoryUsage` probe in benchmark |
-| Category-match rate (corpus) | ≥ 80% (v1) | Acceptance test in `tests/acceptance/pdf-ingestion.test.ts` |
+| End-to-end p95, 200-page PDF | < 2 min (120000ms) | vitest bench over corpus (REQ-022) |
+| Page-failure rate | < 5% | acceptance test over 20-pliego corpus (REQ-021) |
+| OCR confidence (per OCR'd page) | Captured (any value 0..1) | Asserted at unit and corpus level |
+| Memory ceiling per worker invocation | < 1GB RSS delta | Manual `process.memoryUsage` probe in benchmark |
 
 ### Data Model
 
-This feature does not own any database tables. It produces an in-memory `Segment[]` whose shape mirrors the **post-T0 `segmento` insert type** plus `pageRange` reshaped from the two columns into a tuple. Heading and synthesis fields map 1:1.
+This feature does not own any database tables — `domain-model-mvp` rev 1 owns `pliego_uploads` (with the four ingestion columns) and `pdf_pages`. This feature produces in-memory `IngestionResult` and writes it through the repository port. Shapes:
 
 ```mermaid
 classDiagram
-    class Segment {
-        +SegmentoCategoria categoria
-        +string contenido
-        +number orden
-        +tuple~number,number~ pageRange
-        +string|null headingNormalized
-        +string|null headingOriginal
-        +boolean isSynthetic
+    class IngestionResult {
+        +string schema_version
+        +Page[] pages
+    }
+
+    class Page {
+        +int page_number
+        +string text
+        +TableJson[] tables
+        +ExtractionMethod extraction_method
+        +number|null confidence
+        +PageFlag[] flags
+    }
+
+    class TableJson {
+        +string[][] rows
+        +int? page_x
+        +int? page_y
+    }
+
+    class IngestionStatusRepository {
+        <<interface>>
+        +loadStatus(id) IngestionStatus
+        +markRunning(id)
+        +writePages(id, pages)
+        +markCompleted(id)
+        +markFailed(id, reason, cause)
     }
 
     class PdfIngestionError {
@@ -236,104 +265,111 @@ classDiagram
         +unknown cause
     }
 
-    class NoTextLayerError {
-        +code: NO_TEXT_LAYER
-    }
-
-    class EncryptedPdfError {
-        +code: ENCRYPTED
-    }
-
-    class EmptyPdfError {
-        +code: EMPTY
-    }
-
-    class MalformedPdfError {
-        +code: MALFORMED
-    }
-
     PdfIngestionError <|-- NoTextLayerError
     PdfIngestionError <|-- EncryptedPdfError
     PdfIngestionError <|-- EmptyPdfError
     PdfIngestionError <|-- MalformedPdfError
+    PdfIngestionError <|-- OcrFailedError
+    PdfIngestionError <|-- TableParseFailedError
+    PdfIngestionError <|-- StorageFetchFailedError
+
+    IngestionResult --> Page
+    Page --> TableJson
 ```
 
-### Dependencies on `domain-model` (HARD PREREQUISITE — T0)
+### Dependencies on `domain-model-mvp` (T0 — SATISFIED EXTERNALLY)
 
-The following changes must ship via `/nybo-plan edit domain-model` **before T1 of this spec begins**. Items 1–8 are scoped to [domain-model revision 2](../domain-model/spec/spec.md); items 9–11 are scoped to [revision 3](../domain-model/spec/spec.md):
+`domain-model-mvp` rev 1 has shipped the schema this spec depends on. T0 is therefore satisfied externally; this spec's T0 entry is now a verification step rather than a prerequisite-edit step.
 
-1. `SegmentoCategoria` enum extended with `general`.
-2. `segmento.page_range_start INT NOT NULL` and `segmento.page_range_end INT NOT NULL` with `CHECK (page_range_start <= page_range_end AND page_range_start >= 1)`.
-3. `segmento.heading_normalized TEXT NULL` (nullable).
-4. `segmento.heading_original TEXT NULL` (nullable).
-5. `segmento.is_synthetic BOOLEAN NOT NULL DEFAULT false`.
-6. CHECK constraint: `(heading_normalized IS NULL AND heading_original IS NULL) OR (heading_normalized IS NOT NULL AND heading_original IS NOT NULL)` — both-or-neither.
-7. CHECK constraint: `(is_synthetic = true AND heading_normalized IS NULL) OR (is_synthetic = false AND heading_normalized IS NOT NULL)` — synthetic ⇔ null heading.
-8. `SegmentoSchema` (Zod) updated with `heading_normalized: z.string().nullable()`, `heading_original: z.string().nullable()`, `is_synthetic: z.boolean()`, plus a `.refine()` that mirrors the two CHECK constraints at the application layer.
-9. **Pliego entity rename complete** (formerly `Documento`): table `documento` → `pliego`; FK columns `segmento.documento_id` → `pliego_id`, `analisis.documento_ids` → `pliego_ids`, `prompt_cache.documento_id` → `pliego_id`. `Segment` insert shape's persistence reference is `pliego_id`.
-10. **AnexoProceso sibling entity defined** at the schema level (independent table, distinct enum, identical RLS) — schema-only in v1; not ingested by pdf-ingestion.
-11. **`pliego_tipo` enum restricted** to `pliego_condiciones` and `pliego_definitivo` — anexo values live in `anexo_proceso_tipo`.
+Schema items shipped in `domain-model-mvp` rev 1:
 
-Until T0 (all 11 items) ships, this spec is blocked.
+1. `pliego_uploads` four ingestion columns: `ingestion_status`, `ingestion_started_at`, `ingestion_completed_at`, `ingestion_failure_reason`. **Lifecycle ownership: `pdf-ingestion` is the sole writer** (per `domain-model-mvp` REQ-007).
+2. `pdf_pages` table per REQ-014 with composite PK `(pliego_upload_id, page_number)`, columns `text`, `tables` (jsonb), `extraction_method`, `confidence`, `flags`, `created_at`. RLS via join chain `pdf_pages.pliego_upload_id → pliego_uploads.uploaded_by_company_id`.
+3. ADR-013 (per-page table vs JSONB blob — chose per-page table) recorded in `domain-model-mvp`.
+
+### Dependencies on `pliego-upload` (Spec 6)
+
+The `pliego-upload` spec owns: (a) the `pliego_upload_id` schema and the upload form flow, (b) the **queue-trigger contract** — `pliego-upload` enqueues a pgmq message containing `pliego_upload_id` after the upload row is inserted, (c) the **status callback** — the user-facing surface reads `pliego_uploads.ingestion_status` to render the upload-progress indicator. `pdf-ingestion` is the consumer of (b) and the writer of (c).
+
+### Dependencies on `storage` (Spec 2)
+
+The `storage` spec owns the per-tenant prefix path convention (`companies/<company_id>/pliegos/<sha256>.pdf`) and the RLS read policy on the storage bucket. `pdf-ingestion` reads from this path using a service-role client (which bypasses RLS); the user-facing read path is owned by `storage`.
 
 ### API / Data Contracts
 
-No HTTP endpoints. The single contract is the function signature:
+No HTTP endpoints. The contract surface is the worker entrypoint signature plus the repository port:
 
 ```typescript
-// lib/ingestion/index.ts
-import type { Segment } from '@/types'
+// src/services/ingestion-worker/index.ts
+export function processPliegoUpload(pliego_upload_id: string): Promise<void>
+// Side effects: storage fetch, IngestionResult construction, repository writes, queue ack
+// Idempotent on pliego_upload_id (REQ-019)
 
-export function parsePliegoPdf(buffer: Buffer): Promise<Segment[]>
-// Throws: PdfIngestionError (subclasses: NoTextLayerError | EncryptedPdfError | EmptyPdfError | MalformedPdfError)
+// lib/ingestion/ports/ingestion-status-repository.ts
+export interface IngestionStatusRepository {
+  loadStatus(id: string): Promise<{ ingestion_status: 'pending'|'running'|'completed'|'failed', ingestion_started_at: Date | null }>
+  markRunning(id: string): Promise<void>
+  writePages(id: string, pages: Page[]): Promise<void>
+  markCompleted(id: string): Promise<void>
+  markFailed(id: string, reason: IngestionFailureReason, cause: unknown): Promise<void>
+}
 ```
-
-### Downstream Consumer Contract
-
-The [`requisitos-extraction`](../../requisitos-extraction/spec/spec.md) spec (and any future requisito-extraction consumer) operates over `Pliego[]` (v1 always passes exactly one `Pliego`). It MUST exclude segments where `isSynthetic === true` OR `categoria === 'general'` from requisito extraction. Both kinds are persisted for completeness and audit, but neither is eligible for LLM-driven extraction. Consumers branch on these two fields explicitly — they MUST NOT infer extraction-eligibility from heading nullability or any other indirect signal.
-
-### Upstream Caller Contract
-
-The `upload-flow` (or any orchestrator routing PDFs to `parsePliegoPdf`) MUST invoke this function only for `Pliego` entities (`pliego_condiciones`, `pliego_definitivo`). `AnexoProceso` PDFs are stored in the database but NOT segmented in v1. This routing is the orchestrator's responsibility, not pdf-ingestion's — the function itself is entity-agnostic at its signature (it accepts a `Buffer`). Concentrating the entity-typed routing decision in the orchestrator preserves pdf-ingestion's pure-function contract and leaves anexo parsing as a separable v1.1+ feature.
 
 ### Service Integrations
 
 ```mermaid
 flowchart LR
-    Caller["upload-flow / orchestration\n(future spec)\n[Pliego only — gates AnexoProceso]"]
-    Caller -->|"buffer (Buffer)\nfor Pliego entities"| Ingestion["lib/ingestion\nparsePliegoPdf()"]
-    Ingestion -->|"Segment[] (in memory)"| Caller
-    Ingestion -.->|"depends on"| PdfParse["pdf-parse\n(npm)"]
-    Ingestion -.->|"imports types from"| Types["@/types\n(domain-model)"]
+    Upload["pliego-upload\n(inserts pliego_uploads row,\nenqueues pgmq message)"]
+    Queue["Supabase pgmq queue"]
+    Worker["src/services/ingestion-worker\nprocessPliegoUpload(id)"]
+    Storage["Supabase Storage\ncompanies/<cid>/pliegos/<sha256>.pdf"]
+    Inner["lib/ingestion\n(pure inner pipeline)"]
+    OCR["Tesseract\n(spa lang pack,\noff-Vercel host)"]
+    Tables["pdfplumber\n(subprocess)"]
+    Repo["IngestionStatusRepository\n(port: lib/ingestion/ports;\nimpl: src/services/ingestion-worker)"]
+    PagesDB[("pdf_pages\n(per-page rows)")]
+    UploadsDB[("pliego_uploads\n(ingestion_status\nlifecycle)")]
 
-    Caller -->|"persists Segment[] →\nFK: pliego_id"| DB[("Supabase\nsegmento")]
-    Anexo["AnexoProceso uploads"] -.->|"stored, not parsed in v1"| DB2[("Supabase\nanexo_proceso")]
-    Extraction["requisitos-extraction"] -->|"reads, filters\nis_synthetic=false\nAND categoria!=general"| DB
+    Upload --> Queue
+    Queue --> Worker
+    Worker -->|fetch by id| Storage
+    Storage -->|buffer| Worker
+    Worker --> Inner
+    Inner -.-> OCR
+    Inner -.-> Tables
+    Inner -->|IngestionResult| Worker
+    Worker --> Repo
+    Repo --> PagesDB
+    Repo --> UploadsDB
 ```
 
 | System | Direction | Data |
 |--------|-----------|------|
 | `pdf-parse` (npm) | Reading | PDF buffer in; per-page text out |
-| `@/types` (domain-model) | Reading | `Segment`, `SegmentoCategoria` types |
-| Supabase / Storage / loggers | **None** | Pure function — no integration permitted (NFR-03) |
+| Tesseract (system install on worker host) | Reading | Per-page rasterized image; OCR text + confidence out |
+| pdfplumber (Python, subprocess) | Reading | PDF buffer; structured table rows out |
+| Supabase Storage | Reading | Pliego PDF object at per-tenant prefix |
+| Supabase Postgres (`pliego_uploads`, `pdf_pages`) | Writing | Status transitions + per-page rows |
+| Supabase pgmq | Reading + acking | Job-dispatch messages |
+| `@/types` (domain-model-mvp) | Reading | Domain types |
 
 ---
 
 ## Domains Touched
 
-- **pliego-upload** — pdf-ingestion is the parsing leg of the upload pipeline.
-- **requisito-extraction** — the consumer of `Segment[]`.
-
-A standalone `pdf-ingestion` domain may be promoted via `/nybo-curate domains` if a second segmentation strategy ships (e.g., OCR). For v1, conventions live under `pliego-upload`.
+- **pliego-upload** — pdf-ingestion is the consumer of the upload-queue trigger.
+- **requisito-extraction** — the consumer of `pdf_pages` per-page text + tables.
+- **integrations** — Tesseract, pdfplumber, Supabase Storage, Supabase pgmq are first-class integrations with their own constraints.
+- **pdf-ingestion** — **candidate for new domain promotion** per ADR-007 second-strategy condition. With OCR + table extraction + queue-worker patterns, the surface is now too broad to live under `pliego-upload` only. Promote via `/nybo-curate domains` after first ship.
 
 ## Workflow Skills Applicable
 
-- `nybo-tdd` — TDD is the natural fit; corpus + golden outputs are the test bedrock.
-- `nybo-verify` — corpus test and benchmark are the verify gates.
+- `nybo-tdd` — TDD remains the natural fit; corpus + acceptance tests are the test bedrock.
+- `nybo-verify` — corpus test, benchmark, and idempotency test are the verify gates.
 
 ## Project Pattern Skills
 
-None yet — `.nybo/skills/` is empty for this greenfield project. After this feature ships, the heuristic-categorizer pattern is a candidate for `/nybo-curate extract`.
+None yet — `.nybo/skills/` is empty for this greenfield project. After this feature ships, the **queue-worker boundary split** (pure inner pipeline + side-effectful entrypoint via repository port) is a strong candidate for `/nybo-curate extract`.
 
 ---
 
@@ -343,4 +379,6 @@ None yet — `.nybo/skills/` is empty for this greenfield project. After this fe
 |------|--------|--------|
 | 2026-04-26 | Initial draft | — |
 | 2026-04-26 | Tightened three contract ambiguities: (1) scoped NFR-03 purity grep to `lib/ingestion/**` excluding test files; (2) locked NFD normalization formula and dual-form heading persistence (`headingNormalized` + `headingOriginal`) with `isSynthetic` boolean as intent flag; (3) added ADR-007 for validation corpus growth plan tied to product milestones. Path relocation `src/services/pdf-ingestion/` → `lib/ingestion/` per repo-wide `lib/` vs `src/services/` convention. | Resolving these at spec time prevents wrong defaults at Execute time and rework on column shape, normalization choice, and quality-bar trajectory. |
-| 2026-04-26 | Propagation edit from [domain-model revision 3](../domain-model/spec/spec.md): renamed all narrative references "Documento" → "Pliego" throughout spec, use-cases, task plans, contract; cache key terminology `(documento_hash, empresa_id)` → `(pliego_hash, empresa_id)`; expanded T0 prerequisite block from 8 items to 11 (adds Pliego rename, AnexoProceso defined, narrow `pliego_tipo`); added "v1 Scope" subsection making in-scope (Pliego) and out-of-scope (AnexoProceso) explicit; added "Upstream Caller Contract" subsection requiring orchestrator to gate AnexoProceso uploads from `parsePliegoPdf`; added Tradeoffs row for v1 entity scope. No functional change to function signature, purity contract, NFD strategy, heading invariants, error hierarchy, or T2/T3 parallelism. | Vocabulary alignment with domain-model rev 3 — "Pliego" matches user vocabulary precisely. Without this propagation, narrative references diverge from the schema, which becomes a stale-context source for future Executor Agents. |
+| 2026-04-26 | Propagation edit from domain-model rev 3: renamed all narrative references "Documento" → "Pliego" throughout spec, use-cases, task plans, contract; cache key terminology `(documento_hash, empresa_id)` → `(pliego_hash, empresa_id)`; expanded T0 prerequisite block from 8 items to 11 (adds Pliego rename, AnexoProceso defined, narrow `pliego_tipo`); added "v1 Scope" subsection making in-scope (Pliego) and out-of-scope (AnexoProceso) explicit; added "Upstream Caller Contract" subsection requiring orchestrator to gate AnexoProceso uploads from `parsePliegoPdf`; added Tradeoffs row for v1 entity scope. No functional change to function signature, purity contract, NFD strategy, heading invariants, error hierarchy, or T2/T3 parallelism. | Vocabulary alignment with domain-model rev 3. |
+| 2026-04-27 | Add `process.env.*` + `@anthropic-ai/sdk` to NFR-03 (cross-spec purity-grep parity); converge logger detection to enumeration; fix residual `claude-extraction` → `requisitos-extraction` stale references; fix three Documento leftovers + verify.md `documento_id`. No functional changes. | Cross-spec purity-grep parity + vocabulary-audit closure. |
+| 2026-05-04 | **Rev 4 — Re-plan to align with mvp-scope §59 + queue-fed pipeline.** Pure function → queue-fed worker; v1 ingestion is queue-fed and side-effectful at entrypoint; inner pipeline retains purity boundary. Added OCR + library-based tables + empty-page flagging as in-scope (per mvp-scope §59). REQ surface restructured (~20 REQs); RN restructured; TC restructured; ADR-005 superseded by ADR-010; ADRs 008/009/010/011/012 added; ADR-007 tightened to N=20 / <5% page-failure / p95 <2min on 200 pages. T8 idempotency expanded to verbatim contract on `pliego_upload_id`. NFR-03 scope `lib/ingestion/**` reaffirmed (worker code under `src/services/ingestion-worker/` exempt by design). T0 prerequisite satisfied externally by `domain-model-mvp` rev 1. Cross-spec follow-up: `requisitos-extraction` RN-012 (synthetic + general filter) is obsolete and must be retired in a separate Sprint 3 edit session. | Rev 3 was approved 2026-04-27 as a pure-function pdf-ingestion contract. mvp-scope.md was consolidated 2026-04-28 and codified the OCR + table-parsing + empty-page-flagging requirements (§59) that this rev now ships. The 2026-05-04 pilot-research conversation established the queue-fed pipeline. All 15 prior task checkboxes were unchecked at re-plan time; no work lost. |

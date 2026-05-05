@@ -1,0 +1,23 @@
+Run date: 2026-05-04
+Duration: ~13s
+
+Summary:
+  Test Files: 2 failed | 48 passed (50 total)
+  Tests:      5 failed | 217 passed | 16 skipped (238 total)
+  Type Errors: 0
+
+=== FAILURES (infrastructure only — no code defects) ===
+
+[INFRASTRUCTURE] src/__tests__/auth-tenancy.integration.test.ts (4 TCs failed)
+  Error: ECONNREFUSED 127.0.0.1:54321
+  Cause: Supabase local Docker not running. Requires `npm run db:start`.
+  Failing: TC-001, TC-007, TC-008, TC-009
+
+[INFRASTRUCTURE + POLLUTION] src/__tests__/domain/migration.integration.test.ts (1 TC failed)
+  Error: duplicate key on pliego_file_hash_key (TC-012)
+  Cause: Test pollution — leftover row from prior run. Clean DB state needed.
+
+=== FIXED during verification run ===
+
+[FIXED] sidebar.stories.tsx: pathname?.startsWith guard + nextjs.navigation.pathname in meta
+[FIXED] login.stories.tsx: searchParams → query key in @storybook/nextjs-vite navigation params

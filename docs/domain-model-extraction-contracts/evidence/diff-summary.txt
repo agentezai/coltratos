@@ -1,0 +1,20 @@
+## Diff Summary — domain-model-extraction-contracts
+
+All files are new (untracked) — no prior implementation existed for this spec.
+
+### New files (spec-specific)
+- src/types/domain/extraction-payload.ts    (17 lines)
+- src/types/domain/semaforo.ts              (19 lines)
+- src/types/domain/habilitante-patterns.ts  (11 lines)
+- src/types/logger.ts                       (5 lines)
+- src/types/index.ts                        (51 lines — barrel, includes all prior + new exports)
+- src/__tests__/domain/extraction-payload.test.ts   (94 lines)
+- src/__tests__/domain/extraction-payload.test-d.ts (28 lines)
+- src/__tests__/domain/semaforo.test-d.ts           (48 lines)
+
+Total: 8 files, 273 lines added
+
+### Note on overall git diff
+The working tree diff against HEAD shows 18 modified/deleted files (+40/-2985 lines).
+These are part of the broader domain-model refactor (monolith split + archive) already in flight —
+not introduced by this spec. This spec's contribution is exactly the 8 new files listed above.

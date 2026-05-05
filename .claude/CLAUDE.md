@@ -8,16 +8,17 @@ Use the nybo-curate skill to add new conventions to the project memory.
 
 ## Agent routing
 
-When the user requests work that maps to a phase agent, delegate to that
-subagent via the Agent tool. Do NOT run the corresponding skill inline.
+When the user's message matches an intent — via slash command OR natural
+language — delegate to that subagent via the Agent tool.
+Do NOT run the corresponding skill inline.
 
-| User intent                                        | subagent_type  |
-| -------------------------------------------------- | -------------- |
-| /nybo-plan, "plan a feature", "spec X"             | nybo-planning  |
-| /nybo-run, "implement", "execute the spec"         | nybo-executor  |
-| /nybo-curate, "save convention", "extract skill"   | nybo-curator   |
-| "run the gate", "guardian report" (manual run)     | nybo-guardian  |
-| "triage this bug", paste a stack trace             | nybo-triage    |
+| User intent | subagent_type |
+| --- | --- |
+| /nybo-plan, "plan a feature", "spec X", "let's plan", "write a spec for", "audit this feature", "document this feature", "create a fix spec" | planning |
+| /nybo-run, "implement", "execute the spec", "start coding", "build this", "run the spec", "let's code this", "simplify this feature" | executor |
+| /nybo-curate, "save convention", "extract skill", "save this as a convention", "extract this pattern", "let's standardize", "add a rule for" | curator |
+| "run the gate", "guardian report", "run the guardian", "quality gate" | guardian |
+| "triage this bug", "why is this failing", "fix this error", "debug this", stack trace + verb signal (fix/debug/why) | triage |
 
 The subagent loads the corresponding skill itself. The orchestrator's job
 is to (1) pick the right subagent, (2) pass the user's request verbatim,
@@ -25,3 +26,85 @@ is to (1) pick the right subagent, (2) pass the user's request verbatim,
 
 For non-phase questions (code reading, generic Q&A, one-off edits), do not
 route to a subagent — answer directly in the main conversation.
+
+## Confirmation protocol
+
+Read trust level from `.nybo/trust.yaml` (`level:` field; default: `supervised`).
+
+| Trust level              | plan / run / curate / triage / verify | pr / init              |
+| ------------------------ | ------------------------------------- | ---------------------- |
+| supervised (L1, default) | Confirm before routing                | Confirm before routing |
+| semi-autonomous (L2)     | Route silently                        | Confirm before routing |
+| autonomous (L3)          | Route silently                        | Route silently         |
+| No .nybo/ present        | Offer nybo init first                 | Always confirm         |
+
+Confirmation line: "This looks like a `<intent-id>` request — I'll delegate
+to the **<subagent>** subagent. OK?" Wait for yes before proceeding.
+
+## Bootstrap protocol
+
+When `.nybo/` is absent and the user's message matches a workflow intent:
+1. Inspect the repo: read package files (package.json, *.sln, pyproject.toml, Cargo.toml),
+   source structure, and config to detect language, framework, test runner, and database.
+2. Summarise what you found and offer to set up nybo:
+   "I can see this is a <detected-stack>. I'll set up nybo — just a few questions first. OK?"
+3. On yes, conduct the discovery interview in chat.
+   Use the discovery question list below. For each question:
+   - SKIP it if the answer is already clear from scanning (mark as inferred).
+   - ASK it if the code doesn't reveal the answer.
+   - ADD extra questions if the scan surfaces something noteworthy not covered by the list
+     (e.g. monorepo structure, multiple API surfaces, unusual auth model).
+   Batch all open questions into ONE message — do not ping-pong one question at a time.
+   Open with a summary: "Here's what I inferred: <list>. I just need a few things from you:"
+4. Write the answers as YAML to `/tmp/nybo-init-<short-git-sha>.yaml` using this schema:
+   schema_version: '1'
+   mode: greenfield
+   project:
+     name: <string>
+     description: <string>
+   persona: balanced  # terse | balanced (default) | thorough
+   stack:
+     language: <string>
+     framework: <string>
+     runtime: <string>
+     package_manager: <string>
+     test_framework: <string>
+     database: <string>
+     auth: <string>
+   entities:
+     - name: <string>
+       description: <string>
+       fields: [<string>]
+   domains:
+     - name: <string>
+       description: <string>
+       conventions: [<domain-specific rules you observe in the code — not generic>]
+       patterns: [<reusable implementation patterns specific to this domain>]
+       key_files: [<most important files — relative paths from repo root>]
+       gotchas: [<surprises, edge cases, or known pitfalls>]
+   conventions:
+     patterns: [<free-text rules not visible in code>]
+   invariants: [<business rules every agent must respect>]
+   security:
+     auth_model: <string>
+     sensitive_data: [<string>]
+   targets: [claude]  # add: cursor | copilot | windsurf
+   discoveries: [<notable observations from the scan — written to CORE.md Notes>]
+   # Domain enrichment: for each domain, scan its relevant files and populate
+   # conventions, patterns, key_files, and gotchas from what you actually observe.
+   # Leave arrays empty only when genuinely nothing notable exists in that area.
+5. Run: `nybo init --non-interactive --config /tmp/nybo-init-<short-git-sha>.yaml`
+6. Delete the temp file. Re-offer the original intent.
+
+## Discovery question list
+
+| # | Question | Inferable from code? |
+| - | -------- | -------------------- |
+| 1 | Project name & one-line purpose | Sometimes (README / package.json) |
+| 2 | Business domain (e-commerce, logistics, SaaS…) | Rarely — must ask |
+| 3 | Who are the end users? (customers, internal ops, partners…) | Rarely — must ask |
+| 4 | Persona: terse / balanced (default) / thorough | Never — ask, pre-select balanced |
+| 5 | Core domain entities (confirm detected ones, add missing) | Mostly — suggest, confirm |
+| 6 | Key invariants or business rules every agent must respect | Never — must ask |
+| 7 | Team conventions not visible in code (naming, error handling, patterns) | Never — must ask |
+| 8 | AI tools in use (Claude Code, Cursor, Copilot, Windsurf) | Never — must ask |

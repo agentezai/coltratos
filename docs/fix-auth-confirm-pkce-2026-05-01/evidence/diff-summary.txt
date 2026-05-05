@@ -1,0 +1,24 @@
+Diff summary for fix: fix-auth-confirm-pkce-2026-05-01
+Base: HEAD (uncommitted working tree changes)
+
+Changed files (fix scope):
+  app/auth/confirm/route.ts              +14 / -2   lines
+  src/__tests__/auth-confirm-route.test.ts  +105 / -30 lines
+
+Key changes in route.ts:
+  - Added PKCE branch: reads ?code= param first
+  - Calls supabase.auth.exchangeCodeForSession(code) when code present
+  - On exchangeCodeForSession error -> redirect /login?error=<message>
+  - On success -> redirect /dashboard
+  - Moved createServerClient() instantiation above the new branch (shared)
+  - OTP path (token_hash + type) unchanged in behavior
+
+Key changes in test file:
+  - Added mockExchangeCodeForSession mock
+  - Added TC-001 (PKCE success), TC-002 (PKCE error) test cases
+  - Renamed/refined existing OTP tests to TC-003, TC-004, TC-005
+  - Added TC-006b (token_hash without type guard)
+  - Added locationOf() helper; improved decodeURIComponent assertions
+
+Total repo diff (HEAD, all files): 27 files changed, +442/-3118
+  (majority is deletion of deprecated docs/domain-model/ docs)

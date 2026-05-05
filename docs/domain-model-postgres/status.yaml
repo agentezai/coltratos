@@ -1,0 +1,8 @@
+status: in-review
+action_type: FEATURE
+profile: code
+created: "2026-04-30"
+approved_at: "2026-04-30"
+run_completed_at: "2026-05-01"
+revision_count: 1
+last_revision: "Split from domain-model spec rev 5. Postgres layer: migration (9 tables), bifurcated RLS policies, set_empresa_profile_updated_at trigger, all CHECK constraints."

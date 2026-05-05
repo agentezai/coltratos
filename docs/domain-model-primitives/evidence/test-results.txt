@@ -1,0 +1,19 @@
+
+ RUN  v4.1.5 /Users/carlosvilla/Documents/Proyectos/AI/coltratos
+
+
+ Test Files  17 passed (17)
+      Tests  89 passed (89)
+   Start at  23:27:46
+   Duration  1.13s (transform 570ms, setup 0ms, import 1.56s, tests 363ms, environment 3.01s)
+
+
+ RUN  v4.1.5 /Users/carlosvilla/Documents/Proyectos/AI/coltratos
+
+
+ Test Files  10 passed (10)
+      Tests  34 passed (34)
+Type Errors  no errors
+   Start at  23:27:49
+   Duration  1.97s (transform 140ms, setup 0ms, import 198ms, tests 79ms, environment 0ms, typecheck 1.77s)
+

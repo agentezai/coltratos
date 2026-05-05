@@ -26,15 +26,16 @@
 
 ### `prompt.ts`
 
-- Export `buildCategoryRequest(args): Anthropic.Messages.MessageCreateParams` where `args = { categoria: SegmentoCategoria, segments: Segment[], empresa: Empresa, validationErrorFromPriorAttempt?: string }`.
+- Export `buildCategoryRequest(args): Anthropic.Messages.MessageCreateParams` where `args = { categoria: RequisitoCategoria, pages: Page[], empresa: Empresa, validationErrorFromPriorAttempt?: string }`.
 - The function constructs a `messages.create` payload with this structure (REQ-007, RN-008):
   - `model: EXTRACTION_MODEL` from config.
   - `max_tokens`: a constant from config (target ≤4096 for v1).
   - `system`: an array of two blocks:
-    1. Block 1 — extraction instructions + `RequisitoExtractionPayloadSchema` JSON-Schema rendering. Carries `cache_control: { type: 'ephemeral' }`. Stable across calls.
-    2. Block 2 — empresa profile rendering. Embeds `empresa.profile_updated_at` as ISO string in the cached prefix so empresa edits invalidate the cache automatically (RN-008, RN-009). Carries `cache_control: { type: 'ephemeral' }`.
-  - `messages`: a single `user` message with the categoría label + concatenated segment texts. **Not cached** (varies per call).
+    1. Block 1 — extraction instructions + `RequisitoExtractionPayloadSchema` JSON-Schema rendering + instruction to emit `section_heading: string` per requisito (the nearest section heading in the source text — used for structural habilitante classification post-validation per REQ-019). Carries `cache_control: { type: 'ephemeral' }`. Stable across calls.
+    2. Block 2 — empresa profile rendering. Embeds `empresa.profile_updated_at` as ISO string in the cached prefix. Carries `cache_control: { type: 'ephemeral' }`.
+  - `messages`: a single `user` message with the categoría label + page texts assembled sequentially. Pages with `extraction_method === 'empty'` or `flags.includes('no_text_extracted')` are represented as `[PÁGINA VACÍA]` at their position (not silently omitted). **Not cached** (varies per call).
   - When `validationErrorFromPriorAttempt` is present, append a final user-message paragraph: `"Your previous response failed schema validation with: <error>. Re-emit the response strictly conforming to the schema above."` (REQ-009, RN-013).
+  - **Cost-neutrality note**: `section_heading` is part of this same call's response schema — zero additional LLM calls, zero added latency.
 - Export `assembleEmpresaBlock(empresa: Empresa): string` — pure helper rendering the empresa profile in deterministic field order. Tested in isolation in T3.
 - The function MUST NOT call the SDK; it only assembles the params object. Caller (T4 extractor) makes the actual `client.messages.create(...)` call.
 
@@ -50,8 +51,11 @@ Requires **T1** — `prompt.ts` references `RequisitoExtractionPayloadSchema` fr
 
 - [ ] `lib/extraction/anthropic/config.ts` exists with all exports above and the REVIEW BY + SDK_MAJOR header comments.
 - [ ] `lib/extraction/anthropic/prompt.ts` exports `buildCategoryRequest` and `assembleEmpresaBlock`, both pure (no SDK calls).
+- [ ] `buildCategoryRequest` accepts `pages: Page[]` (not `segments: Segment[]`).
 - [ ] Both system blocks in the assembled payload carry `cache_control: { type: 'ephemeral' }`.
-- [ ] The empresa block textually contains `empresa.profile_updated_at` (verifiable via grep on the assembled string).
+- [ ] The empresa block textually contains `empresa.profile_updated_at`.
+- [ ] Pages with `extraction_method === 'empty'` appear as `[PÁGINA VACÍA]` in the user message, not absent.
+- [ ] System block 1 includes instruction to emit `section_heading: string` per requisito.
 - [ ] Grep for `'claude-'` literal under `lib/extraction/anthropic/` returns matches ONLY in `config.ts`.
 - [ ] `npm run typecheck` passes.
-- [ ] Unit tests cover: cache_control placement, empresa block contains `profile_updated_at`, validation-error-injection branch produces the expected user-message suffix.
+- [ ] Unit tests cover: cache_control placement, empresa block contains `profile_updated_at`, validation-error-injection branch, empty-page marker in output, `section_heading` instruction present in system block.

@@ -4,150 +4,181 @@
 
 | Actor | Description |
 |-------|-------------|
-| Orchestrator | Server-side caller (future `upload-flow` spec) that owns persistence, dedup via `pliego.file_hash`, observability, and entity-typed routing (Pliego only in v1; AnexoProceso uploads are stored but not parsed). |
-| pdf-ingestion | The pure function under spec. Stateless, deterministic, side-effect-free. |
-| Test runner | CI process executing the corpus acceptance test and the vitest benchmark. |
+| Upload orchestrator | The `pliego-upload` spec — owns the upload form, persists the `pliego_uploads` row, and enqueues a pgmq message containing `pliego_upload_id`. |
+| Queue consumer | The pgmq consumer process running in the off-Vercel worker container. Pulls messages and invokes `processPliegoUpload(pliego_upload_id)`. |
+| pdf-ingestion worker | The worker under spec. Side-effectful at entrypoint; the inner pipeline (`lib/ingestion/`) is pure. |
+| Test runner | CI process executing the corpus acceptance test, the idempotency test, and the vitest benchmark. |
 
 ---
 
 ## User Stories
 
-### US-01 — Predictable, cacheable segmentation
+### US-01 — Page-aware ingestion of an uploaded pliego
 
-**As an** Orchestrator
-**I want** a pure async function that converts a PDF buffer into ordered, categorized `Segment[]`
-**So that** I can persist segments once per `Pliego` and reuse them across every empresa that analyzes the same proceso
+**As an** Upload orchestrator
+**I want** an uploaded pliego to be processed end-to-end (storage fetch → text + OCR + tables → per-page writeback) by a queue-fed worker
+**So that** downstream `requisitos-extraction` can consume the per-page text and tables without ever touching the PDF directly
 
-### US-02 — Typed, recoverable failure modes
+### US-02 — Typed, recoverable failure surface
 
-**As an** Orchestrator
-**I want** unparseable PDFs to throw discriminated typed errors (encrypted / no-text-layer / empty / malformed)
-**So that** I can surface user-actionable messages and skip irrecoverable inputs without wrapping every call in `try/catch` for unknown error shapes
-
-### US-03 — Resilient parsing of non-standard pliegos
-
-**As an** Orchestrator
-**I want** pliegos with unconventional headers to still produce a usable `Segment[]` (with `general`-categorized fallback content)
-**So that** the extraction stage gets *something* to work with rather than failing the whole pipeline
+**As an** Upload orchestrator
+**I want** unparseable PDFs to surface as `pliego_uploads.ingestion_status = 'failed'` with a controlled `ingestion_failure_reason`
+**So that** the user-facing UI can render a localized actionable message without the upload flow being blocked on the worker
 
 ### US-04 — Verifiable correctness on real pliegos
 
 **As a** Maintainer
-**I want** CI to validate segmentation against a labeled corpus of real pliegos
-**So that** algorithm changes can't silently regress category accuracy below 80%
+**I want** CI to validate ingestion against a 20-pliego labeled corpus and a 200-page benchmark
+**So that** algorithm changes can't silently regress page-failure rate above 5% or p95 above 2 minutes
 
 ---
 
 ## Use Case Scenarios
 
-### UC-01 — Parse a clean SECOP-II pliego (US-01)
+### UC-01 — Ingest a clean SECOP-II pliego (page-aware output) (US-01)
 
-**Preconditions:** A `Buffer` containing a valid SECOP-II Pliego PDF (`pliego_condiciones` or `pliego_definitivo`) with extractable text and standard section headers ("CAPACIDAD JURÍDICA", "CAPACIDAD FINANCIERA", "CAPACIDAD TÉCNICA", "EXPERIENCIA"). The orchestrator has already determined this is a Pliego (not an AnexoProceso) and routed accordingly.
+**Preconditions:** A `pliego_uploads` row exists with `ingestion_status = 'pending'`, `file_sha256` matches a Supabase Storage object at `companies/<company_id>/pliegos/<sha256>.pdf`, and a pgmq message containing `pliego_upload_id` has been enqueued.
 
 #### Main Scenario
 
-1. Orchestrator computes the file hash, confirms no `pliego` row exists with that `file_hash`, and resolves to invoke `parsePliegoPdf`.
-2. Orchestrator calls `await parsePliegoPdf(buffer)`.
-3. pdf-ingestion extracts per-page text via `pdf-parse`.
-4. pdf-ingestion identifies header lines (case- and accent-insensitive), splits content per header, and assigns categorías.
-5. pdf-ingestion returns `Segment[]` ordered by `orden` `[0, 1, ..., n-1]`. Each detected-header segment carries `isSynthetic: false`, `headingOriginal` (raw line, trimmed), and `headingNormalized` (NFD-normalized + diacritic-stripped + lowercased per REQ-005).
-6. Orchestrator persists each `Segment` as a `segmento` row keyed by `pliego_id`. Synthetic segments (front-matter, no-header fallback) persist with `is_synthetic = true` and NULL heading columns; the database CHECK constraints (see spec.md § Architecture Dependencies) enforce the synthetic ⇔ null-heading invariant.
+1. Queue consumer dequeues the message and invokes `processPliegoUpload(pliego_upload_id)`.
+2. Worker checks `pliego_uploads.ingestion_status` (per REQ-019 (c)) — `pending`, so processing proceeds.
+3. Worker transitions status to `running` (`markRunning`), sets `ingestion_started_at = now()`.
+4. Worker fetches the PDF from Supabase Storage at the per-tenant prefix.
+5. Worker invokes the inner pipeline (`lib/ingestion/`): per-page text extraction → OCR fallback for sub-threshold pages → library-based table extraction → assembled `IngestionResult { schema_version, pages: Page[] }`.
+6. Worker writes one row per page into `pdf_pages` via `writePages` (idempotent upsert on `(pliego_upload_id, page_number)`).
+7. Worker transitions status to `completed` (`markCompleted`), sets `ingestion_completed_at = now()`.
+8. Worker acks the queue message.
 
 #### Alternative Scenarios
 
-**4a. Header line ambiguous (matches multiple families)**
-The first matching family wins, in declared regex order. Document this priority in the categorizer source so it's not surprising.
+**5a. One page is image-only (sub-threshold text-layer extraction)**
+The inner pipeline runs Tesseract for that page; `extraction_method = 'ocr'`, `confidence` populated. See UC-05.
 
-**5a. Pliego has front-matter before the first header**
-Front-matter (cover page, table of contents) is emitted as a leading `general` segment so no content is dropped.
+**5b. One page contains a 3-column table**
+The inner pipeline runs pdfplumber via subprocess; `tables` JSONB row arrays populated for that page. See UC-06.
+
+**5c. One page yields no extractable content (text-layer empty AND OCR yields nothing)**
+The page surfaces with `text = ''`, `extraction_method = 'empty'`, `flags = ['no_text_extracted']` — never silently dropped. See UC-07.
 
 #### Error Scenarios
 
-**3e. Buffer cannot be decoded by `pdf-parse`**
+**4e. Storage object missing or inaccessible**
+Worker raises `StorageFetchFailedError`; transitions status to `failed` with `ingestion_failure_reason = 'unknown'`. Inner pipeline never runs.
+
+**5e. PDF malformed / encrypted / empty**
 See UC-02.
 
-**Postconditions:** Orchestrator holds a `Segment[]` whose `pageRange` values are 1-indexed and inclusive, ready for persistence and downstream extraction.
+**Postconditions:** `pliego_uploads.ingestion_status = 'completed'`. `pdf_pages` contains one row per PDF page, contiguous from 1, none silently dropped.
 
 ---
 
-### UC-02 — Reject unparseable PDFs with typed errors (US-02)
+### UC-02 — Surface unparseable PDFs as typed errors (US-02)
 
-**Preconditions:** A `Buffer` is passed that is one of: encrypted, scan-only (no text layer), zero-page, or non-PDF bytes.
+**Preconditions:** A `pliego_uploads` row points at a file in storage that is one of: encrypted (password-protected), malformed (not a valid PDF), or zero-page.
 
 #### Main Scenario
 
-1. Orchestrator calls `await parsePliegoPdf(buffer)`.
-2. pdf-ingestion attempts text extraction.
-3. The function rejects with one of:
-   - `EncryptedPdfError` (`code: 'ENCRYPTED'`) — the PDF requires a password.
-   - `NoTextLayerError` (`code: 'NO_TEXT_LAYER'`) — total extracted text is below `MIN_TEXT_THRESHOLD` (200 chars).
-   - `EmptyPdfError` (`code: 'EMPTY'`) — pdf-parse reports zero pages or empty document.
-   - `MalformedPdfError` (`code: 'MALFORMED'`) — buffer isn't a valid PDF.
-4. Orchestrator catches `PdfIngestionError`, switches on `error.code`, and surfaces a localized user-actionable message.
-
-#### Alternative Scenarios
-
-**3a. PDF has a partial text layer (some pages OCR-able, others image-only)**
-If the **total** extracted text exceeds `MIN_TEXT_THRESHOLD`, parsing proceeds. Image-only pages contribute zero text and may end up inside a `general` segment.
+1. Queue consumer invokes `processPliegoUpload(pliego_upload_id)`.
+2. Worker fetches the PDF and runs the inner pipeline.
+3. The inner pipeline rejects with one of:
+   - `EncryptedPdfError` (`code: 'ENCRYPTED'`) → worker maps to `ingestion_failure_reason = 'encrypted_pdf'`.
+   - `MalformedPdfError` (`code: 'MALFORMED'`) → worker maps to `ingestion_failure_reason = 'pdf_unreadable'`.
+   - `EmptyPdfError` (`code: 'EMPTY'`) → worker maps to `ingestion_failure_reason = 'pdf_unreadable'`.
+4. Worker transitions status to `failed`, sets `ingestion_failure_reason` from the controlled vocabulary, sets `ingestion_completed_at = now()`.
+5. Worker acks the queue message — these errors are not retryable. The user-facing UI reads the failure reason and renders a localized message.
 
 #### Error Scenarios
 
 **3e. `pdf-parse` throws an unexpected error not in the discriminated set**
-pdf-ingestion wraps it in `MalformedPdfError` with the original `pdf-parse` error attached as `cause`. The function never leaks raw pdf-parse exceptions.
+Inner pipeline wraps it in `MalformedPdfError` with the original error attached as `cause`. Worker maps to `ingestion_failure_reason = 'pdf_unreadable'`. Raw pdf-parse exceptions never leak.
 
-**Postconditions:** No partial state is exposed. The orchestrator sees a typed, discriminable error.
-
----
-
-### UC-03 — Fall back to `general` when headers are non-standard (US-03)
-
-**Preconditions:** A pliego whose section headers do not match any of the known regex families (e.g., legacy template, departmental variant).
-
-#### Main Scenario
-
-1. Orchestrator calls `parsePliegoPdf(buffer)`.
-2. pdf-ingestion extracts text but matches zero header lines to known families.
-3. pdf-ingestion emits one or more **synthetic** segments with `categoria: 'general'`, `isSynthetic: true`, `headingNormalized: null`, `headingOriginal: null`, splitting on document-structure cues (e.g., page boundaries, double newlines) so segments stay reasonably bounded.
-4. Function resolves with `Segment[]` (non-empty, all `general` + synthetic).
-5. Orchestrator persists with `is_synthetic = true`. Per RN-012, the downstream [`requisitos-extraction`](../../requisitos-extraction/spec/spec.md) consumer **excludes** these segments from requisito extraction (synthetic AND general are both excluded; the all-general output is therefore not extracted at all and the orchestrator should surface a warning to the user).
-
-#### Alternative Scenarios
-
-**2a. One header family matches but others don't**
-Matched sections get their categoría; unmatched content between them is `general`.
-
-#### Error Scenarios
-
-None unique to this use case — falls under UC-02 if the PDF is unparseable.
-
-**Postconditions:** No silent content drop. Caller can detect "all-general" outputs by inspecting categorías if it wants to flag low-confidence ingests.
+**Postconditions:** No partial state in `pdf_pages`. The status row carries enough information for the UI to render an actionable message.
 
 ---
 
-### UC-04 — Validate against a labeled corpus (US-04)
+### UC-04 — Validate against a labeled corpus (N=20 + page-failure-rate metric) (US-04)
 
-**Preconditions:** 5 real Colombian pliego PDFs in `tests/fixtures/pliegos/` and matching golden `Segment[]` JSON in `tests/golden/segments/`.
+**Preconditions:** 20 real Colombian pliego PDFs in `tests/fixtures/pliegos/` with a `corpus.yaml` manifest; per-pliego golden sketches under `tests/golden/pages/`.
 
 #### Main Scenario
 
-1. CI runs `npm run test` (or the targeted acceptance test command).
-2. The acceptance test iterates each fixture, calls `parsePliegoPdf`, and compares output against the golden file.
-3. For every golden segment, the test finds the produced segment whose `pageRange` overlaps and checks `categoria` equality.
-4. Aggregate match rate across the 5 pliegos is computed.
-5. The test asserts match rate ≥0.80 and fails CI otherwise.
-6. The vitest benchmark runs each fixture ≥10 times and asserts p95 <3s.
-
-#### Alternative Scenarios
-
-**2a. Golden file outdated due to algorithm improvement**
-Maintainer regenerates the golden file via a documented `npm run fixtures:regen` script (out of scope for this spec — added when the first regression occurs). Regen requires a human-reviewed diff before commit.
+1. CI runs `npm run test`.
+2. The acceptance test iterates each fixture, invokes `processPliegoUpload` against a test repository (in-memory or local Supabase), and compares produced `pdf_pages` rows against the golden sketches.
+3. The test computes the **aggregate page-failure rate** = (count of pages flagged with any of `'no_text_extracted' | 'ocr_low_confidence' | 'table_parse_failed'`) / (total pages across corpus).
+4. The test asserts page-failure rate < 0.05 (REQ-021); CI fails otherwise.
+5. The vitest benchmark runs each fixture ≤200 pages ≥10 times and asserts p95 < 120000ms (REQ-022).
+6. A separate documented manual review pass (REQ-023) scores extracted-table fidelity on 5 sampled pliegos; result captured in `tests/fixtures/pliegos/table-review.md`.
 
 #### Error Scenarios
 
-**5e. Match rate drops below 0.80 after a code change**
-CI fails. Maintainer either fixes the algorithm or, if the corpus is wrong, follows `/nybo-plan edit pdf-ingestion` to revise the threshold (which requires human approval).
+**4e. Page-failure rate exceeds 5% after a code change**
+CI fails. Maintainer either fixes the algorithm or, if the corpus is wrong, follows `/nybo-plan edit pdf-ingestion` to revise (which requires human approval).
 
 **Postconditions:** Algorithm quality is gated by CI; regressions cannot land silently.
+
+---
+
+### UC-05 — Scanned pliego falls through to OCR successfully (US-01)
+
+**Preconditions:** A pliego PDF where one or more pages are image-only scans (text-layer extraction yields fewer than `OCR_TRIGGER_THRESHOLD = 50` chars).
+
+#### Main Scenario
+
+1. Worker runs the inner pipeline.
+2. For the affected page, text-layer extraction yields sub-threshold text.
+3. The inner pipeline rasterizes the page and runs Tesseract with the Spanish lang pack (`spa`).
+4. OCR returns text + confidence; pipeline writes `extraction_method = 'ocr'`, `text = <ocr-text>`, `confidence = <0..1 normalized>`.
+5. If `confidence < OCR_LOW_CONFIDENCE_THRESHOLD = 0.5`, append the `'ocr_low_confidence'` flag (page is not failed — flagged for downstream review).
+6. Worker writeback proceeds normally.
+
+#### Error Scenarios
+
+**3e. Tesseract exceeds timeout or process fails**
+Inner pipeline raises `OcrFailedError`; worker maps to `ingestion_failure_reason = 'ocr_timeout'` and fails the whole ingestion (status = `failed`). This is a coarse failure — partial-page recovery is not in MVP scope.
+
+**Postconditions:** OCR'd pages are indistinguishable to downstream consumers from text-layer pages except for `extraction_method` and `confidence`.
+
+---
+
+### UC-06 — Multi-column tables parsed into structured rows (US-01)
+
+**Preconditions:** A pliego PDF with at least one 2-column or 3-column table (e.g. financial-indicators table, equipo-clave table).
+
+#### Main Scenario
+
+1. Worker runs the inner pipeline.
+2. For each page, the pipeline invokes pdfplumber via subprocess (per ADR-008).
+3. pdfplumber returns structured row arrays per detected table.
+4. The pipeline serializes each table as `{ rows: string[][] }` and appends to the page's `tables` array.
+5. Writeback persists `tables` as JSONB on `pdf_pages.tables`.
+
+#### Error Scenarios
+
+**3e. pdfplumber subprocess fails for a single page**
+Inner pipeline catches the per-page failure, sets `'table_parse_failed'` flag on that page, and proceeds. The whole ingestion does not fail on a per-page table issue (REQ-016).
+
+**Postconditions:** Table data is queryable per-page from `pdf_pages.tables`. Manual table-quality review (REQ-023) verifies row/column fidelity on 5 sampled pliegos.
+
+---
+
+### UC-07 — Unreadable page surfaces flag without dropping (US-02)
+
+**Preconditions:** A pliego PDF where one page yields zero text from text-layer extraction AND OCR also yields nothing (e.g. blank page, fully-redacted page, irrecoverable scan).
+
+#### Main Scenario
+
+1. Worker runs the inner pipeline.
+2. For the affected page, text-layer yields 0 chars; OCR also yields 0 chars (or sub-confidence-threshold OCR with no characters).
+3. The pipeline emits the page with `text = ''`, `extraction_method = 'empty'`, `flags = ['no_text_extracted']`, `confidence = null`.
+4. Page contiguity is preserved — the page is NOT skipped in the array.
+5. Writeback persists the row in `pdf_pages` per REQ-017 / `domain-model-mvp` RN-017.
+
+#### Error Scenarios
+
+None unique to this use case — partial unreadability is a flag, not an error.
+
+**Postconditions:** Downstream consumers see all pages and can branch on `flags` to decide whether to surface a warning to the user. The whole ingestion succeeds (`ingestion_status = 'completed'`).
 
 ---
 

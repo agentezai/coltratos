@@ -304,3 +304,145 @@ suggestions:
     origin: scan
     sourceEntities:
       - PromptCache
+  - id: disc-001
+    title: Eligibility Trend Dashboard
+    description: >-
+      Gives users a quick view of eligibility patterns across pliegos, empresas,
+      and analysis history to spot repeat blockers and improve bidding strategy.
+    discoveryContext: >-
+      Business outcome: Increase repeat usage by helping users learn from prior
+      analyses and prioritize the most viable opportunities.
+
+      Who benefits: SMB owners, bid managers, and procurement consultants
+      reviewing multiple pliegos over time.
+
+      Constraints & edge cases: Must aggregate results without exposing
+      sensitive document content; needs consistent mapping of Requisito and
+      Semaforo states across analyses.
+
+      Scope: In scope are trend charts, pass/fail summaries, and filters by
+      Empresa and Pliego; deferred are predictive scoring and market
+      benchmarking.
+    category: discovery
+    priority: 1
+    status: pending
+    createdAt: '2026-04-29T00:47:16.711Z'
+    origin: user
+  - id: disc-002
+    title: Requisito Gap Explanations
+    description: >-
+      Shows why a company fails or passes each requirement with clear evidence
+      from the pliego so users can act faster and trust the verdict.
+    discoveryContext: >-
+      Business outcome: Improve verdict trust and reduce manual review time by
+      making each requirement decision auditable.
+
+      Who benefits: Procurement consultants and internal legal/commercial
+      reviewers validating a candidate bid.
+
+      Constraints & edge cases: Explanations must point to Seccion evidence
+      without hallucinating; ambiguous or missing text should be flagged
+      conservatively.
+
+      Scope: In scope are cited excerpts, matched requisito rationale, and
+      confidence indicators; deferred are legal advice workflows and human
+      override governance.
+    category: discovery
+    priority: 2
+    status: pending
+    createdAt: '2026-04-29T00:47:16.711Z'
+    origin: user
+  - id: disc-003
+    title: Document Change Monitoring
+    description: >-
+      Alerts users when a saved pliego changes so they can re-run analysis
+      before deadlines and avoid missing new requirements.
+    discoveryContext: >-
+      Business outcome: Reduce missed bid opportunities and ensure users act on
+      updated procurement documents.
+
+      Who benefits: Users tracking active tenders, especially consultants and
+      SMB teams with time-sensitive bids.
+
+      Constraints & edge cases: Must detect document version changes reliably
+      and avoid duplicate alerts; should handle partial uploads and renamed
+      files.
+
+      Scope: In scope are change detection, re-analysis prompts, and status
+      notifications; deferred are deep diff viewers and legal version lineage.
+    category: discovery
+    priority: 3
+    status: pending
+    createdAt: '2026-04-29T00:47:16.711Z'
+    origin: user
+  - id: disc-004
+    title: Saved Company Profiles
+    description: >-
+      Lets users maintain reusable Empresa profiles with documents and
+      qualifications to speed up recurring eligibility checks.
+    discoveryContext: >-
+      Business outcome: Shorten setup time for repeated analyses and increase
+      monthly analysis volume per customer.
+
+      Who benefits: SMBs and consultants analyzing the same company against
+      multiple pliegos.
+
+      Constraints & edge cases: Must support multiple companies per Usuario,
+      secure document handling, and stale profile warnings when data is
+      outdated.
+
+      Scope: In scope are reusable company records, attached qualification data,
+      and profile selection during Analisis; deferred are external data sync and
+      team-level shared libraries.
+    category: discovery
+    priority: 4
+    status: pending
+    createdAt: '2026-04-29T00:47:16.711Z'
+    origin: user
+  - id: disc-005
+    title: Analysis Export Reports
+    description: >-
+      Provides downloadable reports summarizing eligibility, key requisitos, and
+      evidence for sharing with stakeholders or filing internally.
+    discoveryContext: >-
+      Business outcome: Make results easier to circulate and operationalize
+      outside the platform, increasing perceived value.
+
+      Who benefits: Consultants, sales teams, and managers who need a concise
+      decision artifact.
+
+      Constraints & edge cases: Export must respect document confidentiality and
+      avoid leaking unsupported internal notes; output should be stable across
+      re-runs.
+
+      Scope: In scope are PDF and spreadsheet summaries of Analisis, Requisito,
+      and Semaforo states; deferred are branded templates and automated report
+      scheduling.
+    category: discovery
+    priority: 5
+    status: pending
+    createdAt: '2026-04-29T00:47:16.711Z'
+    origin: user
+  - id: disc-006
+    title: Admin Review Queue
+    description: >-
+      Creates an internal queue for low-confidence analyses so admins can review
+      edge cases and improve consistency of future verdicts.
+    discoveryContext: >-
+      Business outcome: Raise verdict quality toward the 85% requisito matching
+      target by adding a human-in-the-loop quality control path.
+
+      Who benefits: Platform admins and product operators monitoring model
+      performance and user trust.
+
+      Constraints & edge cases: Must surface low-confidence or conflicting
+      requisito matches, preserve audit trails, and protect user privacy.
+
+      Scope: In scope are queueing, review status, and feedback capture tied to
+      Analisis; deferred are full annotation tooling and model retraining
+      workflows.
+    category: discovery
+    priority: 6
+    status: pending
+    createdAt: '2026-04-29T00:47:16.711Z'
+    origin: user

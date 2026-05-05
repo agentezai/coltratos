@@ -1,0 +1,8 @@
+status: verified
+action_type: FIX
+profile: code
+created: "2026-05-01"
+approved_at: "2026-05-01"
+verified_at: "2026-05-01"
+original_feature: auth-and-tenancy
+root_cause: PKCE flow sends ?code= param; route only handled ?token_hash=+type= OTP params

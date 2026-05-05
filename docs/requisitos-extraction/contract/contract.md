@@ -127,33 +127,44 @@ Framework throughout: **vitest** (per CORE.md / project conventions).
 
 ---
 
-### Behavior: Verbatim NFD-normalized substring → verified (REQ-010, RN-012)
+### Behavior: NFKC-normalized substring → citation verified (REQ-010, RN-018)
 
-**Given** a segment with `contenido: 'CAPACIDAD JURÍDICA. El proponente debe acreditar...'` and a quote `'Capacidad Juridica'`
-**When** `verifyCitation({ quote, segment })` runs
-**Then** `{ verified: true }`
+**Given** a page with text `'CAPACIDAD JURÍDICA. El proponente debe acreditar...'`, `pagina_fuente: 1`, and `quote_fuente: 'Capacidad  Juridica'` (extra space, composed form)
+**When** `verifyCitation({ quote: 'Capacidad  Juridica', pagina: 1, pages })` runs
+**Then** `{ unverified: false }` — NFKC + whitespace-collapse + case-fold resolves the variant
 
 **Test file:** `lib/extraction/anthropic/__tests__/validation.test.ts`
 **Framework:** vitest
 
 ---
 
-### Behavior: Paraphrased quote → not verified, no throw (REQ-010, RN-012)
+### Behavior: Paraphrased quote → unverified, no throw (REQ-010, RN-018)
 
-**Given** a segment with `contenido: 'El proponente debe presentar el certificado de existencia.'` and a quote `'must present an existence certificate'`
+**Given** page text `'El proponente debe presentar el certificado de existencia.'` and `quote_fuente: 'must present an existence certificate'`
 **When** `verifyCitation` runs
-**Then** `{ verified: false }`; no error thrown
+**Then** `{ unverified: true }`; no error thrown
 
 **Test file:** `lib/extraction/anthropic/__tests__/validation.test.ts`
 **Framework:** vitest
 
 ---
 
-### Behavior: Cited segment missing from input → citation_verified: false (REQ-010, RN-012)
+### Behavior: pagina_fuente out of range → citation_unverified: true (REQ-010, RN-018) — TC-024
 
-**Given** a payload referencing `citation_segment_id: 'seg-999'` and a `segments` array with no such id
-**When** `assembleRequisitos(payload, segments)` runs
-**Then** the returned requisito has `citation_verified: false`; no error thrown
+**Given** `pagina_fuente: 999` and `pages` with length 10
+**When** `verifyCitation({ quote, pagina: 999, pages })` runs
+**Then** `{ unverified: true }`; no error thrown
+
+**Test file:** `lib/extraction/anthropic/__tests__/validation.test.ts`
+**Framework:** vitest
+
+---
+
+### Behavior: assembleRequisitos uses pagina_fuente + pages (REQ-010, RN-018)
+
+**Given** a payload with `pagina_fuente: 2` and `pages` array with 3 pages where page 2 contains the quote
+**When** `assembleRequisitos(payload, pages)` runs
+**Then** the returned requisito has `citation_unverified: false`; no reference to `citation_segment_id` is made
 
 **Test file:** `lib/extraction/anthropic/__tests__/validation.test.ts`
 **Framework:** vitest
@@ -173,9 +184,9 @@ Framework throughout: **vitest** (per CORE.md / project conventions).
 
 ---
 
-### Behavior: Empty segments rejected synchronously (REQ-002, RN-005)
+### Behavior: Empty pages rejected synchronously (REQ-002, RN-005)
 
-**Given** a stub `Anthropic` client that records calls and an `ExtractorInput` with `segments: []`
+**Given** a stub `Anthropic` client that records calls and an `ExtractorInput` with `ingestionResult: { pages: [], schema_version: '1' }`
 **When** `extract(input)` runs
 **Then** it rejects with `ExtractorInputInvalidError` (`code: 'EXTRACTOR_INPUT_INVALID'`); zero `client.messages.create` calls were recorded
 
@@ -184,22 +195,22 @@ Framework throughout: **vitest** (per CORE.md / project conventions).
 
 ---
 
-### Behavior: Up to 4 concurrent calls, one per categoría (REQ-006, RN-007)
+### Behavior: Up to 4 concurrent calls, one per categoría (REQ-006, RN-017)
 
-**Given** a stub client recording call arguments + start times, and segments spanning all 4 categorías
+**Given** a stub client recording call arguments + start times, and an `IngestionResult` with pages
 **When** `extract(input)` runs
-**Then** exactly 4 calls were recorded, all initiated within the same microtask tick (concurrent), each carrying segments from one categoría only
+**Then** exactly 4 calls were recorded, all initiated within the same microtask tick (concurrent), each carrying all pages from `IngestionResult`
 
 **Test file:** `lib/extraction/anthropic/__tests__/extractor.test.ts`
 **Framework:** vitest
 
 ---
 
-### Behavior: general / is_synthetic segments skipped + logged (REQ-006, RN-007)
+### Behavior: Empty pages appear as [PÁGINA VACÍA] markers, not absent (REQ-006, RN-017)
 
-**Given** an input with one segment `categoria: 'general'`, one with `is_synthetic: true`, and 2 valid jurídico segments
+**Given** an `IngestionResult` where page 3 has `extraction_method: 'empty'`
 **When** `extract(input)` runs
-**Then** exactly 1 call was issued (jurídico); the captured logger received exactly 2 `contract_violation` log entries with the skipped segment ids
+**Then** the recorded prompt for each category call contains `[PÁGINA VACÍA]` at position 3; the total page count in the prompt matches `ingestionResult.pages.length`
 
 **Test file:** `lib/extraction/anthropic/__tests__/extractor.test.ts`
 **Framework:** vitest
@@ -217,26 +228,28 @@ Framework throughout: **vitest** (per CORE.md / project conventions).
 
 ---
 
-### Behavior: Zod failure retries once, second failure throws (REQ-009, RN-013)
+### Behavior: Zod failure retries once; one-category second failure → partial result (REQ-009, RN-021) — TC-025
 
-**Given** a stub client returning malformed JSON on the first call for a categoría and valid JSON on the second
+**Given** a stub client returning malformed JSON twice for `juridico` and valid JSON for the other 3 categories
 **When** `extract(input)` runs
-**Then** the call resolves successfully; exactly 2 calls recorded for that categoría; the second call's `messages[0].content` includes the Zod error message
+**Then** the call resolves (does NOT reject); `output.warning` is a non-empty string; `output.failed_categories` equals `['juridico']`; `output.requisitos` contains only financiero, tecnico, and experiencia results; exactly 2 calls were attempted for `juridico`
 
-**Given** a stub client returning malformed JSON twice
+### Behavior: All-category second Zod failure throws (REQ-009) — TC-026
+
+**Given** a stub client returning malformed JSON twice for ALL four categories
 **When** `extract(input)` runs
-**Then** the call rejects with `ExtractorSchemaValidationError`; exactly 2 calls were attempted
+**Then** the call rejects with `ExtractorSchemaValidationError` (`code: 'EXTRACTOR_SCHEMA_VALIDATION'`); no partial result is returned
 
 **Test file:** `lib/extraction/anthropic/__tests__/extractor.test.ts`
 **Framework:** vitest
 
 ---
 
-### Behavior: Cost telemetry log emitted on success (REQ-011, NFR-03)
+### Behavior: Cost telemetry log emitted on success with distinct token fields (REQ-011, NFR-03) — TC-027
 
-**Given** a stub client returning known usage data
+**Given** a stub client returning usage with `cache_read_input_tokens: 5000` and `cache_creation_input_tokens: 3000`
 **When** `extract(input)` resolves successfully
-**Then** the captured logger received a `cost_telemetry` event with `{ costUsd, cacheReadRatio, perCategoria, analisisId }` populated
+**Then** the captured logger received a `cost_telemetry` event containing `cache_read_input_tokens: 5000` and `cache_creation_input_tokens: 3000` as distinct numeric fields, alongside `input_tokens`, `output_tokens`, `cacheHitRatio`, `costUsd`, `perCategoria`, and `analisisId`
 
 **Test file:** `lib/extraction/anthropic/__tests__/extractor.test.ts`
 **Framework:** vitest
@@ -348,15 +361,15 @@ Framework throughout: **vitest** (per CORE.md / project conventions).
 
 ## Task T4 (additions for rev 2): Tiered Habilitancia Classification + Categoria Narrowing
 
-### Behavior: Structural-tier bypass (REQ-019, RN-016) — TC-020
+### Behavior: Structural-tier post-validation via section_heading (REQ-019, RN-016) — TC-020
 
-**Given** a stub Anthropic client and an input including a segmento with `heading_normalized: 'capacidad juridica'` (matches `HABILITANTE_HEADING_PATTERNS[1]`)
+**Given** a stub Anthropic client and an `IngestionResult`; the stub returns a requisito with `section_heading: 'capacidad juridica'` (matches `HABILITANTE_HEADING_PATTERNS[1]`)
 **When** `extract()` runs
-**Then** every requisito emitted from that segmento has `is_habilitante: true` and `is_habilitante_source: 'structural'`. The recorded prompt for that segmento's categoría omits the "classify is_habilitante" instruction (the extractor populates the field from the structural map post-validation).
+**Then** that requisito has `is_habilitante: true` and `is_habilitante_source: 'structural'`. The classification happens post-validation against the LLM-emitted `section_heading` field — no pre-call structural check, no additional LLM call.
 
-**Given** the same client and a segmento with `heading_normalized: 'condiciones tecnicas adicionales'` (matches no pattern)
+**Given** the same client and a requisito whose `section_heading: 'condiciones tecnicas adicionales'` matches no pattern
 **When** `extract()` runs
-**Then** the requisitos from that segmento carry `is_habilitante` per the LLM payload and `is_habilitante_source: 'llm'`
+**Then** the requisito carries `is_habilitante` per the LLM payload and `is_habilitante_source: 'llm'`
 
 **Test file:** `lib/extraction/anthropic/__tests__/extractor.tiered.test.ts`
 **Framework:** vitest
@@ -399,3 +412,29 @@ Framework throughout: **vitest** (per CORE.md / project conventions).
 
 **Test file:** `tests/acceptance/requisitos-extraction.real.test.ts`
 **Framework:** vitest (CI-only)
+
+### Behavior: Clean fixture runs produce no warning (REQ-009, RN-021)
+
+**Given** the 3-fixture golden corpus with well-formed pliegos
+**When** the acceptance test runs
+**Then** `output.warning === undefined` for every fixture run; any fixture producing `warning !== undefined` is logged as a quality signal (but does not fail CI on its own)
+
+**Test file:** `tests/acceptance/requisitos-extraction.real.test.ts`
+**Framework:** vitest (CI-only)
+
+---
+
+## Task T7: extraction-eval-harness Verified Gate
+
+### Behavior: Verified step requires passing harness run (RN-019)
+
+**Given** the `nybo-verify` agent is run against `requisitos-extraction`
+**When** `eval-results/index.md` does NOT contain a passing entry for the current git hash
+**Then** the Verified step blocks with a message indicating the harness gate is not satisfied
+
+**Given** `eval-results/index.md` contains an entry for the current git hash with `aggregate_recall >= 0.85` and all per-tipo recalls `>= 0.80`
+**When** `nybo-verify` runs
+**Then** the Verified gate passes
+
+**Test file:** (checked by nybo-verify, not a vitest file)
+**Framework:** nybo-verify gate check
