@@ -2,7 +2,7 @@
 
 ## Intention
 
-`requisitos-extraction` converts a `Pliego` (already segmented by [pdf-ingestion](../../pdf-ingestion/spec/spec.md)) plus an `Empresa` profile into a structured `Requisito[]` with eligibility verdicts. This is the **core value-creation step** of COLTRATOS: it replaces 4–8 hours of manual procurement-analyst review (~$50–150 USD in labor) with a sub-30-second LLM call costing $0.02–0.04 USD per análisis — at least two orders of magnitude cheaper, which is the entire economic premise of the SaaS.
+`requisitos-extraction` converts a `Pliego` (ingested by [pdf-ingestion](../../pdf-ingestion/spec/spec.md) rev 4) plus an `Empresa` profile into a structured `Requisito[]` with eligibility verdicts. This is the **core value-creation step** of COLTRATOS: it replaces 4–8 hours of manual procurement-analyst review (~$50–150 USD in labor) with a sub-30-second LLM call costing $0.02–0.04 USD per análisis — at least two orders of magnitude cheaper, which is the entire economic premise of the SaaS.
 
 The spec defines the extraction **capability** as a domain feature, not as any one provider's implementation. It ships **two artifacts** that must not be conflated:
 
@@ -13,7 +13,7 @@ The orchestrator (a future `analisis-orchestration` spec) depends on the **inter
 
 ### v1 Scope
 
-**In scope:** The provider-agnostic interface, error hierarchy, and one concrete `AnthropicRequisitosExtractor` implementation that produces `Requisito[]` with `descripcion`, per-requisito eligibility verdicts (`cumple`, `semaforo`, `justificacion`), and verifiable citations back to the source `Segmento`. A 3-pliego golden corpus + ≥85% agreement gate. A `MockRequisitosExtractor` for downstream integration tests.
+**In scope:** The provider-agnostic interface, error hierarchy, and one concrete `AnthropicRequisitosExtractor` implementation that produces `Requisito[]` with `descripcion`, per-requisito eligibility verdicts (`cumple`, `semaforo`, `justificacion`), and source-cited requisitos (`pagina_fuente` + `quote_fuente`) verified against the document's page text. A 3-pliego golden corpus + ≥85% agreement gate. A `MockRequisitosExtractor` for downstream integration tests.
 
 **Out of scope (v1):** Multiple shipped implementations; streaming responses; multi-turn conversations; fine-tuning; segment-level cache keys (only pliego-level); analyses spanning multiple pliegos; comparative dual-extractor mode; aggregating per-requisito verdicts into the overall `Analisis.semaforo` (owned by [semaforo-aggregation](../../semaforo-aggregation/spec/spec.md), approved 2026-04-27); manual classification override for `is_habilitante` (the `'manual'` value of `is_habilitante_source` is reserved at the schema layer for v1.1+ user-correction UI; v1 extractors never emit it).
 
@@ -23,8 +23,8 @@ Detailed scenarios in [use-cases.md](./use-cases.md).
 
 | Use Case | Description | User Stories |
 |----------|-------------|-------------|
-| [UC-01 — Extract requisitos for an análisis](./use-cases.md#uc-01--extract-requisitos-for-an-análisis-us-01) | Orchestrator calls `extract()` with `(Pliego, Segment[], Empresa)`; receives `Requisito[]`, cost, and model metadata | US-01 |
-| [UC-02 — Reject malformed inputs before any API call](./use-cases.md#uc-02--reject-malformed-inputs-before-any-api-call-us-02) | Empty segments / incomplete empresa profile raise `EXTRACTOR_INPUT_INVALID` synchronously | US-02 |
+| [UC-01 — Extract requisitos for an análisis](./use-cases.md#uc-01--extract-requisitos-for-an-análisis-us-01) | Orchestrator calls `extract()` with `(Pliego, IngestionResult, Empresa)`; receives `Requisito[]`, cost, and model metadata | US-01 |
+| [UC-02 — Reject malformed inputs before any API call](./use-cases.md#uc-02--reject-malformed-inputs-before-any-api-call-us-02) | Empty `IngestionResult.pages` / incomplete empresa profile raise `EXTRACTOR_INPUT_INVALID` synchronously | US-02 |
 | [UC-03 — Cap unit cost via prompt caching + ceiling](./use-cases.md#uc-03--cap-unit-cost-via-prompt-caching--ceiling-us-03) | Cached prefix produces ≥85% input cache hit rate; hard ceiling at $0.05 USD per call | US-03 |
 | [UC-04 — Validate against a 3-pliego golden corpus](./use-cases.md#uc-04--validate-against-a-3-pliego-golden-corpus-us-04) | CI runs the Anthropic extractor over 3 expert-scored pliegos and asserts ≥85% requisito-level agreement | US-04 |
 | [UC-05 — Swap the implementation without touching consumers](./use-cases.md#uc-05--swap-the-implementation-without-touching-consumers-us-05) | A `MockRequisitosExtractor` substitutes for the Anthropic one in orchestrator tests with no consumer-side changes | US-05 |
@@ -38,19 +38,19 @@ Detailed scenarios in [use-cases.md](./use-cases.md).
 | ID | Requirement | User Stories | Business Rules |
 |----|-------------|-------------|----------------|
 | REQ-001 | Export a `RequisitosExtractor` interface from `lib/extraction/types.ts` with the single method `extract(input: ExtractorInput): Promise<ExtractorOutput>` | US-01, US-05 | RN-001, RN-002 |
-| REQ-002 | `ExtractorInput` carries `{ pliego: Pliego, segments: Segment[], empresa: Empresa, analisisId: AnalisisId }` — domain types only, imported from `@/types`. No SDK or provider concepts (`cache_control`, message format, model strings) appear in the interface module | US-01, US-05 | RN-001, RN-002 |
-| REQ-003 | `ExtractorOutput` carries `{ requisitos: Requisito[], costUsd: number, modelMetadata: ModelMetadata }`. `ModelMetadata` MUST be **imported from `@/types`** (canonical declaration lives in `src/types/db.ts` per [domain-model deltas.md](../../domain-model/deltas.md)). `lib/extraction/types.ts` MUST NOT declare a parallel `interface ModelMetadata` — a re-declaration produces structurally-equivalent-but-distinct-identity types that break orchestrator wiring | US-01, US-03 | RN-001, RN-003, RN-004 |
+| REQ-002 | `ExtractorInput` carries `{ pliego: Pliego, ingestionResult: IngestionResult, empresa: Empresa, analisisId: AnalisisId }` — domain types only, imported from `@/types`. `IngestionResult` is the per-page output shape from pdf-ingestion rev 4: `{ pages: Page[], schema_version: string }`. No SDK or provider concepts appear in the interface module. | US-01, US-05 | RN-001, RN-002, RN-017 |
+| REQ-003 | `ExtractorOutput` carries `{ requisitos: Requisito[], costUsd: number, modelMetadata: ModelMetadata, warning?: string, failed_categories?: RequisitoCategoria[] }`. `warning` is a non-empty string when one or more categories fail on their second Zod retry (partial result); `failed_categories` is the machine-readable list of failed `RequisitoCategoria` values. Both fields are absent on a clean (all-categories-succeeded) run. `ModelMetadata` MUST be **imported from `@/types`**; `lib/extraction/types.ts` MUST NOT declare a parallel `interface ModelMetadata`. | US-01, US-03 | RN-001, RN-003, RN-004, RN-021 |
 | REQ-004 | Define a typed error hierarchy at the interface level extending `ExtractorError`: `ExtractorApiError` (`code: 'EXTRACTOR_API_ERROR'`, retryable), `ExtractorCostCeilingExceededError` (`'EXTRACTOR_COST_CEILING_EXCEEDED'`, hard fail + alert), `ExtractorSchemaValidationError` (`'EXTRACTOR_SCHEMA_VALIDATION'`, hard fail after one internal retry), `ExtractorTimeoutError` (`'EXTRACTOR_TIMEOUT'`, hard fail), `ExtractorInputInvalidError` (`'EXTRACTOR_INPUT_INVALID'`, hard fail before any API call). Implementations MUST wrap provider-specific errors into one of these | US-01, US-02 | RN-005 |
 | REQ-005 | Ship `AnthropicRequisitosExtractor` at `lib/extraction/anthropic/extractor.ts` implementing `RequisitosExtractor`. Receives `{ client: Anthropic, logger: ExtractorLogger }` as injected constructor dependencies; reads no `process.env` and makes no global SDK init calls | US-01 | RN-006, RN-008 |
-| REQ-006 | Anthropic implementation issues **at most 4 concurrent calls per análisis**, one per `SegmentoCategoria` ∈ `{juridico, financiero, tecnico, experiencia}`. Calls run via `Promise.all`. Segments with `categoria === 'general'` or `is_synthetic === true` are silently skipped + logged as a contract violation; extraction continues. **Categoria denormalization**: every emitted `Requisito` MUST carry `categoria` set to the **narrow** `RequisitoCategoria` value derived from its source segmento — emitted on persistence, never as `'general'`. If a payload from the LLM somehow carries `categoria === 'general'`, the Zod `.refine()` on `RequisitoExtractionPayloadSchema` rejects it as `ExtractorSchemaValidationError` (REQ-009); the extractor does NOT silently rewrite `general` to a narrow value | US-01, US-03 | RN-007, RN-010, RN-015 |
-| REQ-019 | **Tiered `is_habilitante` classification** (cross-spec contract owned by [semaforo-aggregation RN-014](../../semaforo-aggregation/spec/spec.md)). Every emitted `Requisito` carries `is_habilitante: boolean` and `is_habilitante_source: 'structural' \| 'llm' \| 'manual'` per [domain-model REQ-019 / RN-018](../../domain-model/spec/spec.md). The Anthropic implementation classifies via two tiers: **(a) Structural first** — for each source segmento, before the LLM call, check whether `segmento.heading_normalized` matches any pattern in `HABILITANTE_HEADING_PATTERNS` (imported from `@/types`, REQ-022 in domain-model). If yes, **all** requisitos extracted from that segmento are emitted with `is_habilitante = true` and `is_habilitante_source = 'structural'`; the LLM is not asked to classify habilitancia for these (the prompt instructs the model to omit the field on those calls and the extractor populates it post-validation). **(b) LLM fallback** — for segmentos whose `heading_normalized` matches no structural pattern (or is null), the LLM extractor classifies `is_habilitante` based on requisito text and context; the extractor sets `is_habilitante_source = 'llm'`. **(c) Manual override** is a v1.1+ feature; v1 extractors NEVER emit `'manual'`. The `'manual'` value is reserved at the schema layer | US-01, US-03 | RN-015, RN-016 |
+| REQ-006 | Anthropic implementation issues **at most 4 concurrent calls per análisis**, one per `RequisitoCategoria` ∈ `{juridico, financiero, tecnico, experiencia}`. Calls run via `Promise.all`. **All pages** from `ingestionResult.pages` are sent to each call; each call's prompt instructs the LLM to extract only requisitos of the specified `tipo`. Pages with `extraction_method === 'empty'` or `flags.includes('no_text_extracted')` are included in the prompt as a `[PÁGINA VACÍA]` marker at their position (not silently dropped) so the model can reason about page-number continuity. **Categoria denormalization**: every emitted `Requisito` MUST carry `categoria` set to the narrow `RequisitoCategoria` value matching the call's bucket — never as `'general'`. If a payload from the LLM carries `categoria === 'general'`, the Zod `.refine()` on `RequisitoExtractionPayloadSchema` rejects it as `ExtractorSchemaValidationError` (REQ-009); the extractor does NOT silently rewrite `general` to a narrow value. | US-01, US-03 | RN-010, RN-015, RN-017 |
+| REQ-019 | **Tiered `is_habilitante` classification** (cross-spec contract owned by [semaforo-aggregation RN-014](../../semaforo-aggregation/spec/spec.md)). Every emitted `Requisito` carries `is_habilitante: boolean` and `is_habilitante_source: 'structural' \| 'llm' \| 'manual'`. With per-page input, there is no pre-computed `heading_normalized` on the `Page` type. **(a) LLM emission (same call, no extra cost)**: The prompt asks the LLM to emit `section_heading: string` (the nearest section heading in the source text) alongside each requisito, as part of the existing extraction call response schema. **(b) Structural tier (post-validation)**: After `parseAndValidatePayload`, the extractor applies `HABILITANTE_HEADING_PATTERNS` (imported from `@/types`) to each requisito's `section_heading`. Match → `is_habilitante: true`, `is_habilitante_source: 'structural'` (overrides any LLM `is_habilitante` value). **(c) LLM fallback**: When `section_heading` matches no structural pattern, use the LLM's emitted `is_habilitante` value and set `is_habilitante_source: 'llm'`. **(d) Manual override** (`'manual'`): reserved for v1.1+; v1 extractors NEVER emit `'manual'`. **Cost-neutrality**: `section_heading` is emitted in the same extraction LLM call — no additional LLM call, no added latency. `HABILITANTE_HEADING_PATTERNS` matching is a deterministic regex operation. | US-01, US-03 | RN-015, RN-016 |
 | REQ-020 | **Acceptance test ≥80% structural** (cross-spec gate from semaforo-aggregation REQ-014). The `tests/acceptance/requisitos-extraction.real.test.ts` test, after running over the 3-fixture corpus, computes the distribution of `is_habilitante_source` across all habilitante-true requisitos. The test FAILS CI if the count where `is_habilitante_source === 'structural'` is < 80% of the total habilitante-true count (across all fixtures combined; an empty habilitante set skips the assertion). Rationale: forces `HABILITANTE_HEADING_PATTERNS` to do real work — an empty or under-specified pattern list fails this test. The pattern list is co-evolved with the corpus | US-04 | RN-014, RN-016 |
-| REQ-021 | **Categoria narrowing at the validation boundary**. `RequisitoExtractionPayloadSchema` (imported from `@/types`, owned by domain-model REQ-016) carries a `.refine()` that rejects `categoria === 'general'`. The extractor uses this schema to validate every LLM output payload (REQ-009); a `general`-categoria payload surfaces as `ExtractorSchemaValidationError` after one retry attempt. The extractor does NOT pre-filter incoming segmentos by category (orchestrator owns that filter per RN-007) — but it DOES enforce the narrow contract on emitted requisitos via the payload schema | US-01 | RN-015 |
+| REQ-021 | **Categoria narrowing at the validation boundary**. `RequisitoExtractionPayloadSchema` (imported from `@/types`, owned by domain-model REQ-016) carries a `.refine()` that rejects `categoria === 'general'`. The extractor uses this schema to validate every LLM output payload (REQ-009); a `general`-categoria payload surfaces as `ExtractorSchemaValidationError` after one retry attempt. The extractor enforces the narrow `RequisitoCategoria` contract on emitted requisitos via the payload schema — it does NOT silently rewrite `'general'` to a narrow value. | US-01 | RN-015 |
 | REQ-007 | Anthropic implementation places `cache_control: { type: 'ephemeral' }` blocks on (a) the system prompt + Requisito JSON schema and (b) the Empresa profile block (including `profile_updated_at` in the cached prefix so empresa edits invalidate caches automatically) | US-03 | RN-008, RN-009 |
 | REQ-008 | Resolve the Anthropic model name from a config constant at `lib/extraction/anthropic/config.ts` (e.g. `EXTRACTION_MODEL = 'claude-sonnet-4-6'`). The model string must NOT appear inside `extractor.ts` or `prompt.ts`. Config file carries a `// REVIEW BY YYYY-MM-DD` comment ≤6 months out (initial: `2026-10-26`) | US-01, US-03 | RN-008, RN-011 |
-| REQ-009 | Validate the model's JSON output against `RequisitoExtractionPayloadSchema` (Zod). On Zod failure, retry **once** with a regenerated prompt that includes the validation error message; second failure raises `ExtractorSchemaValidationError`. The schema is imported from `@/types`, not redefined inside `lib/extraction/anthropic/`. **The `.refine()` on `categoria` rejecting `'general'` is part of this validation step** (per REQ-021) — the regeneration prompt MUST embed the specific Zod error message so the model corrects its `categoria` choice on retry | US-01 | RN-005, RN-013, RN-015 |
-| REQ-010 | Each extracted requisito MUST carry `citation_segment_id: SegmentoId` and `citation_quote: string` (verbatim, ≤200 chars). After Zod validation, verify the quote is a substring of `segments[citation_segment_id].contenido` after NFD normalization (per [pdf-ingestion REQ-005](../../pdf-ingestion/spec/spec.md)). Mismatches set `citation_verified: false` on the persisted requisito; matches set `true`. Mismatches are NOT a hard failure | US-01 | RN-012, RN-013 |
-| REQ-011 | Compute `costUsd` per call from the SDK's response usage (`input_tokens`, `cache_creation_input_tokens`, `cache_read_input_tokens`, `output_tokens`) and the per-million-token prices held in `lib/extraction/anthropic/config.ts`. Sum across all parallel calls into the returned `ExtractorOutput.costUsd` | US-03 | RN-003, RN-004 |
+| REQ-009 | Validate the model's JSON output against `RequisitoExtractionPayloadSchema` (Zod). On Zod failure, retry **once** with a regenerated prompt embedding the validation error message. On second failure **for a category**: that category's requisitos are absent from `ExtractorOutput.requisitos`; the category is appended to `ExtractorOutput.failed_categories`; `ExtractorOutput.warning` is populated with a human-readable description of which category failed and why. If **all four** categories fail on their second attempt, throw `ExtractorSchemaValidationError` (complete failure — no partial result possible). The schema is imported from `@/types`, not redefined inside `lib/extraction/anthropic/`. **The `.refine()` on `categoria` rejecting `'general'` is part of this validation step** (per REQ-021). | US-01 | RN-005, RN-013, RN-015, RN-021 |
+| REQ-010 | Each extracted requisito MUST carry `pagina_fuente: number` (1-indexed page number in the document) and `quote_fuente: string` (verbatim, ≤200 chars). After Zod validation: (a) verify `pagina_fuente` is in range `[1, ingestionResult.pages.length]`; (b) verify `quote_fuente` is a substring of `pages[pagina_fuente - 1].text` after applying **NFKC normalization + whitespace collapse (all whitespace sequences → single space, trim) + case-fold** to both sides. Verification failure on either condition sets `citation_unverified: true` on the requisito but does NOT drop it. Empty `pagina_fuente` or empty `quote_fuente` are Zod validation failures that trigger the repair retry (REQ-009). The stored `quote_fuente` is the original LLM-emitted string (normalization applied for verification only). | US-01 | RN-018, RN-013 |
+| REQ-011 | Compute `costUsd` per call from the SDK's response usage and the per-million-token prices held in `lib/extraction/anthropic/config.ts`. Sum across all parallel calls into the returned `ExtractorOutput.costUsd`. The `cost_telemetry` log event MUST include `input_tokens`, `cache_creation_input_tokens`, and `cache_read_input_tokens` as **distinct numeric fields** (not aggregated), alongside `output_tokens`, `cacheHitRatio` (= `cache_read_input_tokens / (input_tokens + cache_creation_input_tokens + cache_read_input_tokens)`), `costUsd`, `perCategoria: Record<RequisitoCategoria, { costUsd, input_tokens, cache_read_input_tokens }>`, and `analisisId`. | US-03 | RN-003, RN-004 |
 | REQ-012 | Enforce a **hard cost ceiling of $0.05 USD per `extract()` call**. If the cumulative cost across the parallel sub-calls exceeds the ceiling at any reduction step, raise `ExtractorCostCeilingExceededError` with the breached amount, abort remaining work, and emit a `cost_ceiling_breach` log via the injected logger | US-03 | RN-004 |
 | REQ-013 | Provide a `MockRequisitosExtractor` at `lib/extraction/mock/extractor.ts` with a constructor accepting canned `(input → output)` mappings and default behavior. It implements the same interface and is the test double used by the orchestrator integration tests — proves no Anthropic concept leaks into the interface | US-05 | RN-002 |
 | REQ-014 | Provide a 3-fixture validation corpus at `tests/fixtures/golden/extraction/` with `corpus.yaml` listing per fixture: `pliego_path`, `empresa_profile_path`, `expected_requisitos_path`, `date_scored`, `expert_reviewer`. Fixtures pair a fixture pliego (reusing `tests/fixtures/pliegos/` where possible) + an empresa profile JSON + the manually-scored expected `Requisito[]` | US-04 | RN-014 |
@@ -83,16 +83,19 @@ Detailed scenarios in [use-cases.md](./use-cases.md).
 | RN-004 | The **hard cost ceiling is $0.05 USD per `extract()` call** — higher than the $0.04 target ceiling so prompt iteration has headroom but tight enough that runaway loops or stuck cache misses page early. Breach is a typed error, not a warning. |
 | RN-005 | Failure modes are typed errors at the interface level (REQ-004), never silent fallbacks or `null` returns. Orchestrators discriminate on `error.code`. Implementation-specific exceptions (Anthropic SDK errors, fetch failures, etc.) MUST be wrapped into one of the five categories. |
 | RN-006 | Implementations receive their dependencies (SDK client, logger) via constructor injection. **No global config coupling**, no `process.env` reads inside `lib/extraction/`, no Supabase calls, no filesystem writes. The orchestrator owns persistence. |
-| RN-007 | The Anthropic implementation issues **one Claude call per `SegmentoCategoria` ∈ `{juridico, financiero, tecnico, experiencia}`** — maximum 4 calls per análisis. `general` and `is_synthetic` segments are excluded by the orchestrator (per [pdf-ingestion RN-012](../../pdf-ingestion/spec/spec.md)); if any leak through, the implementation skips them and logs a contract violation but does not fail. |
+| RN-017 | **Per-page input contract**: `ExtractorInput.ingestionResult` MUST carry `IngestionResult` from pdf-ingestion rev 4 (`{ pages: Page[], schema_version: string }`). The extractor reads pages sequentially. Pages with `extraction_method === 'empty'` or `flags.includes('no_text_extracted')` are sent to the LLM as `[PÁGINA VACÍA]` markers at their position — never silently excluded. Page numbering in `pagina_fuente` is 1-indexed and contiguous with the `IngestionResult.pages` array. |
 | RN-008 | Anthropic prompt caching is **owned by the implementation, not the interface**. The interface knows nothing about cache blocks. The implementation places `cache_control` on the system prompt + JSON schema and on the Empresa profile block. The Empresa profile block embeds `profile_updated_at`, so empresa edits change the cached prefix and invalidate the cache for that empresa automatically. |
 | RN-009 | **Cache invalidation strategy:** bumping `prompt_version` (string in `config.ts`) invalidates **all** caches globally; changing an empresa's profile invalidates caches for **that empresa only** (via `profile_updated_at` in the cached prefix). No TTL-based invalidation in v1; relies on Anthropic's ephemeral cache TTL (5 minutes) plus the explicit invalidation strategy. |
 | RN-010 | `extract()` is **idempotent on `(pliego.file_hash, empresa.id, modelMetadata.implementation_id)`**. The orchestrator (not this feature) owns the persistence-side cache keyed on that triple. `implementation_id` is in the key so two providers analyzing the same `(pliego, empresa)` pair produce **distinct** cached results — different models extract differently, and conflating them would corrupt the cache. |
 | RN-011 | **Model selection is a config constant, not a hardcoded string.** The Anthropic implementation reads `EXTRACTION_MODEL` from `lib/extraction/anthropic/config.ts`. The constant carries a `// REVIEW BY YYYY-MM-DD` comment ≤6 months out. A cheaper or faster Sonnet model directly improves unit economics, so the review cadence is a hard convention, not a suggestion. |
-| RN-012 | Every requisito MUST cite **one** source segment (`citation_segment_id`) and a verbatim quote (`citation_quote`, ≤200 chars). Quotes are verified by NFD-normalized substring match against the cited segment's `contenido`. Mismatches mark `citation_verified: false` but DO NOT reject the requisito — providers paraphrase slightly with some frequency, and a hard fail produces too many false negatives. The orchestrator may surface unverified citations in the UI for manual review. |
+| RN-018 | **Citation verification against page index**: Every emitted requisito MUST carry `pagina_fuente: number` (1-indexed, must exist in `IngestionResult.pages`) and `quote_fuente: string` (≤200 chars). Verification applies **NFKC normalization + whitespace collapse (all whitespace sequences → single space, trim) + case-fold** to both `quote_fuente` and `pages[pagina_fuente - 1].text`, then checks substring containment. Failure sets `citation_unverified: true` but does NOT drop the requisito. The stored `quote_fuente` is the original LLM-emitted string — normalization is applied only for the verification check. |
 | RN-013 | On Zod schema validation failure of the model output, the implementation retries **once** with a regenerated prompt embedding the validation error message. A second failure raises `ExtractorSchemaValidationError`. Retries on `ExtractorApiError` (transient/5xx/rate-limit) are the **orchestrator's** responsibility, not this feature's. |
 | RN-014 | The validation corpus is a **hard quality gate**: the acceptance test fails CI if average requisito-level agreement drops below 85% across all fixtures. Lowering the threshold or shrinking the corpus requires a spec revision. Corpus growth tied to product milestones is governed by ADR-010. |
-| RN-015 | **Categoria narrowing happens at validation, not at the segmento boundary**: the orchestrator pre-filters general/synthetic segmentos before calling `extract()` (per RN-007), but the **extractor itself enforces the narrow `RequisitoCategoria` contract via Zod**. `RequisitoExtractionPayloadSchema.categoria` is typed as the wide `SegmentoCategoria` for symmetry with the LLM's tokenizer, but a `.refine()` rejects `categoria === 'general'`. A `general` payload from the LLM is surfaced as `ExtractorSchemaValidationError` (after one retry per REQ-009). The persisted `Requisito.categoria` is therefore always one of `'juridico'`/`'financiero'`/`'tecnico'`/`'experiencia'` (per [domain-model REQ-018 / RN-017](../../domain-model/spec/spec.md)). The extractor does NOT silently map `general` to a narrow value. |
-| RN-016 | **Tiered `is_habilitante` classification (cross-spec implementation)**: this spec implements the three-tier classifier specified in [semaforo-aggregation RN-014](../../semaforo-aggregation/spec/spec.md). (a) **Structural first**: if the source segmento's `heading_normalized` matches any pattern in `HABILITANTE_HEADING_PATTERNS` (imported from `@/types` per domain-model REQ-022), all extracted requisitos carry `is_habilitante = true` and `is_habilitante_source = 'structural'`; the LLM is bypassed for the habilitancia decision on those segmentos. (b) **LLM fallback**: for segmentos whose `heading_normalized` does not match any structural pattern (or is null), the LLM classifies based on requisito text + empresa context; `is_habilitante_source = 'llm'`. (c) **Manual override** (`'manual'`): reserved for v1.1+ user-correction UI. v1 extractors NEVER emit `'manual'`. The acceptance test (REQ-020) enforces ≥80% structural to keep the pattern list doing real work. The pattern list itself is owned by `domain-model` and versioned via `HABILITANTE_PATTERNS_VERSION`; this spec's golden corpus is regenerated whenever the version bumps. |
+| RN-015 | **Categoria narrowing happens at validation**: the **extractor enforces the narrow `RequisitoCategoria` contract via Zod on every LLM payload**. `RequisitoExtractionPayloadSchema.categoria` carries a `.refine()` that rejects `categoria === 'general'`. A `general` payload from the LLM is surfaced as `ExtractorSchemaValidationError` (after one retry per REQ-009). The persisted `Requisito.categoria` is therefore always one of `'juridico'`/`'financiero'`/`'tecnico'`/`'experiencia'` (per [domain-model REQ-018 / RN-017](../../domain-model/spec/spec.md)). The extractor does NOT silently map `general` to a narrow value. |
+| RN-016 | **Tiered `is_habilitante` classification (cross-spec implementation)**: this spec implements the three-tier classifier specified in [semaforo-aggregation RN-014](../../semaforo-aggregation/spec/spec.md). With per-page input, classification uses the LLM-emitted `section_heading` field (same call, no extra cost): (a) **Structural first (post-validation)**: after `parseAndValidatePayload`, apply `HABILITANTE_HEADING_PATTERNS` (from `@/types`) to each requisito's `section_heading`. Match → `is_habilitante: true`, `is_habilitante_source: 'structural'`. (b) **LLM fallback**: `section_heading` matches no structural pattern → use LLM's `is_habilitante` value, set `is_habilitante_source: 'llm'`. (c) **Manual override** (`'manual'`): reserved for v1.1+; v1 extractors NEVER emit `'manual'`. The acceptance test (REQ-020) enforces ≥80% structural to keep the pattern list doing real work. |
+| RN-019 | **Hard quality gate — extraction-eval-harness**: This spec MUST NOT reach `Verified` status until `extraction-eval-harness` reports ≥85% aggregate recall AND ≥80% per-tipo recall on the latest commit. Partial results (`failed_categories` non-empty) count as recall = 0 for those categories on that pliego — they are NOT excluded from the denominator. The `Verified` step in `nybo-verify` MUST confirm a passing harness run for the current git hash in `eval-results/index.md`. |
+| RN-020 | **Pipeline position — downstream consumer**: Per pdf-ingestion ADR-010 (queue-worker boundary), extraction is a downstream consumer of `pdf_pages`, not a step inside the ingestion worker. The orchestrator reads `pdf_pages` rows for a `pliego_upload_id`, assembles `IngestionResult`, and calls `extract()`. This feature MUST NOT touch the queue, worker, or storage directly. |
+| RN-021 | **Partial result surfacing**: When `ExtractorOutput.failed_categories` is non-empty, the orchestrator MUST display `warning` to the user and MUST NOT map the partial result to a green/passing verdict. The UI MUST distinguish three states per `RequisitoCategoria`: (a) tipo present in `requisitos` → show extracted list; (b) tipo not in `failed_categories` and not in `requisitos` → "Pliego no contiene requisitos de este tipo" (informational); (c) tipo in `failed_categories` → "Error al extraer — resultado parcial" (warning state, visually distinct from case b). |
 
 ---
 
@@ -122,17 +125,17 @@ Detailed scenarios in [use-cases.md](./use-cases.md).
 **When** instantiated without arguments
 **Then** TypeScript rejects the call; only `new AnthropicRequisitosExtractor({ client, logger })` compiles
 
-### TC-005 — Issues at most 4 concurrent calls (REQ-006, RN-007)
+### TC-005 — Issues at most 4 concurrent calls (REQ-006, RN-017)
 
-**Given** a stub `Anthropic` client recording every `messages.create` call and an input with segments across all 4 categorías
+**Given** a stub `Anthropic` client recording every `messages.create` call and an `IngestionResult` with pages
 **When** `extract()` runs
-**Then** exactly 4 calls were issued, all initiated within the same microtask tick (concurrent), grouped one per categoría
+**Then** exactly 4 calls were issued, all initiated within the same microtask tick (concurrent), each carrying all pages from `IngestionResult`, one call per `RequisitoCategoria`
 
-### TC-006 — Skips `general` and `is_synthetic` segments + logs violation (REQ-006, RN-007)
+### TC-006 — Empty pages receive `[PÁGINA VACÍA]` marker, not silent exclusion (REQ-006, RN-017)
 
-**Given** an input including a `categoria: 'general'` segment AND an `is_synthetic: true` segment alongside valid ones
+**Given** an `IngestionResult` where page 3 has `extraction_method === 'empty'`
 **When** `extract()` runs
-**Then** zero Claude calls are made for those segments, the logger receives a `contract_violation` log entry per skipped segment, and the call completes successfully with requisitos from the valid segments
+**Then** the recorded prompt for each category call contains a `[PÁGINA VACÍA]` marker at position 3 (preserving page-number continuity), and page 3 is not silently absent from the prompt payload
 
 ### TC-007 — Cache control blocks on system prompt and empresa profile (REQ-007, RN-008, RN-009)
 
@@ -156,15 +159,15 @@ Detailed scenarios in [use-cases.md](./use-cases.md).
 **When** `extract()` runs
 **Then** it rejects with `ExtractorSchemaValidationError` (`code: 'EXTRACTOR_SCHEMA_VALIDATION'`) and exactly 2 calls were attempted
 
-### TC-010 — Citation verification (REQ-010, RN-012)
+### TC-010 — Citation verification (REQ-010, RN-018)
 
-**Given** a stub returning a requisito whose `citation_quote` is a verbatim NFD-normalized substring of the cited segment
+**Given** a stub returning a requisito with `pagina_fuente: 3` and `quote_fuente: 'Capacidad Jurídica'`, and an `IngestionResult` where page 3 text contains that string (after NFKC + whitespace collapse + case-fold)
 **When** `extract()` runs
-**Then** the returned requisito has `citation_verified: true`
+**Then** the returned requisito has `citation_unverified: false`
 
-**Given** a stub returning a requisito whose `citation_quote` paraphrases the segment (not a substring match)
+**Given** a stub returning a requisito whose `quote_fuente` does not appear in the cited page text after normalization
 **When** `extract()` runs
-**Then** the requisito is returned with `citation_verified: false`; no error is raised
+**Then** the requisito is returned with `citation_unverified: true`; no error is raised
 
 ### TC-011 — Cost computation aggregates correctly (REQ-011, RN-003)
 
@@ -180,7 +183,7 @@ Detailed scenarios in [use-cases.md](./use-cases.md).
 
 ### TC-013 — Input validation rejects malformed input synchronously (REQ-002, RN-005)
 
-**Given** an input with `segments: []` OR an empresa missing `nit`
+**Given** an input with `ingestionResult` carrying `pages: []` OR an empresa missing `nit`
 **When** `extract()` is called
 **Then** it rejects with `ExtractorInputInvalidError` (`code: 'EXTRACTOR_INPUT_INVALID'`) **before** any Anthropic SDK call is issued
 
@@ -224,15 +227,15 @@ Detailed scenarios in [use-cases.md](./use-cases.md).
 **When** `HABILITANTE_HEADING_PATTERNS` is mutated to an empty array in a test branch
 **Then** the acceptance test fails (zero structural classifications, all LLM-tier) — confirming the gate actually exercises the pattern list
 
-### TC-020 — Structural classification path bypasses the LLM for habilitancia (REQ-019, RN-016)
+### TC-020 — Structural classification applied post-validation via section_heading (REQ-019, RN-016)
 
-**Given** an input where one segmento has `heading_normalized: 'capacidad juridica'` (matches `HABILITANTE_HEADING_PATTERNS[1]`)
-**When** `extract()` runs against a stub Anthropic client
-**Then** all requisitos extracted from that segmento carry `is_habilitante: true` and `is_habilitante_source: 'structural'`. The recorded LLM prompt for that categoría's call does NOT include a "classify is_habilitante" instruction (the extractor populates the field post-validation from the structural match)
-
-**Given** a segmento with `heading_normalized: 'condiciones tecnicas adicionales'` (matches no pattern)
+**Given** a stub Anthropic client returning a requisito with `section_heading: 'capacidad juridica'` (matches `HABILITANTE_HEADING_PATTERNS[1]`)
 **When** `extract()` runs
-**Then** the requisitos from that segmento carry `is_habilitante` set per the LLM's output and `is_habilitante_source: 'llm'`
+**Then** that requisito carries `is_habilitante: true` and `is_habilitante_source: 'structural'`; classification happens post-validation against `section_heading`, not pre-call; no additional LLM call is made
+
+**Given** a stub returning a requisito with `section_heading: 'condiciones tecnicas adicionales'` (matches no pattern)
+**When** `extract()` runs
+**Then** the requisito carries `is_habilitante` set per the LLM's emitted value and `is_habilitante_source: 'llm'`
 
 ### TC-021 — Categoria narrowing rejects general payloads via Zod (REQ-009, REQ-021, RN-015)
 
@@ -251,6 +254,30 @@ Detailed scenarios in [use-cases.md](./use-cases.md).
 **Given** the source of `lib/extraction/types.ts`
 **When** scanned for `interface ModelMetadata` or `type ModelMetadata`
 **Then** zero declarations are found; instead a single `import type { ModelMetadata } from '@/types'` is present
+
+### TC-024 — `pagina_fuente` out of range sets `citation_unverified` (REQ-010, RN-018)
+
+**Given** a stub returning a requisito with `pagina_fuente: 999` and an `IngestionResult` with 10 pages
+**When** `extract()` runs
+**Then** the returned requisito has `citation_unverified: true`; no error is raised
+
+### TC-025 — One-category second Zod failure produces partial result with warning (REQ-009, RN-021)
+
+**Given** a stub returning malformed JSON twice for `juridico` and valid JSON for `financiero`, `tecnico`, `experiencia`
+**When** `extract()` runs
+**Then** it resolves (does NOT reject); `output.warning` is a non-empty string; `output.failed_categories` equals `['juridico']`; `output.requisitos` contains only requisitos from `financiero`, `tecnico`, and `experiencia`
+
+### TC-026 — All-category second Zod failure throws `ExtractorSchemaValidationError` (REQ-009)
+
+**Given** a stub returning malformed JSON twice for all four categories
+**When** `extract()` runs
+**Then** it rejects with `ExtractorSchemaValidationError` (`code: 'EXTRACTOR_SCHEMA_VALIDATION'`); no partial result is returned
+
+### TC-027 — Token logging differentiates cached/uncached counts (REQ-011)
+
+**Given** a stub returning usage with `cache_read_input_tokens: 5000` and `cache_creation_input_tokens: 3000`
+**When** `extract()` resolves
+**Then** the captured `cost_telemetry` log event contains `cache_read_input_tokens: 5000` and `cache_creation_input_tokens: 3000` as distinct numeric fields (not combined into a single aggregate)
 
 ---
 
@@ -284,7 +311,7 @@ No UI in this spec. `requisitos-extraction` is a developer-facing service consum
 | Schema retry policy | One internal retry on Zod failure (regenerated prompt with error embedded) | Multiple retries OR no retry | Zod failures are usually one-off model hiccups; one retry catches ~80% of them. Multiple retries would interact badly with the cost ceiling. Zero retries would over-fail on transient quirks. |
 | `MockRequisitosExtractor` location | First-class module under `lib/extraction/mock/` | Test-fixture under `tests/__mocks__/` | A mock implementation that satisfies the interface IS production code — it documents what implementations must do. Putting it under `lib/` enforces it through the same purity grep as the real one. |
 | `is_habilitante` classification | Tiered: structural pattern match → LLM fallback → (v1.1+) manual override | Pure LLM classification | Habilitancia drives the knockout rule in semaforo-aggregation; pure LLM is operationally risky because (a) the model has no built-in incentive to distinguish "important" from "legally habilitante," and (b) Colombian procurement law makes the distinction specific. Structural patterns against normalized headings are deterministic, auditable, and cheap; LLM fallback handles edge cases. The ≥80% structural acceptance test (REQ-020) keeps the pattern list doing real work. Per RN-016, the cross-spec contract is owned by [semaforo-aggregation RN-014](../../semaforo-aggregation/spec/spec.md). |
-| Categoria narrowing site | Zod `.refine()` on `RequisitoExtractionPayloadSchema` (the validation boundary itself) | Orchestrator-side filter after extraction | The narrowing rule is part of the **contract** the extractor enforces, not a downstream cleanup step. A `general`-categoria payload is structurally an extraction failure (per pdf-ingestion RN-012, general segments are excluded upstream and any payload reaching the validator is a contract violation). Surfacing it as `ExtractorSchemaValidationError` with retry semantics gives the LLM one chance to correct itself before the orchestrator sees a hard fail. |
+| Categoria narrowing site | Zod `.refine()` on `RequisitoExtractionPayloadSchema` (the validation boundary itself) | Orchestrator-side filter after extraction | The narrowing rule is part of the **contract** the extractor enforces, not a downstream cleanup step. Each of the 4 concurrent calls instructs the LLM to extract only one `RequisitoCategoria`; if the LLM somehow emits `categoria === 'general'`, the Zod `.refine()` catches it and surfaces an `ExtractorSchemaValidationError`. Retry semantics give the LLM one chance to correct itself before the orchestrator sees a hard fail. |
 | `ModelMetadata` ownership | Imported from `@/types` (canonical in domain-model's `src/types/db.ts`) | Re-declared in `lib/extraction/types.ts` | Identical-looking interfaces in two files are structurally equivalent but **nominally distinct** in TypeScript when used through type guards or as generic parameters. The orchestrator imports `ModelMetadata` from `@/types`; a parallel declaration here would force every cross-boundary usage into structural-only assignability and silently break narrowing. One canonical home. |
 
 ### Performance Goals & Metrics
@@ -306,7 +333,7 @@ This feature does not own any database tables but **requires schema additions** 
 classDiagram
     class ExtractorInput {
         +Pliego pliego
-        +Segment[] segments
+        +IngestionResult ingestionResult
         +Empresa empresa
         +AnalisisId analisisId
     }
@@ -315,6 +342,8 @@ classDiagram
         +Requisito[] requisitos
         +number costUsd
         +ModelMetadata modelMetadata
+        +string warning
+        +RequisitoCategoria[] failed_categories
     }
 
     class ModelMetadata {
@@ -386,15 +415,16 @@ No HTTP endpoints. The single boundary contract is the interface:
 import type {
   AnalisisId,
   Empresa,
+  IngestionResult,          // per-page output from pdf-ingestion rev 4
   ModelMetadata,            // canonical declaration in domain-model's src/types/db.ts (REQ-003)
   Pliego,
   Requisito,
-  Segment,
+  RequisitoCategoria,       // for failed_categories field
 } from '@/types'
 
 export interface ExtractorInput {
   pliego: Pliego
-  segments: Segment[]
+  ingestionResult: IngestionResult   // rev 3 — replaces segments: Segment[] (pdf-ingestion rev 4 contract)
   empresa: Empresa
   analisisId: AnalisisId
 }
@@ -407,6 +437,8 @@ export interface ExtractorOutput {
   requisitos: Requisito[]
   costUsd: number
   modelMetadata: ModelMetadata
+  warning?: string                        // populated on partial result (one+ categories failed 2nd Zod retry)
+  failed_categories?: RequisitoCategoria[] // machine-readable list of failed categories
 }
 
 export interface RequisitosExtractor {
@@ -429,18 +461,21 @@ export abstract class ExtractorError extends Error {
 ### Upstream Caller Contract
 
 The orchestrator MUST:
-- Filter segments per pdf-ingestion's downstream contract: exclude `is_synthetic === true` AND `categoria === 'general'` BEFORE calling `extract()`.
+- Assemble `IngestionResult` from `pdf_pages` rows keyed by `pliego_upload_id`. Per pdf-ingestion ADR-010, the orchestrator owns this assembly — extraction never reads `pdf_pages` directly.
 - Persist `ExtractorOutput.requisitos`, `costUsd`, and `modelMetadata` to the database.
 - Own the `(pliego.file_hash, empresa.id, modelMetadata.implementation_id)` idempotency check — short-circuit before calling `extract()` if a cached row exists.
 - Map `ExtractorError.code` to user-facing messaging and to `Analisis.estado: failed` + `error_message` when appropriate.
+- Surface `warning` and `failed_categories` when `ExtractorOutput.warning` is present; MUST NOT show a green verdict on a partial result (RN-021).
 - Retry `ExtractorApiError` (transient/retryable) per its own retry policy. Other `ExtractorError` subclasses are hard fails.
 
 ### Service Integrations
 
 ```mermaid
 flowchart LR
-    Orchestrator["analisis-orchestration\n(future spec)\n[filters general / synthetic]"]
-    Orchestrator -->|"ExtractorInput"| Iface["lib/extraction/types.ts\nRequisitosExtractor (interface)"]
+    DB2[("Supabase\npdf_pages")]
+    Orchestrator["analisis-orchestration\n(future spec)\n[assembles IngestionResult\nfrom pdf_pages]"]
+    DB2 -->|"Page[] per pliego_upload_id"| Orchestrator
+    Orchestrator -->|"ExtractorInput\n(IngestionResult)"| Iface["lib/extraction/types.ts\nRequisitosExtractor (interface)"]
     Iface -.->|"implemented by"| Anthropic["lib/extraction/anthropic/\nAnthropicRequisitosExtractor"]
     Iface -.->|"implemented by"| Mock["lib/extraction/mock/\nMockRequisitosExtractor"]
     Anthropic -->|"messages.create\nwith cache_control"| Claude["Anthropic API\n(claude-sonnet-X.Y)"]
@@ -463,7 +498,7 @@ flowchart LR
 
 - **requisito-extraction** — primary domain for this feature.
 - **eligibility-matching** — this spec produces the per-requisito verdict (`cumple`, `semaforo`, `justificacion`); the future `eligibility-matching` spec is responsible for aggregation into the overall `Analisis.semaforo` and any cross-requisito reasoning.
-- **pliego-upload** — consumes the `Segment[]` produced upstream.
+- **pliego-upload** — produces the `pliego_uploads` row; the orchestrator reads `pdf_pages` (written by pdf-ingestion) to assemble `IngestionResult` for this feature.
 - **empresa-profile** — consumes the `Empresa` profile and depends on its `profile_updated_at` field for cache invalidation.
 
 ## Workflow Skills Applicable
@@ -480,6 +515,10 @@ None yet — `.nybo/skills/` is empty for this greenfield project. After this fe
 ## Dependencies
 
 - **MCPs**: none required for this spec; the Anthropic SDK is a regular npm dependency, not an MCP integration.
+- **pdf-ingestion rev 4**: input contract — `IngestionResult` / `Page` types consumed by `ExtractorInput` (RN-017).
+- **extraction-eval-harness**: quality gate — Verified requires a passing harness run (≥85% aggregate / ≥80% per-tipo recall) per RN-019.
+- **domain-model-mvp rev 1**: `requisitos`, `analyses`, `pdf_pages` tables; `IngestionResult` / `Page` type shapes.
+- **cost-observability**: token logging differentiating `cache_creation_input_tokens` / `cache_read_input_tokens` (REQ-011).
 
 ---
 
@@ -489,3 +528,4 @@ None yet — `.nybo/skills/` is empty for this greenfield project. After this fe
 |------|--------|--------|
 | 2026-04-26 | Initial draft | Discovery interview captured by Carlos: provider-agnostic interface + Anthropic-only v1 implementation; cost ceiling $0.05; ≥85% agreement on 3-fixture corpus; citation verification as soft signal; dependency-injected SDK client; provider-isolation grep mirroring pdf-ingestion's NFR-03 |
 | 2026-04-27 | Apply 5 cross-spec edits owed to [semaforo-aggregation](../../semaforo-aggregation/spec/spec.md) T0 + reconcile `ModelMetadata` duplication + fix `eligibility-matching` dead reference. **Cross-spec edits**: (1) categoria denormalization onto emitted `Requisito` per REQ-006 (narrow `RequisitoCategoria`, never `general`); (2) tiered `is_habilitante` classification per new REQ-019 (structural-first via `HABILITANTE_HEADING_PATTERNS` from `@/types`, LLM fallback otherwise; `'manual'` reserved for v1.1+); (3) `is_habilitante_source` emission on every requisito (new RN-016); (4) `RequisitoExtractionPayloadSchema` narrowing rule via `.refine()` per REQ-021 (the schema itself rejects `categoria === 'general'`); (5) golden corpus regen with `is_habilitante` + `is_habilitante_source` annotations + new ≥80%-structural acceptance test per REQ-020. **Reconciliations**: REQ-003 changed from "export ModelMetadata" to "import ModelMetadata from `@/types`" (canonical in domain-model `src/types/db.ts`); TC-023 added; API/Data Contracts code block updated to drop the parallel declaration. **Dead-name fix**: §18 "future eligibility-matching spec" → "owned by semaforo-aggregation (approved 2026-04-27)"; reservation note added for `is_habilitante_source = 'manual'`. New RN-015 (categoria narrowing at validation), RN-016 (tiered classifier implementation). New TCs: TC-019 through TC-023. Tradeoffs gain rows for tiered classification, narrowing site, and `ModelMetadata` ownership. T0 dependency block restructured to reflect rev-4 (12 items, shipped) + rev-5 (7 additional items, shipped) — total 19 items. | The semaforo-aggregation spec (approved 2026-04-27) owns the `is_habilitante` knockout rule and depends on `requisitos-extraction` to emit the boolean and a tier-source marker. The five-item edit was queued in semaforo-aggregation §300 as the next required action after its approval; bundling all five plus the `ModelMetadata` and dead-name fixes in one revision keeps the artifact regen (golden corpus, ≥80%-structural test, prompt updates, validation hooks) atomic. The `ModelMetadata` reconciliation is the first time this spec narrows a structurally-equivalent type to a single declaration site — the hazard was identified by the type-consistency audit and would have surfaced as a subtle compile error at the orchestrator boundary. |
+| 2026-05-05 | **Rev 3** — (1) Input contract: `Segment[]` → per-page `IngestionResult` (pdf-ingestion rev 4). (2) RN-007 and RN-012 removed: both referenced the old segmento categorizer and `citation_segment_id` that no longer exist in the rev-4 pipeline. Replaced by RN-017 (per-page input contract) and RN-018 (page-index citation verification). (3) extraction-eval-harness wired as hard Verified gate (RN-019): partial results count as recall=0 for failed categories in eval, not skipped. (4) Citation: `citation_segment_id` → `pagina_fuente` + `quote_fuente` verified against page index with NFKC + whitespace-collapse + case-fold normalization (REQ-010, RN-018). (5) Partial result semantics (REQ-009, RN-021): second Zod failure on one category → `warning` + `failed_categories` in output (not exception); all-categories failure → `ExtractorSchemaValidationError`. Three UI states defined for partial vs missing vs extracted. (6) `ExtractorOutput` gains `warning?: string` and `failed_categories?: RequisitoCategoria[]` (REQ-003). (7) Token logging: explicit `cache_read_input_tokens` + `cache_creation_input_tokens` as distinct fields in `cost_telemetry` (REQ-011). (8) REQ-019/RN-016: structural habilitante classification uses LLM-emitted `section_heading` (post-validation, same call, no added cost or latency). (9) RN-020: pipeline position documented — extraction is downstream consumer per pdf-ingestion ADR-010. New TCs: TC-024–TC-027. Updated TCs: TC-005, TC-006 (replaced), TC-010, TC-013. | pdf-ingestion rev 4 changed the output contract from Segment[] to IngestionResult; old categorizer (Segment.is_synthetic, Segment.heading_normalized) removed from the pipeline; extraction-eval-harness planned after spec approval and must be a hard gate; several MUST items required formalization. |

@@ -38,8 +38,45 @@ Append-only log of spec revisions. Each delta records the rationale and impact o
 - **Dependencies on `domain-model`**: restructured to reflect rev-4 (12 items, shipped) + rev-5 (7 additional items used by this spec, shipped). T0 is fully shipped; spec is unblocked.
 - **Revision Log**: entry added for rev 2.
 
-### Impact on memory
+### Impact on memory (Delta 2026-04-27)
 - **Pattern (cross-feature):** **Tiered classifier with structural-first / LLM-fallback / manual-override** for high-stakes booleans whose pure-LLM classification is operationally risky. The structural tier is a curated regex list (versioned, pure data); the LLM tier handles edge cases; manual override is a v1.1+ hatch. The acceptance test enforces a minimum fraction of structural classifications to keep the pattern list doing real work. Strong promotion candidate after this spec ships and the ≥80%-structural gate is observed in production.
 - **Pattern (cross-feature):** **Narrowing at the validation boundary, not in a downstream cleanup step.** When an upstream filter excludes specific values (e.g., `categoria === 'general'`), enforce the narrow contract on the validation schema itself via `.refine()`. The "reject and retry with the Zod error in the prompt" pattern gives the LLM one chance to self-correct before the orchestrator sees a hard fail.
 - **Convention (immediate):** **Canonical type ownership for shared interfaces.** When two specs need the same interface (here: `ModelMetadata`, owned by domain-model `src/types/db.ts`, consumed by requisitos-extraction), the consumer imports — never re-declares. Parallel structurally-equivalent declarations produce nominally-distinct types in TypeScript and break narrowing at boundaries. Worth adding to `.nybo/foundation/conventions.yaml` via `/nybo-curate conventions add`.
 - **Cross-spec coupling note:** `HABILITANTE_HEADING_PATTERNS` is co-evolved with this spec's golden corpus. Bumping `HABILITANTE_PATTERNS_VERSION` requires regenerating the corpus annotations (the `is_habilitante_source` distribution may shift). The version stamp is the cache-invalidation contract for any future caching keyed on classifications.
+
+---
+
+## Delta 2026-05-05 — edit | Rev 3: pdf-ingestion contract realignment + eval-harness gate + MUST formalizations
+
+**Mode:** edit
+**Rationale:** Four changes required: (1) pdf-ingestion rev 4 changed its output contract from `Segment[]` to per-page `IngestionResult` — extraction's `ExtractorInput.segments: Segment[]` is stale and replaced by `ingestionResult: IngestionResult`. (2) RN-012 referenced `citation_segment_id` + `isSynthetic`/`general`-segment filtering that lived in a categorizer which no longer exists in the rev-4 pipeline — both the rule and any residual references are removed. RN-007 also referenced the old orchestrator pre-filter that assumed `Segment[]` with `categoria` and `is_synthetic` fields — removed. (3) `extraction-eval-harness` was planned after spec approval and must be wired as a hard Verified gate (RN-019): partial results count as recall=0 for failed categories in the harness metric. (4) Several MUST items formalized: `pagina_fuente`+`quote_fuente` citation with NFKC+whitespace-collapse+case-fold normalization (RN-018); partial result with `warning`+`failed_categories` on single-category second Zod failure (RN-021); three UI states for partial vs missing vs extracted; token logging with distinct `cache_creation_input_tokens`/`cache_read_input_tokens` fields; ADR-010 pipeline position cross-reference (RN-020).
+**Affected domains:** requisito-extraction, pliego-ingestion
+
+### Tasks added
+- T7: extraction-eval-harness Verified Gate — CI eval trigger (`extraction-eval.yml`) + `nybo-verify` gate check against `eval-results/index.md`.
+
+### Tasks modified
+- T1: `ExtractorInput.segments: Segment[]` → `ingestionResult: IngestionResult`; `ExtractorOutput` gains `warning?: string` and `failed_categories?: RequisitoCategoria[]`.
+- T2: `buildCategoryRequest` receives `pages: Page[]`; empty pages rendered as `[PÁGINA VACÍA]` in prompt; system block 1 includes `section_heading` instruction.
+- T3: `verifyCitation` args: `page: Page`, `pagina: number` (not `segment: Segment`); verification applies NFKC + whitespace-collapse + case-fold to both sides; `citation_unverified` replaces `citation_verified` semantics; `assembleRequisitos` takes `pages: Page[]`.
+- T4: No `general`/`is_synthetic` pre-filter (those fields gone); all pages sent to each category call; structural habilitante classification moves to post-validation using LLM-emitted `section_heading`; second Zod failure on one category → partial output + `warning` + `failed_categories`; all-categories failure → `ExtractorSchemaValidationError`; `cost_telemetry` log gains distinct `cache_read_input_tokens`/`cache_creation_input_tokens` fields.
+- T6: Fixture `segments.json` → `ingestionResult.json`; `expected_requisitos.json` gains `pagina_fuente` + `quote_fuente` (replaces `citation_segment_id` / `citation_quote`); assertion for `warning === undefined` on clean fixtures; `pagina_fuente` range assertion.
+
+### Tasks removed
+- None (T0 completed tasks preserved; no pending tasks removed, only modified).
+
+### Rules removed
+- RN-007: general/is_synthetic orchestrator pre-filter — the `Segment.categoria` and `Segment.is_synthetic` fields no longer exist in the per-page model.
+- RN-012: `citation_segment_id`-based verification — replaced by `pagina_fuente` + `quote_fuente` page-level verification.
+
+### Rules added
+- RN-017: Per-page input contract (`IngestionResult` from pdf-ingestion rev 4).
+- RN-018: Citation verification against page index with NFKC + whitespace-collapse + case-fold normalization.
+- RN-019: Hard quality gate — Verified requires passing extraction-eval-harness run; partial results count as recall=0.
+- RN-020: Pipeline position — extraction is downstream consumer per pdf-ingestion ADR-010.
+- RN-021: Partial result surfacing — `warning` + `failed_categories` must not be hidden; three UI states defined.
+
+### Impact on memory (Delta 2026-05-05)
+- **Convention update:** The old `Segment[]`-based contract was a carryover from pre-rev-4 pdf-ingestion. The per-page `IngestionResult` pattern is the new canonical upstream shape for any pipeline component consuming pdf-ingestion output.
+- **Pattern update:** Structural habilitante classification now uses the LLM-emitted `section_heading` field (post-validation) rather than a pre-computed `heading_normalized` on the Segment. Golden corpus regeneration required — `section_heading` quality determines structural-tier hit rate.
+- **Partial result semantics established:** When the extractor cannot extract one category (second Zod failure), it returns a partial result with `warning` + `failed_categories` rather than throwing. Callers must inspect `failed_categories` to distinguish "no requisitos found" from "extraction failed". This pattern may be reusable for other LLM extraction features.

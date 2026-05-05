@@ -13,15 +13,21 @@
   - `JSON.parse` the result. On parse error, throw `ExtractorSchemaValidationError` with the JSON parse error in `validationErrors`.
   - Run `RequisitoExtractionPayloadSchema.safeParse`. On failure, throw `ExtractorSchemaValidationError` with `result.error.issues` in `validationErrors`.
   - Return the typed `RequisitoExtractionPayload`.
-- Export `verifyCitation(args): { verified: boolean }` where `args = { quote: string, segment: Segment }` (REQ-010, RN-012):
-  - Apply the **same NFD-normalization formula** specified in [pdf-ingestion REQ-005](../../../pdf-ingestion/spec/spec.md): `text.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase()`. Use a shared utility if one exists in `@/types` or `lib/`; otherwise import `normalizeText` from `lib/text/` (create if needed — but prefer reuse).
-  - Trim whitespace on both quote and segment text.
-  - Return `{ verified: true }` if the normalized quote is a substring of the normalized segment text, else `{ verified: false }`.
-  - **Must NOT throw** on mismatch (RN-012).
-  - Reject quotes longer than 200 chars by returning `{ verified: false }` (cheaper than letting bad data flow through to citation_quote which has a CHECK constraint on length ≤ 200 in the DB per T0 item 2).
-- Export `assembleRequisitos(payload: RequisitoExtractionPayload, segments: Segment[]): Requisito[]`:
-  - For each requisito in the payload, look up `segment = segments.find(s => s.id === requisito.citation_segment_id)`. If not found, mark `citation_verified: false` and use the original quote anyway (the orchestrator may filter unverified citations).
-  - If found, run `verifyCitation`; set `citation_verified` accordingly.
+- Export `verifyCitation(args): { unverified: boolean }` where `args = { quote: string, pagina: number, pages: Page[] }` (REQ-010, RN-018):
+  - First check: `pagina` must be in range `[1, pages.length]`. If out of range, return `{ unverified: true }` immediately.
+  - Apply **NFKC normalization + whitespace collapse + case-fold** to both `quote` and `pages[pagina - 1].text`:
+    ```ts
+    function normalizeForCitation(s: string): string {
+      return s.normalize('NFKC').replace(/\s+/g, ' ').trim().toLowerCase()
+    }
+    ```
+  - Return `{ unverified: false }` if the normalized quote is a substring of the normalized page text, else `{ unverified: true }`.
+  - **Must NOT throw** on mismatch (RN-018).
+  - Reject quotes longer than 200 chars by returning `{ unverified: true }`.
+  - The stored `quote_fuente` is the original (pre-normalization) string — normalization is applied here only for the check.
+- Export `assembleRequisitos(payload: RequisitoExtractionPayload, pages: Page[]): Requisito[]`:
+  - For each requisito in the payload, call `verifyCitation({ quote: requisito.quote_fuente, pagina: requisito.pagina_fuente, pages })`.
+  - Set `citation_unverified: true` on the requisito if `unverified === true`; otherwise `citation_unverified: false`.
   - Return a `Requisito[]` ready for the orchestrator to persist.
 
 ### Design Rationale (Single Responsibility)
@@ -45,8 +51,10 @@ Independent of T2 (can be implemented in parallel).
   - Markdown-fenced JSON parses successfully (the model sometimes wraps responses).
   - Malformed JSON throws `ExtractorSchemaValidationError` with parse error in `validationErrors`.
   - Schema-invalid JSON throws `ExtractorSchemaValidationError` with Zod issues in `validationErrors`.
-  - Verbatim NFD-normalized substring match → `verified: true`.
-  - Paraphrased / non-substring quote → `verified: false`, no throw.
-  - Quote >200 chars → `verified: false`, no throw.
-  - Cited segment not in `segments` array → requisito returned with `citation_verified: false`.
+  - NFKC + whitespace-collapse + case-fold normalization: `'Capacidad   JURÍDICA'` matches `'capacidad juridica'` in page text → `unverified: false`.
+  - Unicode variant: composed vs decomposed form normalized by NFKC → `unverified: false`.
+  - Paraphrased / non-substring quote → `unverified: true`, no throw.
+  - Quote >200 chars → `unverified: true`, no throw.
+  - `pagina_fuente` out of range → `unverified: true`, no throw (TC-024).
+  - Requisito with in-range `pagina_fuente` and matching quote → `citation_unverified: false` on assembled requisito.
 - [ ] `npm run typecheck` passes.

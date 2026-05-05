@@ -3,6 +3,6 @@ created: "2026-04-26"
 approved_at: "2026-04-26"
 action_type: FEATURE
 profile: code
-updated: "2026-04-27"
-revision_count: 2
-last_revision: "Apply 5 cross-spec edits owed to semaforo-aggregation T0 + reconcile ModelMetadata duplication + fix eligibility-matching dead reference. Adds: categoria denormalization onto Requisito (REQ-006); tiered is_habilitante classifier (REQ-019, RN-016) with structural-first via HABILITANTE_HEADING_PATTERNS, LLM fallback, manual reserved for v1.1+; is_habilitante_source emission; Zod .refine() narrowing categoria at the payload boundary (REQ-021, RN-015); ≥80%-structural acceptance test (REQ-020). REQ-003 changed to import ModelMetadata from @/types (canonical). Dead-name §18 fixed. New TC-019-023, RN-015-016. T0 fully shipped via domain-model rev 4+5."
+updated: "2026-05-05"
+revision_count: 3
+last_revision: "Rev 3 — Input contract: Segment[] → per-page IngestionResult (pdf-ingestion rev 4). RN-007/RN-012 removed (old categorizer refs). extraction-eval-harness wired as hard Verified gate (RN-019); partial results count as recall=0. Citation: citation_segment_id → pagina_fuente + quote_fuente with NFKC+whitespace-collapse+case-fold verification (RN-018). Partial result: warning + failed_categories on single-category second Zod failure; all-categories failure throws (REQ-009, RN-021). Three UI states for partial/missing/extracted. ExtractorOutput gains warning? + failed_categories?. Token logging: distinct cache_creation/cache_read fields. Structural tier uses LLM-emitted section_heading post-validation (REQ-019). Pipeline position per ADR-010 (RN-020). T7 added. TCs 024-027 added."
