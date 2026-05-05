@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, Suspense } from "react";
+import { useState, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Icon } from "@/components/ui";
 import { SemPill } from "@/components/page";
@@ -25,15 +25,10 @@ function UploadInner() {
 
   const [step, setStep] = useState<Step>("link");
   const [mode, setMode] = useState<Mode>("select");
-  const [procesoId, setProcesoId] = useState(params.get("procesoId") ?? "");
+  const [procesoId, setProcesoId] = useState(() => params.get("procesoId") ?? "");
   const [urlValue, setUrlValue] = useState("");
   const [urlStatus, setUrlStatus] = useState<UrlStatus>("idle");
   const [file, setFile] = useState<File | null>(null);
-
-  useEffect(() => {
-    const id = params.get("procesoId");
-    if (id) { setProcesoId(id); setMode("select"); }
-  }, [params]);
 
   const canStart =
     file != null &&

@@ -92,7 +92,7 @@ export default function ResultadoPage() {
             <CardBody>
               <dl className="space-y-2.5 text-sm">
                 {[
-                  ["Proceso", <span className="font-mono">{r.procesoId}</span>],
+                  ["Proceso", <span key="proceso-id" className="font-mono">{r.procesoId}</span>],
                   ["Entidad", r.entidad],
                   ["Objeto", r.objeto],
                   ["Cierre", r.cierre],
