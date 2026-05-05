@@ -4,6 +4,6 @@ profile: code
 created: "2026-05-01"
 approved_at: "2026-05-04"
 owner: Carlos Villa Mercado
-updated: "2026-05-04"
+updated: "2026-05-05"
 revision_count: 2
-last_revision: "MVP scope alignment: single-page form (no wizard); 3-year financial JSONB + balance fields; profile versioning (immutable snapshots); Datos legales section; removed document uploads; completeness warning (not gate); 10 tasks → 8 tasks"
+last_revision: "MVP scope: single form, versioned snapshots, no RUES, no Jurídica, 7 tasks (T1–T3 + T5–T8)"

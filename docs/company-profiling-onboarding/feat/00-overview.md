@@ -24,7 +24,6 @@ flowchart TD
     end
 
     subgraph Services
-        RUES["RUES Lookup\n(2s timeout)"]
         UNSPSC["UNSPSC Search\n(client JSON)"]
         Action["saveCompanyProfile\n(Server Action)"]
     end
@@ -37,7 +36,6 @@ flowchart TD
         Badge["Completeness Badge\n(X/5 sections)"]
     end
 
-    S1 -->|NIT| RUES
     S5 -->|search| UNSPSC
     Form -->|submit| Action
     Action -->|compute indicators + INSERT| CP
@@ -86,9 +84,8 @@ classDiagram
 | T1 | [01-plan-01-primitives.md](./01-plan-01-primitives.md) | Zod schemas + domain types for all 5 form sections | None |
 | T2 | [01-plan-02-migration.md](./01-plan-02-migration.md) | Migration: versioned company_profiles table + RLS + GIN indexes | T1 |
 | T3 | [01-plan-03-kysely-types.md](./01-plan-03-kysely-types.md) | Kysely interface for company_profiles | T2 |
-| T4 | [01-plan-04-rues-lookup.md](./01-plan-04-rues-lookup.md) | RUES lookup service + API route | T1 |
 | T5 | [01-plan-05-unspsc-catalog.md](./01-plan-05-unspsc-catalog.md) | UNSPSC catalog JSON + client-side search util | None |
-| T6 | [01-plan-06-server-actions.md](./01-plan-06-server-actions.md) | saveCompanyProfile (versioned INSERT + indicator computation) + getCompanyProfile | T3, T4 |
+| T6 | [01-plan-06-server-actions.md](./01-plan-06-server-actions.md) | saveCompanyProfile (versioned INSERT + indicator computation) + getCompanyProfile | T3 |
 | T7 | [01-plan-07-profile-form.md](./01-plan-07-profile-form.md) | Single-page profile form UI (5 sections, dynamic lists, UNSPSC multi-select) | T5, T6 |
 | T8 | [01-plan-08-dashboard-completeness.md](./01-plan-08-dashboard-completeness.md) | Dashboard completeness badge; wire form into /onboarding and /config/perfil routes | T7 |
 
@@ -99,7 +96,6 @@ flowchart LR
     T1["T1: Primitives"]
     T2["T2: Migration"]
     T3["T3: Kysely Types"]
-    T4["T4: RUES Lookup"]
     T5["T5: UNSPSC Catalog"]
     T6["T6: Server Actions"]
     T7["T7: Profile Form"]
@@ -107,9 +103,7 @@ flowchart LR
 
     T1 --> T2
     T2 --> T3
-    T1 --> T4
     T3 --> T6
-    T4 --> T6
     T5 --> T7
     T6 --> T7
     T7 --> T8

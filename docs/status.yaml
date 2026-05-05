@@ -1,4 +1,9 @@
 features:
+  extraction-eval-harness:
+    status: draft
+    created: "2026-05-05"
+    action_type: FEATURE
+    profile: code
   pliego-upload:
     status: approved
     created: "2026-05-04"
@@ -67,9 +72,9 @@ features:
     approved_at: "2026-04-26"
     action_type: FEATURE
     profile: code
-    updated: "2026-04-27"
-    revision_count: 2
-    last_revision: "5 cross-spec edits from semaforo-aggregation T0 + ModelMetadata import reconciliation + eligibility-matching dead-name fix. Tiered is_habilitante classifier (structural-first, LLM-fallback), categoria narrowing at Zod boundary, ≥80%-structural acceptance test. T0 fully shipped via domain-model rev 4+5."
+    updated: "2026-05-05"
+    revision_count: 3
+    last_revision: "Rev 3 — IngestionResult input, RN-007/RN-012 removed, extraction-eval-harness hard gate (RN-019), pagina_fuente+quote_fuente citation with NFKC normalization (RN-018), partial result warning+failed_categories (RN-021), explicit token log fields, section_heading structural tier post-validation, ADR-010 pipeline position (RN-020), T7 added."
   semaforo-aggregation:
     status: approved
     created: "2026-04-27"
@@ -130,9 +135,9 @@ features:
     action_type: FEATURE
     profile: code
     owner: Carlos Villa Mercado
-    updated: "2026-05-04"
+    updated: "2026-05-05"
     revision_count: 2
-    last_revision: "MVP scope: single-page form; 3-year financial JSONB; profile versioning; removed doc uploads; completeness badge (not gate); 10→8 tasks"
+    last_revision: "MVP scope: single form, versioned snapshots, no RUES, no Jurídica, 7 tasks (T1–T3 + T5–T8)"
   domain-model-mvp:
     status: approved
     created: "2026-05-04"

@@ -20,10 +20,6 @@
 - [ ] Implement T3: CompanyProfileTable interface (no Updateable export); add to Database interface
 - [ ] Verify T3: Build passes; no UpdateableCompanyProfile type; Database includes company_profiles
 
-### T4: RUES Lookup Service
-- [ ] Implement T4: lookupByNit with 2s AbortController timeout; POST /api/empresa/rues-lookup; returns razon_social, representante_legal_nombre, domicilio_principal
-- [ ] Verify T4: Timeout returns { found: false }; HTTP 500 returns { found: false }; valid response maps correctly
-
 ### T5: UNSPSC Catalog
 - [ ] Implement T5: unspsc-v23.json catalog; searchUnspsc util with lazy import; max 20 results
 - [ ] Verify T5: software/construccion queries return correct results; empty query returns []

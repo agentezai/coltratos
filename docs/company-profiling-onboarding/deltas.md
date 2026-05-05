@@ -1,3 +1,23 @@
+## Delta 2026-05-05 — edit | Rev 2 final: remove RUES from scope
+
+**Mode:** edit
+**Rationale:** Discovery answers did not include RUES auto-fill. User approved checkpoint explicitly listing RUES removal. Manual NIT entry + server-side DV validation (Modulo 11) is sufficient for the MVP form.
+**Affected domains:** empresa-profile, integrations
+
+### Tasks added
+- None
+
+### Tasks modified
+- T6: dependency on T4 (RUES) removed; now depends only on T3
+
+### Tasks removed
+- T4 (RUES Lookup Service) — not in user's discovery answers; manual entry sufficient
+
+### Impact on memory
+- integrations domain: RUES API is not part of the company-profiling-onboarding MVP flow; no T4 to implement
+
+---
+
 ## Delta 2026-05-04 — edit | Rev 2: MVP scope alignment
 
 **Mode:** edit  
