@@ -1,4 +1,10 @@
 features:
+  pliego-upload:
+    status: approved
+    created: "2026-05-04"
+    approved_at: "2026-05-04"
+    action_type: FEATURE
+    profile: code
   ingesta-secop:
     status: draft
     created: "2026-05-01"
@@ -49,12 +55,12 @@ features:
   pdf-ingestion:
     status: approved
     created: "2026-04-26"
-    approved_at: "2026-04-26"
+    approved_at: "2026-05-04"
     action_type: FEATURE
     profile: code
-    updated: "2026-04-27"
-    revision_count: 3
-    last_revision: "Add process.env.* + @anthropic-ai/sdk to NFR-03 (cross-spec purity-grep parity); converge logger detection to enumeration; fix residual claude-extraction → requisitos-extraction stale references; fix three Documento leftovers + verify.md documento_id. No functional changes."
+    updated: "2026-05-04"
+    revision_count: 4
+    last_revision: "Rev 4 — Re-plan to align with mvp-scope §59 + queue-fed pipeline. Pure function → queue-fed worker (entrypoint side-effectful in src/services/ingestion-worker/, inner pipeline pure in lib/ingestion/). Adds OCR (Tesseract spa) + library-based tables (pdfplumber subprocess) + empty-page flagging as in-scope. ADR-005 superseded by ADR-010; new ADRs 008/009/010/011/012. T8 idempotency expanded verbatim on pliego_upload_id. NFR-03 scope lib/ingestion/** reaffirmed (worker exempt). T0 satisfied externally by domain-model-mvp rev 1. Corpus N=20 / <5% page-failure / p95 <2 min on 200 pages. requisitos-extraction RN-012 obsolescence captured as Sprint 3 TODO."
   requisitos-extraction:
     status: approved
     created: "2026-04-26"
@@ -133,3 +139,6 @@ features:
     approved_at: "2026-05-04"
     action_type: CREATE
     profile: code
+    updated: "2026-05-04"
+    revision_count: 1
+    last_revision: "Rev 1: (a) Authority resolution — single source of truth for MVP schema; supersedes domain-model-{primitives, extraction-contracts, postgres}. (b) Ingestion schema — adds pliego_uploads ingestion columns + pdf_pages table per pdf-ingestion rev 4 dependencies."
