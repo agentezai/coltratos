@@ -1,8 +1,8 @@
 status: approved
 created: "2026-04-26"
-approved_at: "2026-04-26"
+approved_at: "2026-05-04"
 action_type: FEATURE
 profile: code
-updated: "2026-04-27"
-revision_count: 3
-last_revision: "Add process.env.* + @anthropic-ai/sdk to NFR-03 grep (closes parity gap with requisitos-extraction REQ-017 and semaforo-aggregation REQ-013); converge logger detection from regex /log(ger)?/i to enumeration (pino, winston, bunyan, @logtape/, in-house placeholder); fix residual claude-extraction → requisitos-extraction stale references (RN-012, §293, §311 Mermaid, 00-overview, use-cases UC-03); fix three Documento leftovers (RN-001 file_hash, RN-008 redefine list, Tradeoffs caching); fix verify.md documento_id → pliego_id. No functional changes; tightens cross-spec purity-grep parity and closes the vocabulary-audit findings."
+updated: "2026-05-04"
+revision_count: 4
+last_revision: "Rev 4 — Re-plan to align with mvp-scope §59 + queue-fed pipeline. Pure function → queue-fed worker (entrypoint side-effectful in src/services/ingestion-worker/, inner pipeline pure in lib/ingestion/). Adds OCR (Tesseract spa) + library-based tables (pdfplumber subprocess) + empty-page flagging as in-scope. ADR-005 superseded by ADR-010 (queue-worker boundary). New ADRs: 008 (pdfplumber subprocess), 009 (Railway/Fly.io), 010 (worker boundary), 011 (writeback via repository port), 012 (Supabase pgmq + pg-boss fallback note). T8 idempotency expanded verbatim on pliego_upload_id (status upsert + page upsert + status check at entry + concurrency control via pgmq visibility timeout OR advisory lock). NFR-03 scope lib/ingestion/** reaffirmed (worker exempt by design). T0 satisfied externally by domain-model-mvp rev 1 (pliego_uploads ingestion cols + pdf_pages table + ADR-013). Eval corpus N=20 / <5% page-failure / p95 <2 min on 200 pages. Cross-spec follow-up: requisitos-extraction RN-012 (synthetic + general filter) is obsolete and must be retired in a separate Sprint 3 edit session — captured as TODO in this rev's deltas. Paused/resumed sequence: rev 3 approved 2026-04-27; mvp-scope.md consolidated 2026-04-28; pilot-research 2026-05-04 established queue-fed pipeline; storage-shape decision per-page rows; cross-spec follow-ups tracked. All 15 prior task checkboxes were unchecked at re-plan time; no work lost."
