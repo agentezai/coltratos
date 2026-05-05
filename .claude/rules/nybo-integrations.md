@@ -4,8 +4,9 @@
 
 # integrations domain Conventions
 
-- **MUST** call the datos.gov.co SODA API by `numero_proceso` only — single-record lookup, no browse/search. Source: docs/mvp-definition.md §5 (SECOP II Proceso lookup).
-- **MUST** cache datos.gov.co responses server-side with a 24-hour TTL — Procesos rarely change once published. Source: docs/mvp-definition.md §5 (SECOP II Proceso lookup).
+- **MUST** use datos.gov.co SODA API in exactly two patterns: (a) **bulk sync** — fetch all currently-open Procesos into `procesos_index` on a 6-hour cadence, storing `numero_proceso`, `entidad`, `objeto_a_contratar`, `modalidad`, `valor_estimado`, `fecha_apertura`, `fecha_cierre`; (b) **single-record lookup** by `numero_proceso` as fallback for Procesos not found in the index. **MUST NOT** add a third usage pattern without updating this file. Source: docs/mvp-definition.md §5 (SECOP II Proceso lookup) + 2026-05-04 pilot-research conversation
+<!-- updated: 2026-05-04 | feature: discovery-pivot | confidence: high -->
+- **MUST** cache datos.gov.co single-record lookup responses server-side with a 24-hour TTL — Procesos rarely change once published. (Bulk sync runs on its own 6h cadence; TTL does not apply to the sync job.) Source: docs/mvp-definition.md §5 (SECOP II Proceso lookup)
 - **MUST** fall back gracefully to manual entry when the lookup returns nothing or errors — never block the user behind the integration. Source: docs/mvp-definition.md §3 step 5, §5.
 - **MUST** use Anthropic Claude Sonnet for requisito extraction. Source: docs/mvp-definition.md §5 (Extraction).
 - **MUST** enable Anthropic prompt caching on both the system prompt and the document content — this is the lever that makes the per-analysis cost target (≤$0.04 on 200 pages) achievable. Source: docs/mvp-definition.md §4, §5 (Extraction).
@@ -16,3 +17,5 @@
 - **MUST** extract PDF text with text-layer first, OCR (Tesseract or a cheap API) as fallback for image-only pages, and library-based table parsing — never regex on PDF text. Source: docs/mvp-definition.md §5 (PDF handling).
 - **MUST** flag pages that yield no extractable content in the analysis result, never silently drop them. Source: docs/mvp-definition.md §5 (PDF handling), quality bar #5.
 - **MUST NOT** scrape SECOP II for pliegos — the document is not in the API; manual upload is the constraint. Source: docs/mvp-definition.md §5 (SECOP II Proceso lookup), §6.
+- **MUST** use OpenAI `text-embedding-3-small` for embedding `objeto_a_contratar` fields during bulk sync into `procesos_index`. Embeddings stored as pgvector in Supabase. Cost ceiling: <$2/year at MVP scale (≈ 50k Procesos/year × 128 tokens × $0.00002/1k tokens). **MUST** be included in the cost-observability dashboard. Source: docs/product/mvp-definition.md §5 + 2026-05-04 pilot-research conversation
+<!-- updated: 2026-05-04 | feature: discovery-pivot | confidence: high -->

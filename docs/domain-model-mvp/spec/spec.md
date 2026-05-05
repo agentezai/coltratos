@@ -2,7 +2,7 @@
 
 ## Intention
 
-Establishes the complete, multi-tenant Postgres data model for the COLTRATOS MVP: discovery (`procesos_index` with pgvector embeddings), pliego upload with full audit trail, PDF page-level extraction storage, requisito extraction, semáforo verdicts, and per-analysis observability. Every other MVP spec (`ingesta-secop`, `pliego-upload`, `pdf-ingestion`, `requisitos-extraction`, `semaforo-aggregation`, `company-profiling-onboarding`) depends on the schema defined here — a wrong column cascades into rework across all of them.
+Establishes the complete, multi-tenant Postgres data model for the COLTRATOS MVP: discovery (`procesos_index` with pgvector embeddings), pliego upload with full audit trail, PDF page-level extraction storage, requisito extraction, semáforo verdicts, per-analysis observability, and structured telemetry event tables (`analysis_events`, `embedding_events`, `search_events`) required by the cost-observability dashboard. Every other MVP spec (`ingesta-secop`, `pliego-upload`, `pdf-ingestion`, `requisitos-extraction`, `semaforo-aggregation`, `company-profiling-onboarding`) depends on the schema defined here — a wrong column cascades into rework across all of them.
 
 This spec defines a greenfield schema aligned with the 2026-05-04 pilot-research domain model and the 2026-05-04 storage-shape decision for per-page PDF extraction.
 
@@ -56,6 +56,12 @@ Detailed scenarios in [use-cases.md](./use-cases.md).
 | REQ-012 | Create indexes: `btree` on all FK columns (including **`pdf_pages.pliego_upload_id`**); `ivfflat` on `procesos_index.embedding vector_cosine_ops`; `GIN` on `procesos.datos_gov_snapshot` and `analyses.proceso_metadata_snapshot`; `btree` on `procesos.numero_proceso`, `procesos_index.numero_proceso`, `pliego_uploads.file_sha256`, `analyses.company_id + created_at`. (Note: no GIN index on `pdf_pages.tables` — extracted-table JSONB is consumed by ID, not searched) | US-01, US-03 | RN-001 |
 | REQ-013 | Provide a seed migration demonstrating multi-tenant isolation: insert two companies with distinct users, one shared proceso, and two pliego_upload + analysis rows — verify RLS blocks cross-company reads | US-04 | RN-015 |
 | REQ-014 | Create `pdf_pages` table (tenant-scoped via `pliego_uploads.uploaded_by_company_id`): composite PK `(pliego_upload_id, page_number)`; `pliego_upload_id uuid NOT NULL REFERENCES pliego_uploads(id) ON DELETE CASCADE`; `page_number int NOT NULL CHECK (page_number >= 1)`; `text text NOT NULL DEFAULT ''`; `tables jsonb NOT NULL DEFAULT '[]'`; `extraction_method text NOT NULL CHECK (extraction_method IN ('text_layer','ocr','table_parser','empty'))`; `confidence numeric(5,4) CHECK (confidence IS NULL OR confidence BETWEEN 0 AND 1)`; `flags text[] NOT NULL DEFAULT '{}'` (controlled vocabulary: `'no_text_extracted'`, `'ocr_low_confidence'`, `'table_parse_failed'`, `'image_only'`); `created_at timestamptz NOT NULL DEFAULT now()`. Per-page upsert allowed on the composite PK. Owned by the `pdf-ingestion` service | US-02, US-03 | RN-002, RN-017, RN-018 |
+| REQ-015 | Create `analysis_events` append-only table: `id uuid PK DEFAULT gen_random_uuid()`, `analysis_id uuid NOT NULL REFERENCES analyses(id) ON DELETE CASCADE`, `event_type text NOT NULL CHECK (event_type IN ('extraction','repair_retry','ocr_fallback','matching'))`, `stage text NOT NULL CHECK (stage IN ('ingestion','extraction','matching'))`, `started_at timestamptz NOT NULL`, `completed_at timestamptz NOT NULL`, `input_tokens int NOT NULL DEFAULT 0`, `output_tokens int NOT NULL DEFAULT 0`, `cached_tokens int NOT NULL DEFAULT 0`, `uncached_tokens int NOT NULL DEFAULT 0`, `cost_usd numeric(10,6) NOT NULL DEFAULT 0`, `model text NOT NULL`, `pliego_sha256 text` (nullable — denormalized from `pliego_uploads.file_sha256` for diagnostic queries; `analyses` and `pliego_uploads` remain authoritative), `metadata jsonb NOT NULL DEFAULT '{}'`, `created_at timestamptz NOT NULL DEFAULT now()`. No UPDATE or DELETE path. `ENABLE ROW LEVEL SECURITY` | US-05 | RN-019, RN-022 |
+| REQ-016 | Create `embedding_events` append-only table: `id uuid PK DEFAULT gen_random_uuid()`, `company_id uuid REFERENCES companies(id) ON DELETE SET NULL` (nullable — bulk sync has no company context), `use_case text NOT NULL CHECK (use_case IN ('sync','search_query'))`, `input_tokens int NOT NULL DEFAULT 0`, `cost_usd numeric(10,6) NOT NULL DEFAULT 0`, `model text NOT NULL`, `created_at timestamptz NOT NULL DEFAULT now()`. No UPDATE or DELETE path. `ENABLE ROW LEVEL SECURITY` | US-05 | RN-019, RN-020, RN-022 |
+| REQ-017 | Create `search_events` append-only table: `id uuid PK DEFAULT gen_random_uuid()`, `company_id uuid NOT NULL REFERENCES companies(id) ON DELETE RESTRICT`, `query_text text NOT NULL DEFAULT ''`, `filters jsonb NOT NULL DEFAULT '{}'`, `result_count int NOT NULL DEFAULT 0`, `clicked_ids uuid[] NOT NULL DEFAULT '{}'`, `created_at timestamptz NOT NULL DEFAULT now()`. No DELETE path; `clicked_ids` may be updated via `array_append` by the click-tracking endpoint (the sole permitted mutation — documented exception to append-only). `ENABLE ROW LEVEL SECURITY` | US-05 | RN-019, RN-021, RN-022 |
+| REQ-018 | Add typed columns to `analyses` (in the same migration as REQ-015–REQ-017 or as a separate ALTER TABLE): `extraction_outcome text CHECK (extraction_outcome IN ('success','partial','failure'))`, `requisito_count int`, `count_verde int`, `count_amarillo int`, `count_rojo int`. All nullable — pre-rev-2 rows have NULL; pipeline writes all five at end of each analysis run | US-05 | RN-023 |
+| REQ-019 | Apply RLS to `analysis_events`, `embedding_events`, `search_events`: SELECT policy `USING ((SELECT role FROM users WHERE id = auth.uid()) = 'admin')`. No INSERT policy from client — `TelemetryLogger` writes via service-role key server-side. No UPDATE or DELETE from client | US-05 | RN-022 |
+| REQ-020 | Create indexes for telemetry query patterns: `btree` on `analysis_events(analysis_id)` (cost aggregation by analysis); `btree` on `analysis_events(created_at)` (time-window filter); `btree` on `analysis_events(stage, created_at)` (latency percentiles by stage); `btree` on `analysis_events(pliego_sha256)` (hash diagnostic); `btree` on `embedding_events(created_at)` and `embedding_events(company_id)`; `btree` on `search_events(company_id, created_at)` and `search_events(created_at)`; `GIN` on `search_events(clicked_ids)` (click-through array queries); `btree` on `analyses(extraction_outcome)` (extraction quality rates) | US-05 | RN-001 |
 
 ### Non-Functional Requirements
 
@@ -91,6 +97,11 @@ Detailed scenarios in [use-cases.md](./use-cases.md).
 | RN-016 | `pliego_uploads.ingestion_status` lifecycle MUST follow the linear progression `pending → running → completed` OR `pending → running → failed`. Backwards transitions (e.g. `completed → pending`) are not permitted; re-ingestion creates a new `pliego_uploads` row, never mutates an existing one. The `pdf-ingestion` service is the sole writer of these columns; on failure, `ingestion_failure_reason` MUST be populated from the controlled vocabulary |
 | RN-017 | `pdf_pages` rows are written one-per-page-per-pliego on the `(pliego_upload_id, page_number)` composite PK. The ingestion service uses `INSERT ... ON CONFLICT (pliego_upload_id, page_number) DO UPDATE` to support partial-retry idempotency. Pages with no extractable content MUST be inserted with `text = ''`, `extraction_method = 'empty'`, and the `'no_text_extracted'` flag — never silently dropped (per integrations.md PDF-handling convention) |
 | RN-018 | `pdf_pages` RLS policy uses the join chain `pdf_pages.pliego_upload_id → pliego_uploads.uploaded_by_company_id`. The policy pattern is: `USING (pliego_upload_id IN (SELECT id FROM pliego_uploads WHERE uploaded_by_company_id = (SELECT company_id FROM users WHERE id = auth.uid())))`. Service-role writes by `pdf-ingestion` bypass RLS; user-facing reads are RLS-scoped |
+| RN-019 | `analysis_events`, `embedding_events`, and `search_events` are append-only. No UPDATE or DELETE path — rows are retained indefinitely for historical trend analysis. Exception: `search_events.clicked_ids` may be mutated via `array_append` by the dedicated click-tracking endpoint (`POST /api/search/click`) — this is the only permitted post-insert mutation across the three event tables |
+| RN-020 | `embedding_events.company_id` is nullable — bulk sync calls run as a system job with no company context. Queries aggregating embedding costs must handle NULLs explicitly (e.g. `WHERE company_id IS NULL` for system-driven calls vs. `WHERE company_id IS NOT NULL` for user-driven search queries) |
+| RN-021 | `search_events.clicked_ids` defaults to `'{}'` (empty uuid array). The click-tracking endpoint appends to this array post-insert. A non-empty `clicked_ids` signals user engagement and is the source for click-through rate metrics |
+| RN-022 | `analysis_events`, `embedding_events`, and `search_events` are admin-only via RLS. JWT SELECT policy: `USING ((SELECT role FROM users WHERE id = auth.uid()) = 'admin')`. Pilot user JWTs see zero rows. The cost-observability dashboard reads via service-role key server-side (which bypasses RLS). `TelemetryLogger` writes via service-role key — no client INSERT policy needed |
+| RN-023 | `analyses.extraction_outcome`, `analyses.requisito_count`, `analyses.count_verde`, `analyses.count_amarillo`, and `analyses.count_rojo` are nullable — rows created before this spec is deployed have NULL values. The pipeline writes all five at the end of each analysis run. Dashboard queries MUST exclude NULL rows from percentage and average calculations rather than treating NULL as failure |
 
 ---
 
@@ -241,6 +252,46 @@ Detailed scenarios in [use-cases.md](./use-cases.md).
 **When** user_a executes `SELECT count(*) FROM pdf_pages`
 **Then** count = 3 (only company A's pages are visible — company B's are filtered out via the join chain)
 
+### TC-021 — analysis_events CHECK rejects invalid event_type (REQ-015, RN-019)
+
+**Given** the rev 2 migration applied
+**When** `INSERT INTO analysis_events (..., event_type, ...) VALUES (..., 'inference', ...)`
+**Then** Postgres rejects with a CHECK constraint violation
+**When** inserted with `'extraction'`, `'repair_retry'`, `'ocr_fallback'`, or `'matching'`
+**Then** each insert succeeds
+
+### TC-022 — embedding_events accepts NULL company_id (REQ-016, RN-020)
+
+**Given** the rev 2 migration applied
+**When** `INSERT INTO embedding_events (company_id, use_case, input_tokens, cost_usd, model) VALUES (NULL, 'sync', 500, 0.00001, 'text-embedding-3-small')`
+**Then** the insert succeeds; row is retrievable via service-role client
+
+### TC-023 — search_events clicked_ids defaults to empty array (REQ-017, RN-021)
+
+**Given** the rev 2 migration applied
+**When** `INSERT INTO search_events (company_id, query_text, filters, result_count) VALUES ($1, 'consultoría', '{}', 8)` (no `clicked_ids` supplied)
+**Then** the inserted row has `clicked_ids = '{}'`
+
+### TC-024 — event tables RLS blocks non-admin user (REQ-019, RN-022)
+
+**Given** an authenticated user with `role = 'member'`
+**When** the user executes `SELECT * FROM analysis_events` (or `embedding_events`, or `search_events`)
+**Then** zero rows are returned (RLS filters all rows)
+
+### TC-025 — analyses.extraction_outcome CHECK rejects unknown value (REQ-018, RN-023)
+
+**Given** the rev 2 migration applied
+**When** `UPDATE analyses SET extraction_outcome = 'unknown' WHERE id = $1` (service-role)
+**Then** Postgres rejects with a CHECK constraint violation
+**When** set to `'success'`, `'partial'`, or `'failure'`
+**Then** each update succeeds
+
+### TC-026 — analyses typed columns accept NULL (REQ-018, RN-023)
+
+**Given** the rev 2 migration applied and an `analyses` row inserted without specifying typed columns
+**When** `SELECT extraction_outcome, requisito_count, count_verde, count_amarillo, count_rojo FROM analyses WHERE id = $1`
+**Then** all five columns return NULL (nullable backward compatibility verified)
+
 ---
 
 ## UX/UI
@@ -370,6 +421,11 @@ erDiagram
         int cached_tokens
         numeric cost_usd
         int latency_ms
+        text extraction_outcome
+        int requisito_count
+        int count_verde
+        int count_amarillo
+        int count_rojo
     }
     requisitos {
         uuid id PK
@@ -399,6 +455,42 @@ erDiagram
     pliego_uploads ||--o{ pdf_pages : "extracted into"
     analyses ||--o{ requisitos : "extracts"
     requisitos ||--o{ verdicts : "receives verdict"
+    analyses ||--o{ analysis_events : "produces"
+    analysis_events {
+        uuid id PK
+        uuid analysis_id FK
+        text event_type
+        text stage
+        timestamptz started_at
+        timestamptz completed_at
+        int input_tokens
+        int output_tokens
+        int cached_tokens
+        int uncached_tokens
+        numeric cost_usd
+        text model
+        text pliego_sha256
+        jsonb metadata
+        timestamptz created_at
+    }
+    embedding_events {
+        uuid id PK
+        uuid company_id
+        text use_case
+        int input_tokens
+        numeric cost_usd
+        text model
+        timestamptz created_at
+    }
+    search_events {
+        uuid id PK
+        uuid company_id FK
+        text query_text
+        jsonb filters
+        int result_count
+        uuid_array clicked_ids
+        timestamptz created_at
+    }
 ```
 
 ### API / Data Contracts
@@ -415,8 +507,9 @@ No HTTP endpoints. Migration files under `supabase/migrations/`.
 | `pliego-upload` | Downstream consumer | Inserts `pliego_uploads` rows (initial state — `ingestion_status = 'pending'`) |
 | `pdf-ingestion` | Downstream consumer | Sole writer of `pliego_uploads.ingestion_*` columns (lifecycle) and `pdf_pages` rows (per-page upsert on composite PK) |
 | `requisitos-extraction` | Downstream consumer | Reads `pdf_pages` for source text + table content; inserts `analyses` and `requisitos` rows |
-| `semaforo-aggregation` | Downstream consumer | Inserts `verdicts` rows; updates `analyses.verdict` and `analyses.estado` |
+| `semaforo-aggregation` | Downstream consumer | Inserts `verdicts` rows; updates `analyses.verdict`, `analyses.estado`, `analyses.count_verde`, `analyses.count_amarillo`, `analyses.count_rojo` |
 | `company-profiling-onboarding` | Downstream consumer | Inserts/updates `company_profiles` |
+| `cost-observability` (`TelemetryLogger`) | Downstream writer (service-role) | Inserts rows into `analysis_events`, `embedding_events`, `search_events`; updates `analyses.extraction_outcome`, `analyses.requisito_count`, `analyses.count_verde/amarillo/rojo` at pipeline end |
 
 ---
 
@@ -427,6 +520,7 @@ No HTTP endpoints. Migration files under `supabase/migrations/`.
 | `domain-model-extraction-contracts` | Upstream (partial — non-schema constants only) | `HABILITANTE_HEADING_PATTERNS`, `HABILITANTE_PATTERNS_VERSION`, `ExtractorLogger` interface, and the in-memory `Semaforo` / `SemaforoStats` / `RequisitoCategoria` / `IsHabilitanteSource` view types remain valid and are imported from `@/types`. Schema-bearing parts are superseded — see Authority & Supersession |
 | `pdf-ingestion` | Downstream consumer (depends on this schema) | Owns the `pliego_uploads.ingestion_*` lifecycle columns and the `pdf_pages` table per ADR-013. `pdf-ingestion` rev 4 is unblocked by this spec |
 | `mvp-scope.md §59` | Upstream constraint | PDF ingestion storage shape and per-page flag surfacing are mandated by MVP scope §59 |
+| `cost-observability` rev 2 | Downstream dependent | Defines the data contracts for `analysis_events` (REQ-001), `embedding_events` (REQ-002), `search_events` (REQ-003), and typed columns on `analyses` (REQ-016/REQ-018). DDL authority lives here; cost-observability carries forward references only |
 
 ---
 
@@ -436,3 +530,4 @@ No HTTP endpoints. Migration files under `supabase/migrations/`.
 |------|--------|--------|
 | 2026-05-04 | Initial spec created | New discovery-first domain model from 2026-05-04 pilot-research: `companies`, `users`, `company_profiles`, `procesos`, `procesos_index` (pgvector), `pliego_uploads`, `analyses`, `requisitos`, `verdicts` |
 | 2026-05-04 | Rev 1: (a) Authority resolution — single source of truth for MVP schema; supersedes domain-model-{primitives, extraction-contracts, postgres}. (b) Ingestion schema — adds pliego_uploads ingestion columns + pdf_pages table per pdf-ingestion rev 4 dependencies | Aligns MVP schema authority across three predecessor specs (eliminates ambiguity for downstream readers) and unblocks pdf-ingestion rev 4 by landing the per-page storage shape decided 2026-05-04 |
+| 2026-05-05 | Rev 2: Telemetry schema for cost-observability — adds `analysis_events`, `embedding_events`, `search_events` tables (REQ-015–REQ-017); typed observability columns on `analyses` (REQ-018); admin-only RLS for event tables (REQ-019); telemetry indexes (REQ-020); RN-019–023; TC-021–026; T11 task | cost-observability rev 2 spec approved; DDL authority belongs here per forward-reference contract |

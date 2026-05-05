@@ -108,3 +108,17 @@ When `.nybo/` is absent and the user's message matches a workflow intent:
 | 6 | Key invariants or business rules every agent must respect | Never — must ask |
 | 7 | Team conventions not visible in code (naming, error handling, patterns) | Never — must ask |
 | 8 | AI tools in use (Claude Code, Cursor, Copilot, Windsurf) | Never — must ask |
+
+## Model switching
+
+Each nybo agent is pinned to a recommended Claude model. To check which model
+an agent uses and get the exact switch command:
+
+```
+nybo use planning    # Opus 4.7 · /model claude-opus-4-7
+nybo use executor    # Sonnet 4.6 · /model claude-sonnet-4-6
+nybo use guardian    # Haiku 4.5 · /model claude-haiku-4-5-20251001
+```
+
+Run `/model <id>` in Claude Code to switch the active session to the agent's
+recommended model before delegating to that subagent.

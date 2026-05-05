@@ -397,3 +397,99 @@ before implementing each migration task (Red), then implements (Green), then ref
 
 **Test file:** `supabase/tests/domain-model-mvp.sql`
 **Framework:** pgTAP
+
+---
+
+## Task T11: Create Telemetry Event Tables
+
+### Behavior: analysis_events event_type CHECK rejects invalid value (REQ-015, RN-019, TC-021)
+
+**Given** the T11 migration has been applied
+**When** `INSERT INTO analysis_events (..., event_type, stage, ...) VALUES (..., 'inference', 'extraction', ...)`
+**Then** Postgres raises a CHECK constraint violation
+**When** inserted with `'extraction'`, `'repair_retry'`, `'ocr_fallback'`, `'matching'`
+**Then** each insert succeeds
+
+**Test file:** `supabase/tests/domain-model-mvp.sql`
+**Framework:** pgTAP
+
+---
+
+### Behavior: analysis_events pliego_sha256 is nullable (REQ-015, RN-019)
+
+**Given** the T11 migration has been applied
+**When** `INSERT INTO analysis_events (..., pliego_sha256) VALUES (..., NULL)` (service-role)
+**Then** insert succeeds; `pliego_sha256 IS NULL` on the row
+
+**Test file:** `supabase/tests/domain-model-mvp.sql`
+**Framework:** pgTAP
+
+---
+
+### Behavior: embedding_events accepts NULL company_id (REQ-016, RN-020, TC-022)
+
+**Given** the T11 migration has been applied
+**When** `INSERT INTO embedding_events (company_id, use_case, input_tokens, cost_usd, model) VALUES (NULL, 'sync', 500, 0.00001, 'text-embedding-3-small')`
+**Then** insert succeeds; row is retrievable via service-role
+
+**Test file:** `supabase/tests/domain-model-mvp.sql`
+**Framework:** pgTAP
+
+---
+
+### Behavior: search_events clicked_ids defaults to empty array (REQ-017, RN-021, TC-023)
+
+**Given** the T11 migration has been applied
+**When** `INSERT INTO search_events (company_id, query_text, filters, result_count) VALUES ($1, 'consultoría', '{}', 8)` without `clicked_ids`
+**Then** inserted row has `clicked_ids = '{}'`
+
+**Test file:** `supabase/tests/domain-model-mvp.sql`
+**Framework:** pgTAP
+
+---
+
+### Behavior: event tables RLS blocks member JWT (REQ-019, RN-022, TC-024)
+
+**Given** an authenticated session with `role = 'member'`
+**When** `SELECT count(*) FROM analysis_events` (or `embedding_events`, or `search_events`)
+**Then** count = 0 (RLS filters all rows)
+
+**Test file:** `supabase/tests/domain-model-mvp.sql`
+**Framework:** pgTAP
+
+---
+
+### Behavior: event tables RLS enabled (REQ-019, RN-022)
+
+**Given** the T11 migration has been applied
+**When** `SELECT relrowsecurity FROM pg_class WHERE relname IN ('analysis_events','embedding_events','search_events')`
+**Then** all three rows return `true`
+
+**Test file:** `supabase/tests/domain-model-mvp.sql`
+**Framework:** pgTAP
+
+---
+
+## Task T4 addendum: analyses typed observability columns
+
+### Behavior: analyses.extraction_outcome CHECK rejects unknown value (REQ-018, RN-023, TC-025)
+
+**Given** the T4 migration has been applied
+**When** `UPDATE analyses SET extraction_outcome = 'unknown' WHERE id = $1` (service-role)
+**Then** Postgres raises a CHECK constraint violation
+**When** set to `'success'`, `'partial'`, or `'failure'`
+**Then** each succeeds
+
+**Test file:** `supabase/tests/domain-model-mvp.sql`
+**Framework:** pgTAP
+
+---
+
+### Behavior: analyses typed columns accept NULL (REQ-018, RN-023, TC-026)
+
+**Given** an `analyses` row inserted without specifying typed columns
+**When** `SELECT extraction_outcome, requisito_count, count_verde, count_amarillo, count_rojo FROM analyses WHERE id = $1`
+**Then** all five columns return NULL
+
+**Test file:** `supabase/tests/domain-model-mvp.sql`
+**Framework:** pgTAP

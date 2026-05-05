@@ -141,12 +141,18 @@ features:
     updated: "2026-05-05"
     revision_count: 2
     last_revision: "MVP scope: single form, versioned snapshots, no RUES, no Jurídica, 7 tasks (T1–T3 + T5–T8)"
+  cost-observability:
+    status: approved
+    created: "2026-05-05"
+    approved_at: "2026-05-05"
+    action_type: ADD
+    profile: code
   domain-model-mvp:
     status: approved
     created: "2026-05-04"
     approved_at: "2026-05-04"
     action_type: CREATE
     profile: code
-    updated: "2026-05-04"
-    revision_count: 1
-    last_revision: "Rev 1: (a) Authority resolution — single source of truth for MVP schema; supersedes domain-model-{primitives, extraction-contracts, postgres}. (b) Ingestion schema — adds pliego_uploads ingestion columns + pdf_pages table per pdf-ingestion rev 4 dependencies."
+    updated: "2026-05-05"
+    revision_count: 2
+    last_revision: "Rev 2: Telemetry schema — analysis_events, embedding_events, search_events tables; typed observability columns on analyses; admin-only RLS; telemetry indexes; T11; TC-021–026; RN-019–023."

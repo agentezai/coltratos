@@ -1,0 +1,7 @@
+feature: cost-observability
+status: approved
+profile: code
+action_type: ADD
+created: "2026-05-05"
+approved_at: "2026-05-05"
+notes: Schema authority delegated to domain-model-mvp rev 2 via forward reference (FLAG-01 in spec.md).
