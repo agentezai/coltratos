@@ -1,5 +1,8 @@
 # domain-model-extraction-contracts — Software Design Document
 
+> **Status: Superseded by `domain-model-mvp` as of 2026-05-04 (partially — split disposition).**
+> **Reason:** `domain-model-mvp` consolidates MVP schema authority into a single source of truth. Schema-bearing parts originally defined here (any persistence-shape implications of `RequisitoExtractionPayloadSchema`, the original `Semaforo` view types as DB columns) are **not carried forward to MVP scope** — MVP `requisitos` and `verdicts` tables use their own column shapes per `domain-model-mvp` REQ-009/REQ-010. **Non-schema constants are carried forward unchanged** and continue to be the authoritative source: `HABILITANTE_HEADING_PATTERNS`, `HABILITANTE_PATTERNS_VERSION`, the `ExtractorLogger` interface, and the in-memory `Semaforo` / `SemaforoStats` / `RequisitoCategoria` / `IsHabilitanteSource` view types. Downstream specs (`pdf-ingestion`, `requisitos-extraction`, `semaforo-aggregation`) continue to import these from `@/types`. This spec is retained as a historical record for the schema-bearing parts and as the live source for the surviving constants.
+
 ## Intention
 
 Defines the pure TypeScript/Zod contracts required by `requisitos-extraction` and `semaforo-aggregation` as hard T0 prerequisites. Adds to `src/types/domain/`: the LLM output schema (`RequisitoExtractionPayloadSchema`), the structural logger interface (`ExtractorLogger`), the semáforo view types (`Semaforo`, `SemaforoStats`, `RequisitoCategoria`, `IsHabilitanteSource`), and the versioned habilitante heading constants (`HABILITANTE_HEADING_PATTERNS`, `HABILITANTE_PATTERNS_VERSION`). No Postgres tables, no migrations, no RLS. All definitions re-exported from `src/types/index.ts`.

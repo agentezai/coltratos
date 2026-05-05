@@ -275,3 +275,125 @@ before implementing each migration task (Red), then implements (Green), then ref
 
 **Test file:** `supabase/tests/domain-model-mvp.sql`
 **Framework:** pgTAP
+
+---
+
+## Task T9: Ingestion Lifecycle Columns
+
+### Behavior: pliego_uploads ingestion_status CHECK rejects invalid value (REQ-007, RN-016, TC-016)
+
+**Given** the T9 migration has been applied
+**When** `INSERT INTO pliego_uploads (..., ingestion_status) VALUES (..., 'queued')`
+**Then** Postgres raises a CHECK constraint violation
+
+**Test file:** `supabase/tests/domain-model-mvp.sql`
+**Framework:** pgTAP
+
+---
+
+### Behavior: pliego_uploads ingestion_status accepts all four lifecycle values (REQ-007, RN-016)
+
+**Given** the T9 migration has been applied
+**When** four `pliego_uploads` rows are inserted with `ingestion_status` values `'pending'`, `'running'`, `'completed'`, `'failed'`
+**Then** all four inserts succeed
+
+**Test file:** `supabase/tests/domain-model-mvp.sql`
+**Framework:** pgTAP
+
+---
+
+### Behavior: pliego_uploads ingestion_failure_reason CHECK enforces controlled vocabulary (REQ-007, RN-016, TC-017)
+
+**Given** the T9 migration has been applied
+**When** `INSERT INTO pliego_uploads (..., ingestion_failure_reason) VALUES (..., 'something_broke')`
+**Then** Postgres raises a CHECK constraint violation
+
+**When** inserted with `NULL` or one of `'pdf_unreadable'`, `'ocr_timeout'`, `'page_limit_exceeded'`, `'encrypted_pdf'`, `'unknown'`
+**Then** each insert succeeds
+
+**Test file:** `supabase/tests/domain-model-mvp.sql`
+**Framework:** pgTAP
+
+---
+
+### Behavior: existing pliego_uploads rows backfilled to ingestion_status='pending' (REQ-007)
+
+**Given** the T8 seed has populated 2 `pliego_uploads` rows
+**And** the T9 migration is then applied
+**When** `SELECT ingestion_status FROM pliego_uploads`
+**Then** all rows return `'pending'` (NOT NULL DEFAULT applied during migration)
+
+**Test file:** `supabase/tests/domain-model-mvp.sql`
+**Framework:** pgTAP
+
+---
+
+## Task T10: pdf_pages Table
+
+### Behavior: pdf_pages composite PK enforced (REQ-014, RN-017, TC-018)
+
+**Given** the T10 migration has been applied
+**And** a `pdf_pages` row exists for `(pliego_upload_id = X, page_number = 1)`
+**When** a second INSERT with `(X, 1)` is attempted
+**Then** Postgres raises a unique violation
+
+**Test file:** `supabase/tests/domain-model-mvp.sql`
+**Framework:** pgTAP
+
+---
+
+### Behavior: pdf_pages upsert on conflict succeeds (REQ-014, RN-017, TC-018)
+
+**Given** a `pdf_pages` row exists for `(X, 1)` with `text = 'old'`
+**When** `INSERT INTO pdf_pages (...) VALUES (X, 1, 'new', ...) ON CONFLICT (pliego_upload_id, page_number) DO UPDATE SET text = EXCLUDED.text`
+**Then** the upsert succeeds and `SELECT text FROM pdf_pages WHERE pliego_upload_id = X AND page_number = 1` returns `'new'`
+
+**Test file:** `supabase/tests/domain-model-mvp.sql`
+**Framework:** pgTAP
+
+---
+
+### Behavior: pdf_pages CASCADE delete from pliego_uploads (REQ-014, TC-019)
+
+**Given** a `pliego_uploads` row with 5 `pdf_pages` rows
+**When** the `pliego_uploads` row is deleted (service role)
+**Then** all 5 `pdf_pages` rows are also deleted
+
+**Test file:** `supabase/tests/domain-model-mvp.sql`
+**Framework:** pgTAP
+
+---
+
+### Behavior: pdf_pages extraction_method CHECK rejects unknown value (REQ-014)
+
+**Given** the T10 migration has been applied
+**When** `INSERT INTO pdf_pages (..., extraction_method) VALUES (..., 'pdfminer')`
+**Then** Postgres raises a CHECK constraint violation
+
+**When** inserted with `'text_layer'`, `'ocr'`, `'table_parser'`, or `'empty'`
+**Then** each insert succeeds
+
+**Test file:** `supabase/tests/domain-model-mvp.sql`
+**Framework:** pgTAP
+
+---
+
+### Behavior: pdf_pages RLS scoped via pliego_uploads join (REQ-011, RN-018, TC-020)
+
+**Given** company A has a `pliego_uploads` row with 3 `pdf_pages`; company B has a `pliego_uploads` row with 4 `pdf_pages`
+**When** user_a executes `SELECT count(*) FROM pdf_pages`
+**Then** count = 3 (company B's pages invisible via the join chain)
+
+**Test file:** `supabase/tests/domain-model-mvp.sql`
+**Framework:** pgTAP
+
+---
+
+### Behavior: pdf_pages RLS enabled (REQ-011, RN-002, RN-018)
+
+**Given** the T10 migration has been applied
+**When** `SELECT relrowsecurity FROM pg_class WHERE relname = 'pdf_pages'`
+**Then** returns `true`
+
+**Test file:** `supabase/tests/domain-model-mvp.sql`
+**Framework:** pgTAP

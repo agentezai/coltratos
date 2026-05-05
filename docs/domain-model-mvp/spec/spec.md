@@ -2,9 +2,25 @@
 
 ## Intention
 
-Establishes the complete, multi-tenant Postgres data model for the COLTRATOS MVP: discovery (`procesos_index` with pgvector embeddings), pliego upload with full audit trail, requisito extraction, semáforo verdicts, and per-analysis observability. Every other MVP spec (`ingesta-secop`, `pliego-upload`, `requisitos-extraction`, `semaforo-aggregation`, `company-profiling-onboarding`) depends on the schema defined here — a wrong column cascades into rework across all of them.
+Establishes the complete, multi-tenant Postgres data model for the COLTRATOS MVP: discovery (`procesos_index` with pgvector embeddings), pliego upload with full audit trail, PDF page-level extraction storage, requisito extraction, semáforo verdicts, and per-analysis observability. Every other MVP spec (`ingesta-secop`, `pliego-upload`, `pdf-ingestion`, `requisitos-extraction`, `semaforo-aggregation`, `company-profiling-onboarding`) depends on the schema defined here — a wrong column cascades into rework across all of them.
 
-Note: this spec defines a greenfield schema aligned with the 2026-05-04 pilot-research domain model. It is **distinct** from `domain-model-postgres` (which implemented the original empresa/proceso/pliego/segmento schema) and supersedes that model for the discovery-first MVP path.
+This spec defines a greenfield schema aligned with the 2026-05-04 pilot-research domain model and the 2026-05-04 storage-shape decision for per-page PDF extraction.
+
+---
+
+## Authority & Supersession
+
+`domain-model-mvp` is the **single source of truth** for the COLTRATOS MVP Postgres schema. Three predecessor specs are formally resolved here:
+
+| Predecessor spec | Disposition | Notes |
+|------------------|-------------|-------|
+| `domain-model-primitives` | **Superseded** (replaced in full) | TypeScript/Zod types for the original empresa/proceso/pliego/segmento model are not carried forward to MVP scope. The MVP uses a different entity set (`companies`, `users`, `company_profiles`, `procesos_index`, `pliego_uploads`, `analyses`, `requisitos`, `verdicts`, `pdf_pages`) with column-name parity (snake_case) but no schema overlap with the predecessor's branded-ID/Zod layer. New TypeScript primitives for the MVP entities will be introduced as needed by downstream specs, not retroactively. |
+| `domain-model-extraction-contracts` | **Partially superseded** (referenced) | Schema-bearing parts (any persistence-shape implications of `RequisitoExtractionPayloadSchema`, the original `Semaforo` view types as DB columns) are not carried forward to MVP scope — MVP `requisitos` and `verdicts` tables use their own column shapes per REQ-009/REQ-010. **Non-schema constants survive and are referenced unchanged**: `HABILITANTE_HEADING_PATTERNS` + `HABILITANTE_PATTERNS_VERSION` (pure regex constants), the `ExtractorLogger` interface (pure type), and the `Semaforo` / `SemaforoStats` / `RequisitoCategoria` / `IsHabilitanteSource` types as in-memory view models (not as DB columns). Downstream specs (`pdf-ingestion`, `requisitos-extraction`, `semaforo-aggregation`) continue to import these from `@/types`. |
+| `domain-model-postgres` | **Superseded** (replaced in full) | The original 9-table empresa/proceso/pliego/segmento migration with bifurcated RLS and the `set_empresa_profile_updated_at()` trigger is not carried forward to MVP scope. The MVP introduces a different 10-table schema (this spec) with its own RLS pattern (`get_my_company_id()` SECURITY DEFINER function, `company_id` join chains for `requisitos`/`verdicts`/`pdf_pages`). Old migration files remain in repo history as a historical record; MVP migrations live in a separate `supabase/migrations/2026050400000*` series. |
+
+**Implication for downstream specs.** Any spec previously depending on `domain-model-primitives` or `domain-model-postgres` for entity shape MUST migrate that dependency to `domain-model-mvp`. Specs depending on `domain-model-extraction-contracts` for the **non-schema** constants (extraction patterns, logger interface, in-memory semáforo types) continue to do so — that file remains the source for those constants.
+
+---
 
 ## Use Cases
 
@@ -32,13 +48,14 @@ Detailed scenarios in [use-cases.md](./use-cases.md).
 | REQ-004 | Create `company_profiles` table: `id uuid PK`, `company_id uuid NOT NULL REFERENCES companies(id) ON DELETE CASCADE`, `juridica jsonb NOT NULL DEFAULT '{}'`, `financiera jsonb NOT NULL DEFAULT '{}'` (3-year indicators), `experiencia jsonb NOT NULL DEFAULT '[]'`, `capacidad_tecnica jsonb NOT NULL DEFAULT '{}'`, `updated_at timestamptz NOT NULL DEFAULT now()`. One active profile per company; JSONB for nested arrays | US-02, US-03 | RN-002, RN-004 |
 | REQ-005 | Create `procesos` table (shared, no `company_id`): `id uuid PK`, `numero_proceso text UNIQUE NOT NULL`, `entidad text NOT NULL`, `objeto_a_contratar text NOT NULL`, `modalidad text NOT NULL`, `valor_estimado numeric(18,2)`, `fecha_apertura timestamptz`, `fecha_cierre timestamptz`, `datos_gov_snapshot jsonb NOT NULL`, `proceso_lookup_status text NOT NULL CHECK (proceso_lookup_status IN ('verified','unverified','failed'))`, `created_at timestamptz NOT NULL DEFAULT now()`, `updated_at timestamptz NOT NULL DEFAULT now()` | US-01, US-03 | RN-005, RN-006 |
 | REQ-006 | Create `procesos_index` table (shared, no `company_id`): `id uuid PK`, `numero_proceso text UNIQUE NOT NULL`, `entidad text NOT NULL`, `objeto_a_contratar text NOT NULL`, `modalidad text NOT NULL`, `cuantia_proceso numeric(18,2)`, `fecha_de_publicacion_del_proceso timestamptz`, `fecha_limite_de_recepcion timestamptz`, `embedding vector(1536)`, `synced_at timestamptz NOT NULL DEFAULT now()`. The `embedding` column uses OpenAI `text-embedding-3-small` on `objeto_a_contratar`. No RLS — publicly readable by authenticated users | US-01 | RN-001, RN-007 |
-| REQ-007 | Create `pliego_uploads` table (tenant-scoped): `id uuid PK`, `proceso_id uuid NOT NULL REFERENCES procesos(id) ON DELETE RESTRICT`, `uploaded_by_company_id uuid NOT NULL REFERENCES companies(id) ON DELETE RESTRICT`, `file_sha256 text NOT NULL`, `file_storage_key text NOT NULL`, `uploaded_at timestamptz NOT NULL DEFAULT now()`, `uploader_ip text`, `declaration_accepted_at timestamptz`, `declaration_text_version text`, `status text NOT NULL DEFAULT 'active' CHECK (status IN ('active','flagged','superseded'))`. UNIQUE constraint on `(proceso_id, uploaded_by_company_id, file_sha256)` | US-02 | RN-002, RN-008, RN-009 |
+| REQ-007 | Create `pliego_uploads` table (tenant-scoped): `id uuid PK`, `proceso_id uuid NOT NULL REFERENCES procesos(id) ON DELETE RESTRICT`, `uploaded_by_company_id uuid NOT NULL REFERENCES companies(id) ON DELETE RESTRICT`, `file_sha256 text NOT NULL`, `file_storage_key text NOT NULL`, `uploaded_at timestamptz NOT NULL DEFAULT now()`, `uploader_ip text`, `declaration_accepted_at timestamptz`, `declaration_text_version text`, `status text NOT NULL DEFAULT 'active' CHECK (status IN ('active','flagged','superseded'))`, **`ingestion_status text NOT NULL DEFAULT 'pending' CHECK (ingestion_status IN ('pending','running','completed','failed'))`**, **`ingestion_started_at timestamptz`**, **`ingestion_completed_at timestamptz`**, **`ingestion_failure_reason text CHECK (ingestion_failure_reason IS NULL OR ingestion_failure_reason IN ('pdf_unreadable','ocr_timeout','page_limit_exceeded','encrypted_pdf','unknown'))`**. UNIQUE constraint on `(proceso_id, uploaded_by_company_id, file_sha256)`. Lifecycle ownership: the `pdf-ingestion` service owns transitions of `ingestion_status`, `ingestion_started_at`, `ingestion_completed_at`, and `ingestion_failure_reason` — no other service writes these columns | US-02 | RN-002, RN-008, RN-009, RN-016 |
 | REQ-008 | Create `analyses` table (tenant-scoped): `id uuid PK`, `proceso_id uuid NOT NULL REFERENCES procesos(id) ON DELETE RESTRICT`, `company_id uuid NOT NULL REFERENCES companies(id) ON DELETE RESTRICT`, `pliego_upload_id uuid NOT NULL REFERENCES pliego_uploads(id) ON DELETE RESTRICT`, `proceso_metadata_snapshot jsonb NOT NULL`, `proceso_lookup_status text NOT NULL CHECK (proceso_lookup_status IN ('verified','unverified','failed'))`, `verdict text CHECK (verdict IN ('verde','amarillo','rojo'))`, `estado text NOT NULL DEFAULT 'pending' CHECK (estado IN ('pending','extracting','analyzing','completed','failed'))`, `created_at timestamptz NOT NULL DEFAULT now()`, `completed_at timestamptz`, `input_tokens int`, `output_tokens int`, `cached_tokens int`, `cost_usd numeric(10,6)`, `latency_ms int`. INSERT only — never UPDATE an existing row | US-03, US-05 | RN-002, RN-010, RN-011, RN-012 |
 | REQ-009 | Create `requisitos` table (tenant-scoped via `analyses.company_id`): `id uuid PK`, `analysis_id uuid NOT NULL REFERENCES analyses(id) ON DELETE CASCADE`, `tipo text NOT NULL CHECK (tipo IN ('juridico','tecnico','financiero'))`, `texto text NOT NULL`, `pagina_fuente int`, `quote_fuente text`, `confidence_score numeric(5,4) CHECK (confidence_score BETWEEN 0 AND 1)`, `created_at timestamptz NOT NULL DEFAULT now()` | US-03 | RN-002, RN-013 |
 | REQ-010 | Create `verdicts` table (tenant-scoped via `requisitos.analysis_id`): `id uuid PK`, `requisito_id uuid NOT NULL REFERENCES requisitos(id) ON DELETE CASCADE`, `verdict text NOT NULL CHECK (verdict IN ('verde','amarillo','rojo'))`, `reason text NOT NULL`, `confidence numeric(5,4) CHECK (confidence BETWEEN 0 AND 1)`, `created_at timestamptz NOT NULL DEFAULT now()` | US-03 | RN-002, RN-014 |
-| REQ-011 | Apply RLS policies: `pliego_uploads`, `analyses`, `company_profiles` scoped by `company_id` matching the caller's company membership; `requisitos` scoped via join to `analyses.company_id`; `verdicts` scoped via join to `requisitos → analyses.company_id`. `procesos` and `procesos_index` grant SELECT to any `authenticated` user; `companies` and `users` have self-referential policies | US-04 | RN-002, RN-003, RN-015 |
-| REQ-012 | Create indexes: `btree` on all FK columns; `ivfflat` on `procesos_index.embedding vector_cosine_ops`; `GIN` on `procesos.datos_gov_snapshot` and `analyses.proceso_metadata_snapshot`; `btree` on `procesos.numero_proceso`, `procesos_index.numero_proceso`, `pliego_uploads.file_sha256`, `analyses.company_id + created_at` | US-01, US-03 | RN-001 |
+| REQ-011 | Apply RLS policies: `pliego_uploads`, `analyses`, `company_profiles` scoped by `company_id` matching the caller's company membership; `requisitos` scoped via join to `analyses.company_id`; `verdicts` scoped via join to `requisitos → analyses.company_id`; **`pdf_pages` scoped via join to `pliego_uploads.uploaded_by_company_id`**. `procesos` and `procesos_index` grant SELECT to any `authenticated` user; `companies` and `users` have self-referential policies | US-04 | RN-002, RN-003, RN-015, RN-018 |
+| REQ-012 | Create indexes: `btree` on all FK columns (including **`pdf_pages.pliego_upload_id`**); `ivfflat` on `procesos_index.embedding vector_cosine_ops`; `GIN` on `procesos.datos_gov_snapshot` and `analyses.proceso_metadata_snapshot`; `btree` on `procesos.numero_proceso`, `procesos_index.numero_proceso`, `pliego_uploads.file_sha256`, `analyses.company_id + created_at`. (Note: no GIN index on `pdf_pages.tables` — extracted-table JSONB is consumed by ID, not searched) | US-01, US-03 | RN-001 |
 | REQ-013 | Provide a seed migration demonstrating multi-tenant isolation: insert two companies with distinct users, one shared proceso, and two pliego_upload + analysis rows — verify RLS blocks cross-company reads | US-04 | RN-015 |
+| REQ-014 | Create `pdf_pages` table (tenant-scoped via `pliego_uploads.uploaded_by_company_id`): composite PK `(pliego_upload_id, page_number)`; `pliego_upload_id uuid NOT NULL REFERENCES pliego_uploads(id) ON DELETE CASCADE`; `page_number int NOT NULL CHECK (page_number >= 1)`; `text text NOT NULL DEFAULT ''`; `tables jsonb NOT NULL DEFAULT '[]'`; `extraction_method text NOT NULL CHECK (extraction_method IN ('text_layer','ocr','table_parser','empty'))`; `confidence numeric(5,4) CHECK (confidence IS NULL OR confidence BETWEEN 0 AND 1)`; `flags text[] NOT NULL DEFAULT '{}'` (controlled vocabulary: `'no_text_extracted'`, `'ocr_low_confidence'`, `'table_parse_failed'`, `'image_only'`); `created_at timestamptz NOT NULL DEFAULT now()`. Per-page upsert allowed on the composite PK. Owned by the `pdf-ingestion` service | US-02, US-03 | RN-002, RN-017, RN-018 |
 
 ### Non-Functional Requirements
 
@@ -71,6 +88,9 @@ Detailed scenarios in [use-cases.md](./use-cases.md).
 | RN-013 | `requisitos.tipo` is restricted to `juridico`, `tecnico`, `financiero`. The domain also uses `experiencia` as a sub-type of `financiero`; in the DB layer it collapses to `financiero` per the MVP simplification |
 | RN-014 | `verdicts.verdict` values are `verde` (cumple), `amarillo` (cumple parcialmente), `rojo` (no cumple). The semáforo is computed by deterministic rules in the application layer — NOT by the LLM |
 | RN-015 | RLS policy pattern for tenant tables: `USING (company_id = (SELECT company_id FROM users WHERE id = auth.uid()))`. For `requisitos` and `verdicts`, the join chain is: `verdicts → requisitos.analysis_id → analyses.company_id` |
+| RN-016 | `pliego_uploads.ingestion_status` lifecycle MUST follow the linear progression `pending → running → completed` OR `pending → running → failed`. Backwards transitions (e.g. `completed → pending`) are not permitted; re-ingestion creates a new `pliego_uploads` row, never mutates an existing one. The `pdf-ingestion` service is the sole writer of these columns; on failure, `ingestion_failure_reason` MUST be populated from the controlled vocabulary |
+| RN-017 | `pdf_pages` rows are written one-per-page-per-pliego on the `(pliego_upload_id, page_number)` composite PK. The ingestion service uses `INSERT ... ON CONFLICT (pliego_upload_id, page_number) DO UPDATE` to support partial-retry idempotency. Pages with no extractable content MUST be inserted with `text = ''`, `extraction_method = 'empty'`, and the `'no_text_extracted'` flag — never silently dropped (per integrations.md PDF-handling convention) |
+| RN-018 | `pdf_pages` RLS policy uses the join chain `pdf_pages.pliego_upload_id → pliego_uploads.uploaded_by_company_id`. The policy pattern is: `USING (pliego_upload_id IN (SELECT id FROM pliego_uploads WHERE uploaded_by_company_id = (SELECT company_id FROM users WHERE id = auth.uid())))`. Service-role writes by `pdf-ingestion` bypass RLS; user-facing reads are RLS-scoped |
 
 ---
 
@@ -183,6 +203,44 @@ Detailed scenarios in [use-cases.md](./use-cases.md).
 **When** each user queries `pliego_uploads`, `analyses`, `requisitos`, `verdicts`
 **Then** each user sees only their own company's rows
 
+### TC-016 — pliego_uploads ingestion_status CHECK rejects invalid value (REQ-007, RN-016)
+
+**Given** the migration is applied
+**When** a `pliego_uploads` row is inserted with `ingestion_status = 'queued'`
+**Then** Postgres rejects with a CHECK constraint violation
+
+**When** inserted with `'pending'`, `'running'`, `'completed'`, or `'failed'`
+**Then** each insert succeeds
+
+### TC-017 — pliego_uploads ingestion_failure_reason CHECK enforces controlled vocabulary (REQ-007, RN-016)
+
+**Given** the migration is applied
+**When** a `pliego_uploads` row is inserted with `ingestion_failure_reason = 'something_broke'`
+**Then** Postgres rejects with a CHECK constraint violation
+
+**When** inserted with `NULL` (default) or one of `'pdf_unreadable'`, `'ocr_timeout'`, `'page_limit_exceeded'`, `'encrypted_pdf'`, `'unknown'`
+**Then** each insert succeeds
+
+### TC-018 — pdf_pages composite PK enforced (REQ-014, RN-017)
+
+**Given** a `pdf_pages` row exists for `(pliego_upload_id = X, page_number = 1)`
+**When** a second INSERT with the same `(X, 1)` is attempted
+**Then** Postgres raises a unique violation
+**When** the same INSERT uses `INSERT ... ON CONFLICT (pliego_upload_id, page_number) DO UPDATE SET text = EXCLUDED.text`
+**Then** the upsert succeeds and the row reflects the new `text`
+
+### TC-019 — pdf_pages CASCADE delete from pliego_uploads (REQ-014)
+
+**Given** a `pliego_uploads` row exists with 5 `pdf_pages` rows
+**When** the `pliego_uploads` row is deleted (service-role)
+**Then** all 5 `pdf_pages` rows are also deleted (ON DELETE CASCADE)
+
+### TC-020 — pdf_pages RLS scoped via pliego_uploads join (REQ-011, RN-018)
+
+**Given** company A has a `pliego_uploads` row with 3 `pdf_pages`; company B has a `pliego_uploads` row with 4 `pdf_pages`
+**When** user_a executes `SELECT count(*) FROM pdf_pages`
+**Then** count = 3 (only company A's pages are visible — company B's are filtered out via the join chain)
+
 ---
 
 ## UX/UI
@@ -198,7 +256,8 @@ No UI. Developer-facing foundation feature. All tables consumed by downstream fe
 | ADR | Title | Impact |
 |-----|-------|--------|
 | ADR-003 | Supabase RLS for tenant isolation | All tenant tables use `company_id` RLS; `procesos` and `procesos_index` are public-read with `authenticated` check only |
-| ADR-001 | Kysely as query builder | Column names defined here must match the Kysely `Database` interface in `domain-model-primitives` (if reused) or a new `Database` interface for the MVP schema |
+| ADR-001 | Kysely as query builder | Column names defined here must match the Kysely `Database` interface defined for the MVP schema (the `domain-model-primitives` interface is superseded — see Authority & Supersession) |
+| ADR-013 | Per-page table for PDF extraction (`pdf_pages`) over JSONB array on `pliego_uploads` | Adopted 2026-05-04 (storage-shape decision). Per-page table chosen over a single `pages jsonb` column on `pliego_uploads`. **Justification**: (1) **Idempotent partial retry** — `(pliego_upload_id, page_number)` composite PK with upsert lets `pdf-ingestion` retry a single failed page without rewriting the whole document, which is impossible with a JSONB array. (2) **Page-targeted reads** — `requisitos.pagina_fuente` foreign-key joins to `pdf_pages` for quote retrieval; a JSONB array would force whole-document scans. (3) **Per-page flags surface as queryable rows** — operations dashboards can `SELECT count(*) FROM pdf_pages WHERE 'no_text_extracted' = ANY(flags)` to track ingestion quality without JSONB-path gymnastics. (4) **Future per-page reprocessing** — when OCR providers improve, only failed pages need re-ingestion. **Tradeoffs**: (a) higher row count (≈100 rows per 100-page pliego, scales to ≈10⁵ rows at MVP volume — well within Postgres comfort); (b) extra join when assembling the full document text (acceptable — full-document reads are rare; per-page is the dominant access pattern); (c) one extra table with its own RLS join chain (mitigated by RN-018 pattern matching the `requisitos`/`verdicts` chain shape). **No GIN index on `tables`** — extracted-table JSONB is fetched by row ID, not searched, so the GIN cost is unjustified |
 
 ### Tradeoffs
 
@@ -280,6 +339,20 @@ erDiagram
         timestamptz declaration_accepted_at
         text declaration_text_version
         text status
+        text ingestion_status
+        timestamptz ingestion_started_at
+        timestamptz ingestion_completed_at
+        text ingestion_failure_reason
+    }
+    pdf_pages {
+        uuid pliego_upload_id PK_FK
+        int page_number PK
+        text text
+        jsonb tables
+        text extraction_method
+        numeric confidence
+        text_array flags
+        timestamptz created_at
     }
     analyses {
         uuid id PK
@@ -323,6 +396,7 @@ erDiagram
     procesos ||--o{ pliego_uploads : "receives uploads"
     procesos ||--o{ analyses : "analyzed by"
     pliego_uploads ||--o{ analyses : "drives"
+    pliego_uploads ||--o{ pdf_pages : "extracted into"
     analyses ||--o{ requisitos : "extracts"
     requisitos ||--o{ verdicts : "receives verdict"
 ```
@@ -338,8 +412,9 @@ No HTTP endpoints. Migration files under `supabase/migrations/`.
 | Supabase Postgres | Write | DDL migrations + RLS policies + indexes |
 | Supabase Storage | Convention | Per-tenant prefix `companies/<company_id>/pliegos/<sha256>.pdf`; policies declared separately |
 | `ingesta-secop` | Downstream consumer | Reads/writes `procesos_index` (sync job) and `procesos` (upsert on lookup) |
-| `pliego-upload` | Downstream consumer | Inserts `pliego_uploads` rows |
-| `requisitos-extraction` | Downstream consumer | Inserts `analyses` and `requisitos` rows |
+| `pliego-upload` | Downstream consumer | Inserts `pliego_uploads` rows (initial state — `ingestion_status = 'pending'`) |
+| `pdf-ingestion` | Downstream consumer | Sole writer of `pliego_uploads.ingestion_*` columns (lifecycle) and `pdf_pages` rows (per-page upsert on composite PK) |
+| `requisitos-extraction` | Downstream consumer | Reads `pdf_pages` for source text + table content; inserts `analyses` and `requisitos` rows |
 | `semaforo-aggregation` | Downstream consumer | Inserts `verdicts` rows; updates `analyses.verdict` and `analyses.estado` |
 | `company-profiling-onboarding` | Downstream consumer | Inserts/updates `company_profiles` |
 
@@ -349,9 +424,9 @@ No HTTP endpoints. Migration files under `supabase/migrations/`.
 
 | Dependency | Relationship | Notes |
 |------------|-------------|-------|
-| `domain-model-primitives` | Parallel reference | TypeScript/Zod types — column names must stay aligned (snake_case) |
-| `domain-model-postgres` | Upstream (different schema) | Implements the original empresa/proceso/pliego schema. This spec defines the MVP schema separately; they coexist in different migration files during the transition |
-| `domain-model-extraction-contracts` | Upstream | `RequisitoExtractionPayloadSchema`, `Semaforo` types remain valid; `tipo` mapping (`juridico|tecnico|financiero`) applies here |
+| `domain-model-extraction-contracts` | Upstream (partial — non-schema constants only) | `HABILITANTE_HEADING_PATTERNS`, `HABILITANTE_PATTERNS_VERSION`, `ExtractorLogger` interface, and the in-memory `Semaforo` / `SemaforoStats` / `RequisitoCategoria` / `IsHabilitanteSource` view types remain valid and are imported from `@/types`. Schema-bearing parts are superseded — see Authority & Supersession |
+| `pdf-ingestion` | Downstream consumer (depends on this schema) | Owns the `pliego_uploads.ingestion_*` lifecycle columns and the `pdf_pages` table per ADR-013. `pdf-ingestion` rev 4 is unblocked by this spec |
+| `mvp-scope.md §59` | Upstream constraint | PDF ingestion storage shape and per-page flag surfacing are mandated by MVP scope §59 |
 
 ---
 
@@ -360,3 +435,4 @@ No HTTP endpoints. Migration files under `supabase/migrations/`.
 | Date | Change | Reason |
 |------|--------|--------|
 | 2026-05-04 | Initial spec created | New discovery-first domain model from 2026-05-04 pilot-research: `companies`, `users`, `company_profiles`, `procesos`, `procesos_index` (pgvector), `pliego_uploads`, `analyses`, `requisitos`, `verdicts` |
+| 2026-05-04 | Rev 1: (a) Authority resolution — single source of truth for MVP schema; supersedes domain-model-{primitives, extraction-contracts, postgres}. (b) Ingestion schema — adds pliego_uploads ingestion columns + pdf_pages table per pdf-ingestion rev 4 dependencies | Aligns MVP schema authority across three predecessor specs (eliminates ambiguity for downstream readers) and unblocks pdf-ingestion rev 4 by landing the per-page storage shape decided 2026-05-04 |

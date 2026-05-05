@@ -40,6 +40,14 @@
 - [ ] Implement T8: write `supabase/migrations/20260504000008_seed.sql` inserting 2 companies, 2 users, 1 shared proceso, 1 procesos_index row, 2 pliego_uploads (same SHA-256), 2 analyses, 2 requisitos, 2 verdicts
 - [ ] Verify T8: as user_a, `SELECT count(*) FROM analyses` = 1; `SELECT count(*) FROM pliego_uploads` = 1; `SELECT count(*) FROM procesos` = 1; both pliego_upload rows with identical SHA-256 persist
 
+### T9: Add ingestion lifecycle columns to pliego_uploads
+- [ ] Implement T9: write `supabase/migrations/20260504000009_pliego_uploads_ingestion.sql` adding `ingestion_status`, `ingestion_started_at`, `ingestion_completed_at`, `ingestion_failure_reason` with CHECK constraints; backfill existing rows to `ingestion_status = 'pending'`
+- [ ] Verify T9: CHECK rejects `ingestion_status = 'queued'` and `ingestion_failure_reason = 'something_broke'`; accepts vocab values from RN-016; existing seed rows have `ingestion_status = 'pending'` after migration
+
+### T10: Create pdf_pages table with composite PK and RLS
+- [ ] Implement T10: write `supabase/migrations/20260504000010_pdf_pages.sql` creating `pdf_pages` with composite PK `(pliego_upload_id, page_number)`, FK CASCADE, CHECK on `extraction_method` and `confidence`, btree index on `pliego_upload_id`, RLS policy joining through `pliego_uploads.uploaded_by_company_id`, `ENABLE ROW LEVEL SECURITY`
+- [ ] Verify T10: composite PK rejects duplicate `(pliego_upload_id, page_number)`; ON CONFLICT upsert succeeds; CASCADE delete removes pages; user_a sees only own company's pages; service-role inserts bypass RLS
+
 ---
 
 ## Completion Summary

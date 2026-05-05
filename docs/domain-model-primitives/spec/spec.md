@@ -1,5 +1,8 @@
 # domain-model-primitives — Software Design Document
 
+> **Status: Superseded by `domain-model-mvp` as of 2026-05-04.**
+> **Reason:** `domain-model-mvp` consolidates MVP schema authority into a single source of truth. The TypeScript layer (branded ID types, enum literals, Zod schemas for the 8 original entities, and the Kysely `Database` interface for the empresa/proceso/pliego/segmento model) defined here is **not carried forward to MVP scope** — the MVP uses a different entity set (`companies`, `users`, `company_profiles`, `procesos_index`, `pliego_uploads`, `analyses`, `requisitos`, `verdicts`, `pdf_pages`) and will introduce its own TypeScript primitives as needed by downstream specs. This spec is retained as a historical record.
+
 ## Intention
 
 Establishes the TypeScript layer of the COLTRATOS domain model: string-branded ID types, enum literals, Zod schemas for all 8 core entities, the Kysely `Database` interface, and the barrel export at `src/types/index.ts`. Every downstream feature (pdf-ingestion, requisitos-extraction, semaforo-aggregation) imports from this single source of truth. No SQL, no migrations, no RLS live here — those belong to `domain-model-postgres`.

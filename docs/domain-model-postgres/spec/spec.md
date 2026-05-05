@@ -1,5 +1,8 @@
 # domain-model-postgres — Software Design Document
 
+> **Status: Superseded by `domain-model-mvp` as of 2026-05-04.**
+> **Reason:** `domain-model-mvp` consolidates MVP schema authority into a single source of truth. The 9-table empresa/proceso/pliego/segmento migration originally defined here is **not carried forward to MVP scope** — the MVP introduces a different 10-table schema with its own RLS pattern (`get_my_company_id()` SECURITY DEFINER + join chains for `requisitos`/`verdicts`/`pdf_pages`) under a separate `supabase/migrations/2026050400000*` migration series. This spec is retained as a historical record.
+
 ## Intention
 
 Establishes the Supabase Postgres layer of the COLTRATOS domain model: one versioned SQL migration that creates all 9 tables with FK constraints, unique indexes, check constraints, and Postgres enums; bifurcated RLS policies enforcing tenant isolation; and the `set_empresa_profile_updated_at()` trigger. The TypeScript/Zod contracts for the same entities live in `domain-model-primitives`. Field names here must exactly match Zod schema field names (snake_case throughout) per NFR-02.
