@@ -1,6 +1,8 @@
 // @vitest-environment jsdom
-import { describe, it, expect, vi } from 'vitest'
-import { render } from '@testing-library/react'
+import { describe, it, expect, vi, afterEach } from 'vitest'
+import { render, cleanup } from '@testing-library/react'
+
+afterEach(() => { cleanup() })
 import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
 

@@ -11,7 +11,7 @@
     "start": "next start",
     "lint": "eslint",
     "typecheck": "tsc --noEmit",
-    "test": "vitest run",
+    "test": "vitest run --project unit --project types --project storybook",
     "test:watch": "vitest",
     "test:type": "vitest --project types",
     "test:coverage": "vitest run --coverage",
