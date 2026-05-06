@@ -1,0 +1,20 @@
+{
+  "_nybo_managed": true,
+  "_nybo_managed_keys": [
+    "hooks.PostToolUse[id=curate-on-edit]"
+  ],
+  "hooks": {
+    "PostToolUse": [
+      {
+        "_nyboHookId": "curate-on-edit",
+        "matcher": "Edit|Write",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "NYBO_HOOK_ID=curate-on-edit NYBO_HOOK_TRUST=L1 bash -c 'nybo_trust=$(awk '\\''/^level:/ {print $2}'\\'' .nybo/trust.yaml 2>/dev/null)\ncase \"$nybo_trust\" in\n  autonomous) : ;;\n  semi-autonomous) case \"$NYBO_HOOK_TRUST\" in L1|L2) : ;; *) exit 0 ;; esac ;;\n  supervised|\"\") case \"$NYBO_HOOK_TRUST\" in\n    L1) if [ ! -t 0 ] || [ -n \"$CLAUDE_CODE_HEADLESS\" ]; then exit 0; fi\n        printf \"[nybo] hook %s — confirm? (y/N) \" \"$NYBO_HOOK_ID\" >&2\n        read -r _ans\n        case \"$_ans\" in y|Y|yes|YES) : ;; *) exit 0 ;; esac ;;\n    *) exit 0 ;;\n  esac ;;\n  *) exit 0 ;;\nesac\nfile_path=$(printf '\\''%s'\\'' \"$CLAUDE_TOOL_INPUT\" | jq -r '\\''.file_path // .filePath // empty'\\'' 2>/dev/null)\ncase \"$file_path\" in *.nybo/*) printf '\\''n\\n'\\'' | npx -y nybo curate >/dev/null 2>&1 || true ;; esac'"
+          }
+        ]
+      }
+    ]
+  }
+}

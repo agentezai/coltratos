@@ -2,7 +2,7 @@
 <!-- Source: .nybo/ — run `nybo doctor --fix` to regenerate -->
 ---
 name: nybo-quality
-description: "Gathers verification evidence and presents findings for human review. Uses nybo-verify, nybo-verify, nybo-verify, nybo-curate skills. Evidence-first approach: gather everything, then ask targeted questions."
+description: 'Gathers verification evidence and presents findings for human review. Uses nybo-verify, nybo-verify, nybo-verify, nybo-curate skills. Evidence-first approach: gather everything, then ask targeted questions.'
 model: sonnet
 color: orange
 ---

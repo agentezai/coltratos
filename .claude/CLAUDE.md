@@ -9,23 +9,56 @@ Use the nybo-curate skill to add new conventions to the project memory.
 ## Agent routing
 
 When the user's message matches an intent — via slash command OR natural
-language — delegate to that subagent via the Agent tool.
+language — delegate to that nybo agent via the Agent tool.
 Do NOT run the corresponding skill inline.
 
-| User intent | subagent_type |
-| --- | --- |
-| /nybo-plan, "plan a feature", "spec X", "let's plan", "write a spec for", "audit this feature", "document this feature", "create a fix spec" | planning |
-| /nybo-run, "implement", "execute the spec", "start coding", "build this", "run the spec", "let's code this", "simplify this feature" | executor |
-| /nybo-curate, "save convention", "extract skill", "save this as a convention", "extract this pattern", "let's standardize", "add a rule for" | curator |
-| "run the gate", "guardian report", "run the guardian", "quality gate" | guardian |
-| "triage this bug", "why is this failing", "fix this error", "debug this", stack trace + verb signal (fix/debug/why) | triage |
+| User intent | nybo agent | skill |
+| --- | --- | --- |
+| /nybo-plan, "plan a feature", "spec X", "let's plan", "write a spec for", "audit this feature", "document this feature", "create a fix spec" | planning | /nybo-plan |
+| /nybo-run, "implement", "execute the spec", "start coding", "build this", "run the spec", "let's code this", "simplify this feature" | executor | /nybo-run |
+| /nybo-curate, "save convention", "extract skill", "save this as a convention", "extract this pattern", "let's standardize", "add a rule for" | curator | /nybo-curate |
+| "run the gate", "guardian report", "run the guardian", "quality gate" | guardian | /nybo-verify |
+| "triage this bug", "why is this failing", "fix this error", "debug this", stack trace + verb signal (fix/debug/why) | triage | /nybo-plan |
+| "challenge this idea", "validate the strategy", "should we build this", "what's the strategy for", "create a product strategy" | design-strategy | design-strategy |
+| "write a requirement", "turn this into a spec", "create a PRD", "build a prototype first", "formalize this idea" | design-requirement | design-requirement |
+| "monitor the CI", "watch the build", "fix the CI", "why is the build failing", GitHub Actions run url + verb signal (fix/why) | ci-monitor | ci-monitor |
+| "review this PR", "draft a review", "review the diff", "first-pass review" | pr-reviewer | pr-reviewer |
+| "update the docs", "regenerate api reference", "refresh the wiki after this change" | doc-update | doc-update |
 
-The subagent loads the corresponding skill itself. The orchestrator's job
-is to (1) pick the right subagent, (2) pass the user's request verbatim,
-(3) relay the subagent's final summary back to the user.
+**Dispatch protocol:** Claude Code's Agent tool only accepts built-in subagent types.
+nybo agent names are semantic identifiers, not Agent tool types. When delegating:
+1. Confirm using the **nybo agent** name: "delegating to the **<agent>** agent"
+2. Call `Agent(subagent_type: general-purpose)` with `/<skill>` as the first line of the prompt
+3. Pass the user's request verbatim after the skill invocation
+4. Relay the subagent's final summary back to the user
+
+The `.claude/agents/<agent>.md` persona files define each agent's behavioral constraints.
+The skill (loaded via `/<skill>`) is the execution workflow the agent runs.
 
 For non-phase questions (code reading, generic Q&A, one-off edits), do not
 route to a subagent — answer directly in the main conversation.
+
+## Hook-dispatched agents
+
+Three agents are usually fired automatically by hooks emitted into
+`.claude/settings.json` (refresh via `nybo sync --hooks`):
+
+| Hook event | Trigger | Subagent |
+| --- | --- | --- |
+| `PostToolUse` on `Bash` containing `git push` | post-push-ci-monitor | ci-monitor |
+| `PostToolUse` on `Bash` containing `gh pr create` | post-pr-open-reviewer | pr-reviewer |
+| `PostToolUse` on `Edit`/`Write` to sdk/openapi paths | sdk-generated-doc-update | doc-update |
+| `SubagentStop` after `nybo-verify` | verify-passed-curate | curator (`nybo curate`) |
+| `SubagentStop` after `nybo-pr` | spec-shipped-doc-sync | doc-update (`nybo doc-sync`) |
+
+Hooks invoke `nybo agent-dispatch <subagent>` to log the event and (when
+the `claude` CLI is on PATH) launch the agent with `claude --print` in the
+background. Trust gating still applies: at L1 supervised, the hook prompts
+before firing; at L2+ it fires silently.
+
+Manual override: invoke any hook-dispatched agent directly with the
+natural-language triggers in the routing table above, or run
+`nybo agent-dispatch <name> --task '<...>'` from the shell.
 
 ## Confirmation protocol
 

@@ -145,5 +145,5 @@ Valid tags: `CONFIRMS`, `VIOLATES`, `NEW CONVENTION candidate`, `SKILL candidate
 - **CORE.md**: `.nybo/memory/CORE.md`
 - **Domain files**: `.nybo/foundation/domains.yaml`
 - **Design principles**: Clarity, Consistency
-- **Workflow skills**: nybo-plan, nybo-run, nybo-verify, nybo-pr, nybo-sync-pr, nybo-curate, nybo-tdd, nybo-worktree, nybo-simplify, nybo-batch, nybo-insights
+- **Workflow skills**: nybo-plan, nybo-run, nybo-verify, nybo-pr, nybo-ship, nybo-build-log, nybo-sync-pr, nybo-curate, nybo-tdd, nybo-worktree, nybo-simplify, nybo-batch, nybo-insights, nybo-session-summary
 - **Project pattern skills**: `.nybo/skills/` (populated after features ship)

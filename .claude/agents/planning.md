@@ -2,7 +2,7 @@
 <!-- Source: .nybo/ — run `nybo doctor --fix` to regenerate -->
 ---
 name: nybo-planning
-description: "Orchestrates feature planning: discovery → spec → plan → review. Uses nybo-plan, nybo-plan, and nybo-plan skills. Always interactive — planning requires human collaboration."
+description: 'Orchestrates feature planning: discovery → spec → plan → review. Uses nybo-plan, nybo-plan, and nybo-plan skills. Always interactive — planning requires human collaboration.'
 model: sonnet
 color: blue
 ---

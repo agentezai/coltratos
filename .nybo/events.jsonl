@@ -104,3 +104,8 @@
 {"timestamp":"2026-05-05T09:59:04.387Z","type":"doctor_run","actor":"human","details":{"passing":12,"warnings":5,"failures":1,"total":18}}
 {"timestamp":"2026-05-05T09:59:04.423Z","type":"doctor_fix","actor":"human","details":{"fixesApplied":2,"fixesSkipped":0}}
 {"timestamp":"2026-05-05T09:59:04.430Z","type":"doctor_run","actor":"human","details":{"passing":13,"warnings":4,"failures":1,"total":18}}
+{"event_type":"spec_edited","timestamp":"2026-05-06T00:00:00Z","spec":"company-profiling-onboarding","revision_count":3,"tasks_added":0,"tasks_removed":0,"tasks_modified":1,"rationale":"Rev 3: NIT cross-company warn-only with server event log; remove duplicate NFR-03; add dependency declarations; fix UC-02 label; remove RUES residue from T7 task and contract","affected_domains":["empresa-profile","contratacion-publica","database","integrations"]}
+{"timestamp":"2026-05-06T23:02:46.662Z","type":"doctor_run","actor":"human","details":{"passing":12,"warnings":4,"failures":4,"total":20}}
+{"timestamp":"2026-05-06T23:03:01.489Z","type":"doctor_run","actor":"human","details":{"passing":12,"warnings":4,"failures":4,"total":20}}
+{"timestamp":"2026-05-06T23:03:01.522Z","type":"doctor_fix","actor":"human","details":{"fixesApplied":4,"fixesSkipped":0}}
+{"timestamp":"2026-05-06T23:03:01.529Z","type":"doctor_run","actor":"human","details":{"passing":16,"warnings":3,"failures":1,"total":20}}
