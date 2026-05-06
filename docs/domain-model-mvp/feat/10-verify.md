@@ -52,9 +52,11 @@ Both tables created. pgvector column accepts 1536-dim input. No tenant data colu
 - `analyses.estado` CHECK: `'pending'`, `'extracting'`, `'analyzing'`, `'completed'`, `'failed'` accepted
 - Hash collision: two `pliego_uploads` rows with same `file_sha256` but different `uploaded_by_company_id` both accepted (no unique violation)
 - Observability columns exist: `input_tokens`, `output_tokens`, `cached_tokens`, `cost_usd`, `latency_ms`
+- Typed observability columns exist and are nullable: `extraction_outcome`, `requisito_count`, `count_verde`, `count_amarillo`, `count_rojo`
+- `extraction_outcome` CHECK: `'success'`, `'partial'`, `'failure'` accepted; `'unknown'` rejected; `NULL` accepted
 
 ### Gate Criteria
-All CHECK constraints fire correctly. Hash collision across companies accepted. Observability columns present.
+All CHECK constraints fire correctly. Hash collision across companies accepted. Observability columns present. Typed observability columns nullable and CHECK-guarded.
 
 ---
 
@@ -164,18 +166,42 @@ Table created with composite PK, FK CASCADE, all CHECKs, and RLS enabled. Upsert
 
 ---
 
+## T11: Create telemetry event tables
+
+### Test Scenarios
+- Migration applies cleanly after T2 + T4
+- `analysis_events`, `embedding_events`, `search_events` tables exist in `information_schema.tables`
+- `analysis_events.event_type` CHECK: `'extraction'`, `'repair_retry'`, `'ocr_fallback'`, `'matching'` accepted; `'inference'` rejected
+- `analysis_events.stage` CHECK: `'ingestion'`, `'extraction'`, `'matching'` accepted; `'scoring'` rejected
+- `analysis_events.pliego_sha256` column is nullable; accepts `NULL` and a 64-char hex string
+- `embedding_events.company_id` is nullable; `NULL` insert succeeds (system sync case)
+- `embedding_events.use_case` CHECK: `'sync'`, `'search_query'` accepted; `'batch'` rejected
+- `search_events.clicked_ids` defaults to `'{}'` on INSERT without explicit value; `array_append` UPDATE succeeds
+- RLS enabled on all three tables (`relrowsecurity = true`)
+- As `member` role JWT: `SELECT * FROM analysis_events` returns 0 rows; same for `embedding_events`, `search_events`
+- As `admin` role JWT: `SELECT * FROM analysis_events` returns rows (if any exist)
+- Service-role INSERT into all three tables succeeds without RLS check
+- `analysis_events.analysis_id` FK: INSERT with non-existent `analysis_id` rejected with FK violation
+
+### Gate Criteria
+All three tables created with correct CHECKs, nullable columns, and RLS enabled. Member JWT sees nothing; admin JWT sees rows; service-role writes succeed. FK constraint enforced.
+
+---
+
 ## End-to-End Verification
 
 **Final acceptance test (run on a fresh `supabase start` / local Supabase project):**
 
-1. Run `supabase db push` — all 10 migrations apply in sequence without errors
+1. Run `supabase db push` — all 11 migrations apply in sequence without errors
 2. Verify `pg_extension`: both `vector` and `uuid-ossp` present
-3. Verify `pg_indexes`: ivfflat on `procesos_index.embedding`, GIN on both JSONB columns, btree on all FK columns (including `pdf_pages.pliego_upload_id`)
+3. Verify `pg_indexes`: ivfflat on `procesos_index.embedding`, GIN on both JSONB columns and `search_events.clicked_ids`, btree on all FK columns (including `pdf_pages.pliego_upload_id`, `analysis_events.analysis_id`, `analysis_events.stage+created_at`, `analyses.extraction_outcome`)
 4. Simulate user_a session: confirm `analyses`, `pliego_uploads`, `requisitos`, `verdicts` each return exactly 1 row
 5. Simulate user_b session: confirm same counts (1 each, own company only)
 6. As service role: confirm `pliego_uploads` has 2 rows with identical `file_sha256` (hash collision)
 7. Confirm `procesos` returns 1 row to both user_a and user_b (shared infrastructure)
 8. Confirm `pliego_uploads` has 4 ingestion lifecycle columns; existing seed rows show `ingestion_status = 'pending'`
 9. Confirm `pdf_pages` table exists, has RLS enabled, and is empty by default (no seed data — `pdf-ingestion` populates it at runtime)
+10. Confirm `analyses` has typed observability columns (`extraction_outcome`, `requisito_count`, `count_verde/amarillo/rojo`) — all nullable; seed rows have NULL values
+11. As `member` JWT: `SELECT * FROM analysis_events` returns 0 rows. As `admin` JWT: returns available rows. As service-role: INSERT into `analysis_events` succeeds.
 
-**Gate Criteria:** All 9 steps complete without errors. Zero cross-tenant data leaks. Hash collision accepted. Ingestion lifecycle and pdf_pages schema present and isolated.
+**Gate Criteria:** All 11 steps complete without errors. Zero cross-tenant data leaks. Hash collision accepted. Ingestion lifecycle, pdf_pages, telemetry tables, and typed analyses columns all present and correctly constrained.

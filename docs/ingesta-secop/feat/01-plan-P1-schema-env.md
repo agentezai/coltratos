@@ -60,9 +60,8 @@ create index idx_procesos_publicacion  on secop_procesos (fecha_publicacion desc
 create index idx_procesos_cierre       on secop_procesos (fecha_cierre);
 create index idx_procesos_updated      on secop_procesos (socrata_updated_at);
 create index idx_procesos_search       on secop_procesos using gin (search_vector);
--- IVFFlat index for vector cosine similarity (build after initial backfill)
-create index idx_procesos_embedding    on secop_procesos using ivfflat (embedding vector_cosine_ops)
-  with (lists = 100);
+-- HNSW index for vector cosine similarity (incremental build; better than IVFFlat for <1M rows)
+create index idx_procesos_embedding    on secop_procesos using hnsw (embedding vector_cosine_ops);
 
 create table secop_sync_state (
   dataset_id        text primary key,

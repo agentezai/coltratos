@@ -48,6 +48,10 @@
 - [ ] Implement T10: write `supabase/migrations/20260504000010_pdf_pages.sql` creating `pdf_pages` with composite PK `(pliego_upload_id, page_number)`, FK CASCADE, CHECK on `extraction_method` and `confidence`, btree index on `pliego_upload_id`, RLS policy joining through `pliego_uploads.uploaded_by_company_id`, `ENABLE ROW LEVEL SECURITY`
 - [ ] Verify T10: composite PK rejects duplicate `(pliego_upload_id, page_number)`; ON CONFLICT upsert succeeds; CASCADE delete removes pages; user_a sees only own company's pages; service-role inserts bypass RLS
 
+### T11: Create telemetry event tables (analysis_events, embedding_events, search_events)
+- [ ] Implement T11: write `supabase/migrations/20260505000011_telemetry_tables.sql` creating `analysis_events`, `embedding_events`, `search_events` with CHECKs, FK to `analyses`/`companies`, nullable columns, `ENABLE ROW LEVEL SECURITY`, and admin-only SELECT policies
+- [ ] Verify T11: `event_type` CHECK rejects invalid values; `embedding_events.company_id` accepts NULL; `search_events.clicked_ids` defaults to `'{}'`; member JWT sees 0 rows; admin JWT sees rows; service-role INSERT succeeds
+
 ---
 
 ## Completion Summary

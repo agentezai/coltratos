@@ -38,6 +38,11 @@
 - `cached_tokens int` — nullable; tokens served from Anthropic prompt cache
 - `cost_usd numeric(10,6)` — nullable; total cost including retries and OCR
 - `latency_ms int` — nullable; wall-clock time for the analysis pipeline
+- `extraction_outcome text CHECK (extraction_outcome IN ('success','partial','failure'))` — nullable until pipeline writes at end of analysis run
+- `requisito_count int` — nullable; total requisitos extracted
+- `count_verde int` — nullable; requisitos matching verde verdict
+- `count_amarillo int` — nullable; requisitos matching amarillo verdict
+- `count_rojo int` — nullable; requisitos matching rojo verdict
 - `ALTER TABLE analyses ENABLE ROW LEVEL SECURITY`
 
 ### Design Rationale (Audit Completeness)
@@ -54,9 +59,11 @@ Requires T2 (companies table for FKs) and T3 (procesos table for FKs).
 - [ ] `pliego_uploads` table created with all audit columns
 - [ ] `pliego_uploads` UNIQUE constraint on `(proceso_id, uploaded_by_company_id, file_sha256)` present
 - [ ] `pliego_uploads.status` CHECK constraint present: `('active','flagged','superseded')`
-- [ ] `analyses` table created with all columns including all 5 telemetry fields
+- [ ] `analyses` table created with all columns including all 5 telemetry fields and 5 observability columns
 - [ ] `analyses.proceso_lookup_status` CHECK constraint present: `('verified','unverified','failed')`
 - [ ] `analyses.verdict` CHECK constraint present: `('verde','amarillo','rojo')`
 - [ ] `analyses.estado` CHECK constraint present: `('pending','extracting','analyzing','completed','failed')`
+- [ ] `analyses.extraction_outcome` CHECK constraint present: `('success','partial','failure')`, column nullable
+- [ ] `analyses.requisito_count`, `count_verde`, `count_amarillo`, `count_rojo` columns present and nullable
 - [ ] `ENABLE ROW LEVEL SECURITY` on both tables
 - [ ] Migration applies cleanly after T2 + T3

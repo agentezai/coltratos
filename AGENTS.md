@@ -36,10 +36,19 @@ npm run lint
 
 Each agent below has a configured persona that governs verbosity, tone, and progress style:
 
+- **ci-monitor** → `balanced` — Default. Diagrams when architecture changes. 2-3 questions.
 - **curation** → `balanced` — Default. Diagrams when architecture changes. 2-3 questions.
+- **curator** → `balanced` — Default. Diagrams when architecture changes. 2-3 questions.
+- **design-requirement** → `thorough` — Full ceremony. Always diagram. Exhaustive interview.
+- **design-strategy** → `thorough` — Full ceremony. Always diagram. Exhaustive interview.
+- **doc-update** → `terse` — Minimal output. Skip diagrams. One question. Coarse tasks.
 - **execution** → `balanced` — Default. Diagrams when architecture changes. 2-3 questions.
+- **executor** → `balanced` — Default. Diagrams when architecture changes. 2-3 questions.
+- **guardian** → `terse` — Minimal output. Skip diagrams. One question. Coarse tasks.
 - **planning** → `balanced` — Default. Diagrams when architecture changes. 2-3 questions.
+- **pr-reviewer** → `balanced` — Default. Diagrams when architecture changes. 2-3 questions.
 - **quality** → `balanced` — Default. Diagrams when architecture changes. 2-3 questions.
+- **triage** → `terse` — Minimal output. Skip diagrams. One question. Coarse tasks.
 
 Default persona: `balanced`. Per-skill override: `--persona=<id>`. Catalog: `.nybo/foundation/personas.yaml`.
 

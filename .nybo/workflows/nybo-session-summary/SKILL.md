@@ -1,0 +1,97 @@
+---
+name: nybo-session-summary
+description: >-
+  Summarize the previous Claude Code session for this project and produce a
+  continuation primer for the new session. Reads the local session JSONL files
+  at `~/.claude/projects/<slug>/*.jsonl` — no network, no external service.
+  Triggers on "summarize previous session", "what was I doing", "continue from
+  last session", "resume previous session", "/nybo-session-summary".
+---
+
+> **Agent:** nybo-executor · **Model:** Sonnet 4.6 (`claude-sonnet-4-6`)
+> Switch now: `/model claude-sonnet-4-6`
+
+# nybo-session-summary
+
+Recover tactical context from the previous Claude Code session — the open thread, last failing test, half-finished refactor — and use it to prime the new session. Distinct from `nybo-insights` (token economics) and from auto-memory (durable conventions); this is short-horizon continuity.
+
+**Usage:**
+- `/nybo-session-summary` — markdown digest of the previous session
+- `/nybo-session-summary --json` — same digest as JSON
+- `/nybo-session-summary --last 3` — pick the 3rd-most-recent session
+- `/nybo-session-summary --session <id>` — pin to a specific session
+- `/nybo-session-summary --list` — list recent sessions to choose from
+
+---
+
+## 1. Verify preconditions
+
+- Confirm the current project has a `.nybo/` directory (the CLI guards this).
+- Confirm session data exists at `~/.claude/projects/<slug>/` where `<slug>` is the project's absolute path with `/` → `-`. If empty, tell the user: "No previous session found for this project — this looks like a fresh start." and stop.
+
+---
+
+## 2. Run the CLI
+
+Invoke via **Bash tool**:
+
+```bash
+nybo session-summary --json
+```
+
+The CLI:
+1. Lists `*.jsonl` files in `~/.claude/projects/<slug>/`, sorts by mtime descending.
+2. Excludes the active session (using `CLAUDE_SESSION_ID` env var if set; otherwise treats the newest file as the active one and picks the next).
+3. Parses the chosen JSONL via `src/services/session-summary/digest.ts` — extracting last user/assistant turn, files touched (Read/Edit/Write), Bash commands run, latest TodoWrite state, and tool errors.
+4. Emits a `SessionDigest` JSON to stdout.
+5. Logs a `session_summary_run` event to `.nybo/events.jsonl`.
+
+If the user passes `--list`, the CLI prints recent sessions instead — let the user pick one and re-invoke with `--session <id>`.
+
+---
+
+## 3. Synthesize the continuation primer
+
+Read the digest. Render a short, scannable primer for the user with these sections (omit any section whose source data is empty):
+
+- **Last session**: `<id>` · `<date>` · `<duration>` · `<model>` · `<branch>`
+- **What you did** — 3-5 bullets, distilled from `lastUserMessage`, `lastAssistantMessage`, and the file-touch + bash-command pattern. Don't paste verbatim; summarize.
+- **Files touched** — top 10 from `filesTouched`, formatted as ``[path](path)`` so they're clickable in the IDE.
+- **Open todos** — every entry in `todos` whose `status` is `pending` or `in_progress`. Use `[~]` for in-progress, `[ ]` for pending.
+- **Last user request** — quote `lastUserMessage` verbatim (truncated by CLI).
+- **Errors** — if `errorCount > 0`, list the first error excerpt and flag it as something to investigate.
+- **Suggested continuation** — 2-3 concrete next steps. Prefer in-progress todos and any error excerpts as the obvious resume point.
+
+---
+
+## 4. Confirm with the user
+
+Ask: "Resume that thread, or start fresh? (You can also run `/nybo-session-summary --last 5` to pick a different session.)" Wait for the user before doing any work.
+
+---
+
+## 5. Hand off
+
+On "resume", route per the standard CLAUDE.md routing table — implementation work goes to **executor** via `/nybo-run`, planning to **planning** via `/nybo-plan`, debugging to **triage**. Pass the primer as part of the routing prompt so the subagent has the same context.
+
+On "start fresh", drop the primer and wait for the user's new request.
+
+---
+
+## Notes on behavior
+
+- **Claude-only skill.** Registered in the workflow registry with `targets: ["claude"]`. Cursor / Copilot / Windsurf users can still run `nybo session-summary` via the CLI directly, but the slash-command entry point is only injected into the Claude adapter.
+- **No network.** Reads only local JSONL files. Safe on air-gapped machines.
+- **Sessions are per-project.** The slug is derived from the current cwd; running this in a different project shows only that project's sessions.
+- **Active-session heuristic.** When `CLAUDE_SESSION_ID` is not exported (older Claude Code builds), the CLI assumes the newest JSONL file is the active session and skips it. If the previous session was extremely brief and the active session has not yet flushed events to disk, the heuristic can still pick the active file. Pass `--session <id>` to override.
+- **Truncation.** Long user/assistant messages are truncated by the CLI to keep the digest under ~3KB. Read the full transcript at `~/.claude/projects/<slug>/<session-id>.jsonl` if you need more detail.
+
+---
+
+## File Locations
+
+- **CLI:** `src/cli/commands/session-summary.ts` (registered in `src/cli/program.ts`)
+- **Digest builder:** `src/services/session-summary/digest.ts`
+- **Session selector:** `src/services/session-summary/select.ts`
+- **Slug helper:** `src/services/usage/session-parser.ts` (shared with nybo-insights)
+- **Event log:** `.nybo/events.jsonl` (one `session_summary_run` entry per invocation)

@@ -11,7 +11,7 @@ Detailed scenarios in [use-cases.md](./use-cases.md).
 | Use Case | Description | User Stories |
 |----------|-------------|-------------|
 | [UC-01 — Primer guardado](./use-cases.md#uc-01) | User completes and saves profile for the first time | US-01 |
-| [UC-02 — RUES auto-fill](./use-cases.md#uc-02) | NIT entry triggers RUES pre-fill of legal fields | US-02 |
+| [UC-02 — Edición posterior](./use-cases.md#uc-02) | User edits profile; new version created; existing analyses unaffected | US-02 |
 | [UC-03 — Edición posterior](./use-cases.md#uc-03) | User edits profile; new version created; existing analyses unaffected | US-03 |
 | [UC-04 — Completeness warning](./use-cases.md#uc-04) | Dashboard shows completeness ratio; analysis never blocked | US-04 |
 
@@ -45,7 +45,6 @@ Detailed scenarios in [use-cases.md](./use-cases.md).
 |----|----------|-------------|
 | NFR-01 | Performance | UNSPSC autocomplete <100ms (client-side JSON search) |
 | NFR-02 | Performance | Form submit ≤3s p95 |
-| NFR-03 | Performance | Form submit ≤3s p95 |
 | NFR-04 | Security | RLS on company_profiles enforces per-company row isolation |
 | NFR-05 | Correctness | NIT DV validated using Colombian modulo-11 algorithm |
 | NFR-06 | Correctness | All monetary amounts NUMERIC(20,2) — no float |
@@ -61,7 +60,7 @@ Detailed scenarios in [use-cases.md](./use-cases.md).
 | Rule | Description |
 |------|-------------|
 | RN-001 | Form sections: (1) Datos legales, (2) Capacidad financiera, (3) Experiencia, (4) Personal clave, (5) Alcance comercial |
-| RN-002 | NIT DV validated using Colombian modulo-11 checksum; invalid DV → server 422, no row written |
+| RN-002 | NIT DV validated using Colombian modulo-11 checksum; invalid DV → server 422, no row written. If NIT already exists under a different `company_id`, server returns 200 with a `warn` flag (not an error) and logs a mandatory server-side event: `event_type = 'nit_cross_company_duplicate'`, fields: `nit`, `existing_company_id`, `new_company_id`, `timestamp`. The duplicate is never surfaced to either company. |
 | RN-004 | ejercicios_fiscales JSONB: `[{ejercicio: int, ingresos_operacionales: numeric, patrimonio: numeric, activo_corriente: numeric, pasivo_corriente: numeric, activo_total: numeric, pasivo_total: numeric}]`; 1–3 entries ordered by ejercicio desc |
 | RN-005 | Derived indicators from most recent year: `liquidez_corriente = activo_corriente / pasivo_corriente`; `nivel_endeudamiento = pasivo_total / activo_total`; `capital_de_trabajo = activo_corriente - pasivo_corriente`. NULL if divisor = 0 or input absent. Computed in server action before INSERT |
 | RN-006 | contratos_previos JSONB: `[{entidad_contratante: text, objeto: text, valor_cop: numeric, fecha_inicio: date, fecha_fin: date, unspsc_code?: text}]` |
@@ -140,6 +139,11 @@ Detailed scenarios in [use-cases.md](./use-cases.md).
 **When** form submitted  
 **Then** server returns 422: "La fecha de fin no puede ser anterior a la fecha de inicio"
 
+### TC-014 — NIT duplicado cross-company: warn-only + event log (REQ-002, RN-002)
+**Given** user submits a NIT that already exists under a different `company_id`  
+**When** server processes the request  
+**Then** server returns 200 with a `warn` flag; the `nit_cross_company_duplicate` event is logged with fields `nit`, `existing_company_id`, `new_company_id`, and `timestamp`; no error is surfaced to the user
+
 ---
 
 ## UX/UI
@@ -149,6 +153,13 @@ Single-page form at `/onboarding` (first save) and `/dashboard/config/perfil` (s
 ---
 
 ## Architecture
+
+### Dependencies
+
+| Spec | Dependency reason |
+|------|------------------|
+| auth-and-tenancy | User-to-company binding required before any profile row can be scoped by `company_id` |
+| domain-model-mvp rev 1 | `company_profiles` table and `companies.current_profile_id` column defined there |
 
 ### Architecture Decision Records
 
@@ -174,7 +185,6 @@ Single-page form at `/onboarding` (first save) and `/dashboard/config/perfil` (s
 | Metric | Target | Measurement |
 |--------|--------|-------------|
 | UNSPSC autocomplete | <100ms | Browser DevTools |
-| RUES lookup or timeout | ≤2s | AbortController |
 | Form submit (full profile) | ≤3s p95 | Server action timing log |
 | Profile load (edit mode) | ≤500ms | LCP |
 
@@ -251,3 +261,4 @@ flowchart LR
 | 2026-05-01 | Rev 1: documento uploads for Jurídica; simplified financial inputs; objeto+CV model; Jurídica removed from score | Align with product description |
 | 2026-05-04 | Rev 2: Single-page form (no wizard); 3-year financial JSONB + balance fields; profile versioning (immutable snapshots); Datos legales section; removed document uploads; completeness warning (not blocking gate); single user per company | MVP scope alignment: 15-min completion target, versioned verdicts, discovery filter derivation |
 | 2026-05-05 | Rev 2 final: removed RUES API (not in MVP scope); removed T4 RUES task; 7 tasks remain (T1–T3 + T5–T8 renumbered) | Discovery answers confirmed RUES not required; single form with manual NIT entry sufficient |
+| 2026-05-06 | Rev 3: NIT cross-company warn-only + mandatory server event log; remove RUES refs from tasks/contracts/perf-goals; add UC-02 acceptance criteria; fix duplicate NFR-03; add dependency declarations | Guardian review: NFR-03 was a verbatim duplicate of NFR-02; UC-02 lacked acceptance criteria; NIT cross-company collision needed explicit policy |

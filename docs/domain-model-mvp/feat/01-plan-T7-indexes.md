@@ -45,9 +45,24 @@ CREATE INDEX ON procesos_index USING ivfflat (embedding vector_cosine_ops) WITH 
 
 All indexes are additive — no schema changes. btree on FK columns prevents sequential scans during RLS policy evaluation (the `get_my_company_id()` subquery touches `users.company_id` on every tenant-scoped read). GIN on JSONB enables `@>` containment queries on snapshots without full-row deserialization. ivfflat on embedding is required for sub-second ANN similarity search at discovery scale (≤50k rows, NFR-03).
 
+### Telemetry indexes (REQ-020)
+
+Support the query patterns in cost-observability REQ-010 through REQ-013:
+
+- `CREATE INDEX ON analysis_events (analysis_id);` — cost aggregation GROUP BY analysis
+- `CREATE INDEX ON analysis_events (created_at);` — time-window filter (30-day rolling)
+- `CREATE INDEX ON analysis_events (stage, created_at);` — latency percentiles by stage
+- `CREATE INDEX ON analysis_events (pliego_sha256);` — duplicate-hash diagnostic queries
+- `CREATE INDEX ON embedding_events (created_at);` — time-window filter
+- `CREATE INDEX ON embedding_events (company_id);` — per-company embedding cost (NULL-safe; NULL = system sync)
+- `CREATE INDEX ON search_events (company_id, created_at);` — per-company search metrics
+- `CREATE INDEX ON search_events (created_at);` — time-window filter
+- `CREATE INDEX ON search_events USING GIN (clicked_ids);` — click-through array queries (`array_length > 0`)
+- `CREATE INDEX ON analyses (extraction_outcome);` — extraction quality rate queries (WHERE NOT NULL)
+
 ## Dependencies
 
-Requires T1 (pgvector extension for `vector_cosine_ops`), T2–T5 (all tables must exist before creating indexes on them).
+Requires T1 (pgvector extension for `vector_cosine_ops`), T2–T5 (all tables must exist before creating indexes on them), T11 (telemetry tables must exist before telemetry indexes).
 
 ## Done When
 
@@ -56,4 +71,7 @@ Requires T1 (pgvector extension for `vector_cosine_ops`), T2–T5 (all tables mu
 - [ ] `SELECT indexname FROM pg_indexes WHERE tablename = 'procesos_index' AND indexname LIKE '%embedding%'` returns a row
 - [ ] GIN index present on `procesos.datos_gov_snapshot`: `SELECT indexname FROM pg_indexes WHERE tablename = 'procesos' AND indexdef LIKE '%gin%'`
 - [ ] GIN index present on `analyses.proceso_metadata_snapshot`
-- [ ] Migration applies cleanly after T1–T5
+- [ ] Telemetry indexes present on `analysis_events`, `embedding_events`, `search_events` columns listed above
+- [ ] `CREATE INDEX ON analyses (extraction_outcome)` present
+- [ ] GIN index on `search_events.clicked_ids` present
+- [ ] Migration applies cleanly after T1–T5 + T11

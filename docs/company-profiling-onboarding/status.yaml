@@ -4,6 +4,6 @@ profile: code
 created: "2026-05-01"
 approved_at: "2026-05-04"
 owner: Carlos Villa Mercado
-updated: "2026-05-05"
-revision_count: 2
-last_revision: "MVP scope: single form, versioned snapshots, no RUES, no Jurídica, 7 tasks (T1–T3 + T5–T8)"
+updated: "2026-05-06"
+revision_count: 3
+last_revision: "Rev 3: NIT cross-company warn-only with server event log; remove duplicate NFR-03; add dependency declarations; fix UC-02 label; remove RUES residue from T7 task and contract"

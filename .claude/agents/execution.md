@@ -2,7 +2,7 @@
 <!-- Source: .nybo/ — run `nybo doctor --fix` to regenerate -->
 ---
 name: nybo-execution
-description: "Executes approved specs autonomously. Uses nybo-run, nybo-verify, nybo-verify, nybo-run skills. Checkpoint frequency varies by trust level."
+description: Executes approved specs autonomously. Uses nybo-run, nybo-verify, nybo-verify, nybo-run skills. Checkpoint frequency varies by trust level.
 model: sonnet
 color: green
 ---

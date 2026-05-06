@@ -58,6 +58,52 @@ Each predecessor spec received a header banner under H1 reflecting its specific 
 - Storage-shape decision (2026-05-04 conversation) — captured in ADR-013.
 - 2026-05-04 pilot-research conversation — discovery-first domain model (rev 0 origin).
 
+---
+
+## Delta 2026-05-05 — edit | Rev 2: Telemetry schema (cost-observability alignment)
+
+**Mode:** edit
+**Rationale:** cost-observability rev 2 was approved 2026-05-05. That spec defines data contracts for three new event tables and typed columns on `analyses`, but delegates DDL authority to `domain-model-mvp`. This rev fulfills that forward reference with the minimum schema additions required — no other schema changes included.
+**Affected domains:** database, integrations
+
+### Tasks added
+- **T11** — Create `analysis_events`, `embedding_events`, `search_events` tables with CHECKs, nullable columns, FK references, `ENABLE ROW LEVEL SECURITY`, and admin-only SELECT policies. Migration file: `supabase/migrations/20260505000011_telemetry_tables.sql`.
+
+### Tasks modified
+- **T4** (`analyses`): added 5 nullable typed columns — `extraction_outcome text CHECK(...)`, `requisito_count int`, `count_verde int`, `count_amarillo int`, `count_rojo int`. Backward compatible (all nullable); pre-rev-2 rows have NULL.
+- **T6** (RLS policies): added admin-only SELECT policy for all three event tables. Done-When checklist updated from 9 to 12 tables.
+- **T7** (indexes): added 10 telemetry indexes per REQ-020 — btree on `analysis_events(analysis_id)`, `analysis_events(created_at)`, `analysis_events(stage, created_at)`, `analysis_events(pliego_sha256)`, `embedding_events(created_at)`, `embedding_events(company_id)`, `search_events(company_id, created_at)`, `search_events(created_at)`, `analyses(extraction_outcome)`; GIN on `search_events(clicked_ids)`.
+
+### Tasks removed
+- None.
+
+### Requirements added
+- **REQ-015** — `analysis_events` table DDL
+- **REQ-016** — `embedding_events` table DDL
+- **REQ-017** — `search_events` table DDL
+- **REQ-018** — typed columns on `analyses`
+- **REQ-019** — admin-only RLS for event tables
+- **REQ-020** — telemetry indexes
+
+### Business rules added
+- **RN-019** — event tables append-only; single permitted mutation: `array_append` on `search_events.clicked_ids`
+- **RN-020** — `embedding_events.company_id` nullable for system sync
+- **RN-021** — `search_events.clicked_ids` defaults to `'{}'`; semantics for click-through rate
+- **RN-022** — admin-only RLS on all three event tables; TelemetryLogger writes via service-role
+- **RN-023** — `analyses` typed columns nullable; NULL means pre-observability row; exclude from percentage calculations
+
+### Test cases added
+- **TC-021** — `analysis_events.event_type` CHECK
+- **TC-022** — `embedding_events.company_id` nullable
+- **TC-023** — `search_events.clicked_ids` default
+- **TC-024** — event tables RLS blocks member JWT
+- **TC-025** — `analyses.extraction_outcome` CHECK
+- **TC-026** — typed columns nullable
+
+### Impact on memory
+- **database domain (`domains/database.md`)** — the admin-only RLS pattern (service-role writes, admin JWT reads, pilot JWT blocked) is a new pattern worth curating if a second feature uses it. Worth flagging via `/nybo-curate` after this spec ships.
+- **integrations domain (`domains/integrations.md`)** — `TelemetryLogger` as a fire-and-forget service-role writer is a new integration pattern. The append-only exception for `array_append` on `search_events.clicked_ids` is worth documenting.
+
 ### Impact on memory
 - **database domain (`domains/database.md`)** — should record the per-page-table-vs-JSONB decision pattern (per ADR-013) and the lifecycle-ownership convention (one service owns one column group, enforced by RN convention not constraint). Worth promoting via `/nybo-curate conventions add` once a second feature uses the same lifecycle-ownership pattern.
 - **integrations domain (`domains/integrations.md`)** — already records the "flag pages with no extractable content" convention; RN-017 now anchors that convention in a DB-side requirement (`extraction_method = 'empty'` + `'no_text_extracted'` flag), closing a previously implicit-only rule.

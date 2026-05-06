@@ -7,7 +7,7 @@
 ## Problem + Solution
 
 - The COLTRATOS MVP needs a complete, production-ready Supabase schema that supports discovery (pgvector semantic search), pliego upload with legal audit trail, LLM-driven extraction, deterministic semáforo verdicts, and per-analysis cost observability — all with strict multi-tenant isolation
-- Solution: one versioned SQL migration per logical group, applied in dependency order, covering 9 tables with RLS policies, indexes (btree, GIN, ivfflat), and a seed migration demonstrating cross-company isolation
+- Solution: one versioned SQL migration per logical group, applied in dependency order, covering 12 tables with RLS policies, indexes (btree, GIN, ivfflat), and a seed migration demonstrating cross-company isolation
 - All tables use `uuid` PKs with `gen_random_uuid()`, `timestamptz` timestamps, and explicit `ON DELETE` semantics; no implicit defaults
 - Deliverable: Supabase migration files under `supabase/migrations/` that apply cleanly on a fresh project
 
@@ -154,6 +154,9 @@ classDiagram
 | T6 | [01-plan-T6-rls-policies.md](./01-plan-T6-rls-policies.md) | RLS policies for all tenant tables | T2, T4, T5 |
 | T7 | [01-plan-T7-indexes.md](./01-plan-T7-indexes.md) | Indexes: btree on FKs, GIN on JSONB, ivfflat on embedding | T1–T5 |
 | T8 | [01-plan-T8-seed.md](./01-plan-T8-seed.md) | Seed migration demonstrating 2-company isolation | T6, T7 |
+| T9 | [01-plan-T9-ingestion-columns.md](./01-plan-T9-ingestion-columns.md) | Add ingestion lifecycle columns to pliego_uploads | T4 |
+| T10 | [01-plan-T10-pdf-pages.md](./01-plan-T10-pdf-pages.md) | Create pdf_pages table with composite PK and RLS | T4 |
+| T11 | [01-plan-T11-telemetry-tables.md](./01-plan-T11-telemetry-tables.md) | Create analysis_events, embedding_events, search_events tables with RLS | T2, T4 |
 
 ## Dependency Graph
 
@@ -180,6 +183,12 @@ flowchart LR
     T1 --> T7
     T6 --> T8
     T7 --> T8
+    T4 --> T9
+    T4 --> T10
+    T2 --> T11
+    T4 --> T11
+    T11 --> T6
+    T11 --> T7
 
     style T1 fill:#d4edda
     style T2 fill:#d4edda
@@ -189,4 +198,7 @@ flowchart LR
     style T6 fill:#d4edda
     style T7 fill:#d4edda
     style T8 fill:#d4edda
+    style T9 fill:#d4edda
+    style T10 fill:#d4edda
+    style T11 fill:#d4edda
 ```

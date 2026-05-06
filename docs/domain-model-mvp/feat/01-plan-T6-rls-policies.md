@@ -62,6 +62,22 @@
 - `SELECT`: join chain via requisitos to analyses: `USING (EXISTS (SELECT 1 FROM requisitos r JOIN analyses a ON a.id = r.analysis_id WHERE r.id = requisito_id AND a.company_id = get_my_company_id()))`
 - `INSERT`: same `WITH CHECK`
 
+### analysis_events policies (RN-022)
+
+- `SELECT`: admin-only `USING ((SELECT role FROM users WHERE id = auth.uid()) = 'admin')`
+- No INSERT from client — `TelemetryLogger` writes via service-role key server-side
+- No UPDATE or DELETE from client
+
+### embedding_events policies (RN-022)
+
+- `SELECT`: admin-only `USING ((SELECT role FROM users WHERE id = auth.uid()) = 'admin')`
+- No INSERT, UPDATE, or DELETE from client
+
+### search_events policies (RN-022)
+
+- `SELECT`: admin-only `USING ((SELECT role FROM users WHERE id = auth.uid()) = 'admin')`
+- No INSERT or DELETE from client (click-tracking UPDATE via service-role)
+
 ### Design Rationale (Policy Bifurcation per ADR-003)
 
 Public tables (`procesos`, `procesos_index`) use role-only checks — no `company_id` join. Tenant tables use `get_my_company_id()` consistently. Deep-join policies on `requisitos` and `verdicts` are necessary because those tables have no direct `company_id` column — the tenant ownership chain is: `verdicts → requisitos → analyses.company_id`.
@@ -74,9 +90,11 @@ Requires T2 (companies, users), T4 (pliego_uploads, analyses), T5 (requisitos, v
 
 - [ ] `supabase/migrations/20260504000006_rls_policies.sql` exists
 - [ ] `get_my_company_id()` function created
-- [ ] Policies created for all 9 tables (companies, users, company_profiles, procesos, procesos_index, pliego_uploads, analyses, requisitos, verdicts)
+- [ ] Policies created for all 12 tables (companies, users, company_profiles, procesos, procesos_index, pliego_uploads, analyses, requisitos, verdicts, analysis_events, embedding_events, search_events)
 - [ ] Cross-company read test passes: user of company A cannot read company B's `pliego_uploads` row
 - [ ] Cross-company read test passes: user of company A cannot read company B's `analyses` row
 - [ ] Cross-company read test passes: user of company A cannot read company B's `requisitos` or `verdicts`
 - [ ] `procesos` SELECT returns same row to two users from different companies (shared table verified)
-- [ ] Migration applies cleanly after T2 + T4 + T5
+- [ ] `member` role user sees zero rows from `analysis_events`, `embedding_events`, `search_events`
+- [ ] `admin` role user sees rows from event tables via JWT
+- [ ] Migration applies cleanly after T2 + T4 + T5 + T11

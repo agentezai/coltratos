@@ -1,3 +1,23 @@
+## Delta 2026-05-06 — edit | Rev 3: NIT cross-company warn-only, NFR cleanup, RUES residue removal
+
+**Mode:** edit
+**Rationale:** Pilot MVP scope confirmation + NIT uniqueness policy + duplicate NFR cleanup + RUES residue removal. Guardian review surfaced: (a) NFR-03 was a verbatim duplicate of NFR-02 ("Form submit ≤3s p95"); (b) UC-02 lacked explicit acceptance criteria; (c) NIT cross-company collision had no defined policy; (d) UC-02 use-cases-table label still read "RUES auto-fill" residue; (e) lingering RUES references in T7 description and Performance Goals contradicted Rev 2 final scope.
+**Affected domains:** empresa-profile, contratacion-publica, database, integrations
+
+### Tasks added
+- None
+
+### Tasks modified
+- T7: description and verify step revised — removed "RUES trigger" and "RUES non-blocking" residue; DatosLegalesSection clarified as manual NIT + DV inputs
+
+### Tasks removed
+- None
+
+### Impact on memory
+- None identified
+
+---
+
 ## Delta 2026-05-05 — edit | Rev 2 final: remove RUES from scope
 
 **Mode:** edit

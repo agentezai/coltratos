@@ -29,8 +29,8 @@
 - [ ] Verify T6: Versioning correct; no DB write on validation failure; unauthenticated rejected
 
 ### T7: Single-Page Profile Form
-- [ ] Implement T7: ProfileForm (5 sections, react-hook-form + zodResolver); DatosLegalesSection with RUES trigger; CapacidadFinancieraSection with derived preview; ExperienciaSection + PersonalClaveSection (DynamicList); AlcanceComercialSection (UNSPSC autocomplete); /onboarding and /config/perfil routes
-- [ ] Verify T7: RUES non-blocking; dynamic lists functional; inline validation; pre-fill on edit; derived preview live
+- [ ] Implement T7: ProfileForm (5 sections, react-hook-form + zodResolver); DatosLegalesSection (manual NIT + DV inputs); CapacidadFinancieraSection with derived preview; ExperienciaSection + PersonalClaveSection (DynamicList); AlcanceComercialSection (UNSPSC autocomplete); /onboarding and /config/perfil routes
+- [ ] Verify T7: dynamic lists functional; inline validation; pre-fill on edit; derived preview live
 
 ### T8: Dashboard Completeness Badge
 - [ ] Implement T8: computeCompleteness util; ProfileCompletenessBadge component; wire into dashboard layout; redirect to /onboarding if no profile

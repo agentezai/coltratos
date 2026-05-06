@@ -2,7 +2,7 @@
 <!-- Source: .nybo/ — run `nybo doctor --fix` to regenerate -->
 ---
 name: nybo-curation
-description: "Processes feedback into persistent knowledge. Uses nybo-curate-feedback, nybo-curate, nybo-curate, nybo-curate skills. Always interactive — human approves every knowledge patch."
+description: Processes feedback into persistent knowledge. Uses nybo-curate-feedback, nybo-curate, nybo-curate, nybo-curate skills. Always interactive — human approves every knowledge patch.
 model: sonnet
 color: purple
 ---

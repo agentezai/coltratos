@@ -1,0 +1,93 @@
+schema_version: 1
+skills:
+  - name: nybo-batch
+    source: builtin
+    pinned_version: 1.0.0
+    pinned_sha: null
+    checksum: sha256:5ac1315b63b50ed8412183d0c7f5cf272f2f75823f535638d5772fae7eac86ea
+    scope: local
+    extensions:
+      - claude
+    pinned: false
+  - name: nybo-curate
+    source: builtin
+    pinned_version: 1.0.0
+    pinned_sha: null
+    checksum: sha256:0ff7bc6f0e6ea0da01b998a272c5312dd30a46350274912e71afd741f8292e9a
+    scope: local
+    extensions: []
+    pinned: false
+  - name: nybo-insights
+    source: builtin
+    pinned_version: 1.0.0
+    pinned_sha: null
+    checksum: sha256:b6ce6ef95ee636bf2ed37aa13ea98dfbe21fcf436fdfcd0f9bbcc15c23046cdb
+    scope: local
+    extensions:
+      - claude
+    pinned: false
+  - name: nybo-plan
+    source: builtin
+    pinned_version: 1.0.0
+    pinned_sha: null
+    checksum: sha256:f59ade9205badbc651e4febb828f8406ae631ee17f5a4366677ceac14ea6f302
+    scope: local
+    extensions: []
+    pinned: false
+  - name: nybo-pr
+    source: builtin
+    pinned_version: 1.0.0
+    pinned_sha: null
+    checksum: sha256:2b33ca8abd7f27f973cf4f730f565318ee71ded04075caf34959e72f27ce4e06
+    scope: local
+    extensions: []
+    pinned: false
+  - name: nybo-run
+    source: builtin
+    pinned_version: 1.0.0
+    pinned_sha: null
+    checksum: sha256:a582f5128d784c5a1498885e9835b81e9c57d2024a00a3d2c65a213f40303f43
+    scope: local
+    extensions: []
+    pinned: false
+  - name: nybo-simplify
+    source: builtin
+    pinned_version: 1.0.0
+    pinned_sha: null
+    checksum: sha256:acafb5b22992e4d7c1a6e9938423955daf10021adebc6f28f3d55bb217ce515a
+    scope: local
+    extensions:
+      - claude
+    pinned: false
+  - name: nybo-sync-pr
+    source: builtin
+    pinned_version: 1.0.0
+    pinned_sha: null
+    checksum: sha256:e499bf0e663bcb3949fd1a0f71203eb5973e5dc943e2a1df482278f94ac717f7
+    scope: local
+    extensions: []
+    pinned: false
+  - name: nybo-tdd
+    source: builtin
+    pinned_version: 1.0.0
+    pinned_sha: null
+    checksum: sha256:f3fe0204d203ff9c49e3c5a7026d75ea7a52d5735b3d4abad24e4848cf7882af
+    scope: local
+    extensions: []
+    pinned: false
+  - name: nybo-verify
+    source: builtin
+    pinned_version: 1.0.0
+    pinned_sha: null
+    checksum: sha256:f565f4a3bd6fa75fc3265e873f21f8099f6f1291a4f665775e0f392000b373ea
+    scope: local
+    extensions: []
+    pinned: false
+  - name: nybo-worktree
+    source: builtin
+    pinned_version: 1.0.0
+    pinned_sha: null
+    checksum: sha256:61389e0cca84039d70d192715ec2b0116fdabc7e7e93cb1c88fac08011ae4779
+    scope: local
+    extensions: []
+    pinned: false

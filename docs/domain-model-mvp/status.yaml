@@ -3,6 +3,6 @@ action_type: CREATE
 profile: code
 created: "2026-05-04"
 approved_at: "2026-05-04"
-updated: "2026-05-04"
-revision_count: 1
-last_revision: "Rev 1: (a) Authority resolution — single source of truth for MVP schema; supersedes domain-model-{primitives, extraction-contracts, postgres}. (b) Ingestion schema — adds pliego_uploads ingestion columns + pdf_pages table per pdf-ingestion rev 4 dependencies."
+updated: "2026-05-05"
+revision_count: 2
+last_revision: "Rev 2: Telemetry schema — adds analysis_events, embedding_events, search_events tables (REQ-015–017); typed observability columns on analyses (REQ-018); admin-only RLS for event tables (REQ-019); telemetry indexes (REQ-020); T11 task; TC-021–026; RN-019–023."
