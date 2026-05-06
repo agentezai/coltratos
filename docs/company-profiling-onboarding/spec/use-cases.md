@@ -82,6 +82,16 @@ Server returns 422; error shown on the specific entry row
 5. New `company_profiles` row inserted: version = previous + 1, `is_current = true`; previous row `is_current = false`
 6. Completeness badge updated in dashboard
 
+#### Acceptance Criteria
+
+| ID | Criterion |
+|----|-----------|
+| AC-UC02-01 | Form pre-fills all fields from the `is_current` row; no field is blank unless originally empty |
+| AC-UC02-02 | On valid submit, a new `company_profiles` row is inserted with `version = previous + 1` and `is_current = true` in a single transaction |
+| AC-UC02-03 | Previous `is_current` row is set to `false` in the same transaction; no intermediate state where two rows are both current |
+| AC-UC02-04 | Existing `analyses` rows retain their `profile_snapshot_id` referencing the pre-edit version; verdicts are unaffected |
+| AC-UC02-05 | Dashboard completeness badge reflects the new version immediately after save; redirect lands on `/dashboard` |
+
 #### Error Scenarios
 
 **Same validation errors as UC-01 Step 7**
