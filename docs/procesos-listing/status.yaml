@@ -1,10 +1,10 @@
-status: approved
+status: draft
 created: "2026-05-01"
 action_type: FEATURE
 profile: code
 feature_id: procesos-listing
 owner: Carlos Villa Mercado
-depends_on: ingesta-secop
-updated: "2026-05-04"
-revision_count: 2
-last_revision: "Add semantic search (match_score + hasVectorSearch), profile-match toggle, UNSPSC multi-select, fecha_cierre range, valor_min/max rename, T6 click event logging API, DirectProcesoLookup fallback, X-Search-Id header + searchId tracking"
+depends_on: domain-model-mvp
+updated_at: "2026-05-05"
+revision_count: 3
+last_revision: "merged ingesta-secop; full-stack spec; domain-model-mvp rev 3 dependency"

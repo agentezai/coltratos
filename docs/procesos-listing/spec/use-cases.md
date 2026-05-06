@@ -6,9 +6,10 @@
 |-------|-------------|
 | Pilot (usuario autenticado) | Colombian company rep discovering SECOP II opportunities in COLTRATOS |
 | Sistema (frontend) | Next.js client; manages URL state, fetch, render, and click logging |
-| `/api/procesos` | Backend endpoint delivering enriched SECOP data (from ingesta-secop) |
-| `/api/search-events` | Backend endpoint receiving click tracking events |
-| `/api/procesos/[id]` | Direct lookup endpoint for closed or pre-publication procesos |
+| Cron job | Vercel cron; fires every 6 h to sync SODA → `procesos_index` |
+| `/api/procesos` | Backend endpoint delivering enriched Proceso data |
+| `/api/cron/sync-secop` | Backend cron route triggering bulk sync + embedding |
+| `/api/procesos/[numero_proceso]` | Direct lookup endpoint; local index first, SODA fallback |
 
 ## User Stories
 
@@ -21,13 +22,13 @@
 | US-05 | Pilot | Know which procesos I've already worked on | I don't waste time re-reviewing analyzed procesos |
 | US-06 | Pilot | Share a filtered view with a colleague | We collaborate on the same opportunity set |
 | US-07 | Pilot | Click a result and land on the upload flow | I can immediately start analyzing a Proceso I found |
-| US-08 | Pilot | Look up a specific Proceso by its ID | I can still access closed or pre-publication procesos not in the index |
+| US-08 | Pilot | Look up a specific Proceso by its `numero_proceso` | I can still access closed or pre-publication procesos not in the index |
 
 ## Use Case Scenarios
 
 ### UC-01 — Personalized listing on first visit
 
-**Precondition:** User authenticated; `ingesta-secop` P4 + P5 live; localStorage may or may not have saved preferences.
+**Precondition:** User authenticated; `procesos_index` has synced rows; localStorage may have saved preferences.
 
 **Main Scenario:**
 1. User navigates to `/dashboard/procesos`
@@ -48,104 +49,75 @@
 2. URL updates to `departamento=Bolívar%2CCundinamarca`; `page` resets to 1
 3. Skeleton rows shown while fetch in-flight
 4. Results update; stat cards refresh to reflect filtered subset
-5. User additionally selects "Mínima cuantía" in modalidad
-6. URL updates; fetch fires again; results narrow further
 
 ### UC-03 — Semantic keyword search
 
 **Main Scenario:**
-1. User types "software gestión documental" in search input
+1. User types "software gestión documental"
 2. After 400ms debounce: URL updates `q=software+gestión+documental`; fetch fires
-3. API embeds query; results include `match_score` per row
-4. Table shows "Match" column with "87% relevante" per row; ordered by relevance descending
-5. User clears the input: `q` removed from URL; match column hidden; results re-fetched
+3. API embeds query via OpenAI; vector search returns rows with `match_score`
+4. Table shows "Match" column with "87% relevante" per row; ordered by relevance
 
-### UC-04 — Profile-match toggle
+### UC-04 — Cron bulk sync
 
-**Precondition:** Company profile has `alcance_comercial` with UNSPSC codes, valor range, preferred departamentos.
+**Precondition:** Vercel cron fires; `CRON_SECRET` header matches env var.
+
+**Main Scenario:**
+1. `/api/cron/sync-secop` receives POST from Vercel
+2. SODA client fetches all Procesos with `estado = abierto`
+3. Mapper translates SODA field names → `procesos_index` columns (e.g. `id_proceso` → `numero_proceso`)
+4. Upsert on `numero_proceso`; rows with `fecha_limite_de_recepcion` < now() are deleted
+5. Changed rows (new or `objeto_a_contratar` updated) queued for B4 embedding
+6. Sync errors logged; `sync_failure_count` incremented; cron returns 200 with summary
+
+**Alt — SODA unreachable:**
+- Error logged; `sync_failure_count` incremented; existing index rows preserved; returns 200 with error summary
+
+### UC-05 — Embedding sync
+
+**Precondition:** B3 cron has run; `procesos_index` has rows with `embedded_at IS NULL` or stale embeddings.
+
+**Main Scenario:**
+1. `lib/secop/embeddings.ts` selects rows where `embedded_at IS NULL OR objeto_a_contratar` hash changed
+2. Batch-embeds `objeto_a_contratar` via OpenAI `text-embedding-3-small`
+3. Updates `embedding vector(1536)` and `embedded_at = now()` on each row
+4. Writes one `embedding_events` row per batch: `use_case='sync'`, `company_id=null`, `input_tokens`, `cost_usd`, `model`
+5. Rate limit respected (batch size ≤ 100 rows per OpenAI call)
+
+### UC-06 — Cost logging
+
+**Main Scenario:**
+- Every call to `/api/procesos` with `q` non-empty: `logEmbeddingEvent` (query embed) + `logSearchEvent` (query, filters, results) written via TelemetryLogger
+- Every sync batch: `logEmbeddingEvent` written with `use_case='sync'`
+- Failures are fire-and-forget: logged to stderr, never thrown to caller
+
+### UC-07 — Profile-match toggle
+
+**Precondition:** Company profile has `alcance_comercial` with UNSPSC codes, cuantia range, ciudad list.
 
 **Main Scenario:**
 1. User enables "Coincide con mi perfil" toggle
 2. URL updates `profile_match=true`; fetch fires
-3. API reads company profile; applies UNSPSC/valor/departamento constraints
+3. API reads `company_profiles.alcance_comercial`; derives UNSPSC, cuantia_min/max, ciudad filters
 4. Results narrowed to procesos matching company's profile
-5. Filter bar shows "Perfil activo" badge to indicate auto-filters in effect
-6. Combinable with free-text search: toggle ON + `q` → semantic search within profile scope
+5. Filter bar shows "Perfil activo" badge
 
-### UC-05 — Paginate
+### UC-08 — Direct Proceso ID lookup
 
-**Main Scenario:**
-1. Table shows page 1 of 18 (`total=342, page_size=20`)
-2. User clicks "Siguiente"
-3. URL updates `page=2`; overlay shown on table during fetch (not skeleton)
-4. Page 2 rows replace page 1; stat cards do not re-fetch
-
-### UC-06 — Share filtered view
+**Precondition:** Pilot has a `numero_proceso` (e.g. from a colleague's email or SECOP UI).
 
 **Main Scenario:**
-1. User copies URL: `/dashboard/procesos?departamento=Bolívar&profile_match=true`
-2. Colleague opens the URL
-3. Colleague's page loads with the same filter state applied
-4. Both see the same subset of procesos (modulo enrichment — pliego/analisis badges differ per empresa)
+1. User types "CO1.BDOS.XXXXXXX" in "Buscar por ID" input and clicks Buscar
+2. Frontend calls `GET /api/procesos/CO1.BDOS.XXXXXXX`
+3. API checks `procesos_index` first; if found → returns row
+4. If not in index: calls SODA single-record lookup (24h TTL); maps result
+5. On success: navigates to `/dashboard/upload?procesoId=CO1.BDOS.XXXXXXX`
+6. On 404: shows "Proceso no encontrado en SECOP" inline error
 
-### UC-07 — Click to upload flow
+---
 
-**Main Scenario:**
-1. User sees a row with no badges (no pliego, no analisis yet)
-2. User clicks the row
-3. Navigates to `/dashboard/upload?procesoId=CO1.BDOS.XXXXXXX`
-4. Upload flow has the Proceso pre-selected; user does not need to search again
+## Use Cases UC-01 through UC-12 (frontend scenarios)
 
-**Alt — row has analisis:**
-1. User clicks row with "Analizado" badge
-2. Navigates to `/dashboard/analisis/${last_analisis_id}`
+The frontend use cases UC-01 through UC-12 from rev 2 remain valid and are not reproduced here in full. UC-04 (cron sync), UC-05 (embedding sync), UC-06 (cost logging), and UC-07/UC-08 above are the new backend-layer additions.
 
-### UC-08 — Empty state: no matching procesos
-
-**Main Scenario:**
-1. User applies filters that return no results
-2. Empty state A shown: "Sin procesos con estos filtros"
-3. "Limpiar filtros" CTA visible
-4. User clicks it → filters reset; global listing shown
-
-### UC-09 — Restore saved preferences
-
-**Main Scenario:**
-1. User previously saved preferences (departamento=Bogotá, modalidad=Licitación Pública)
-2. User navigated away and URL has no params
-3. User clicks "Restaurar preferencias"
-4. URL updates with saved params; fetch fires; filtered view shown
-
-### UC-10 — Profile-match filter active state
-
-**Precondition:** profile_match=true; company profile has alcance_comercial.
-
-**Main Scenario:**
-1. Filter bar shows "Perfil activo" badge
-2. Sidebar shows which profile-derived filters are in effect (e.g. "UNSPSC: 43 - Tecnología")
-3. User can still manually override by adding extra departamento/modalidad filters
-4. Extra filters combine with profile constraints (intersection)
-
-### UC-11 — Match score display
-
-**Precondition:** `q` is non-empty; API returns rows with `match_score` float.
-
-**Main Scenario:**
-1. Each result card shows a match score chip: "87% relevante"
-2. Results ordered descending by match_score (API handles ordering)
-3. Sort dropdown switches to "Relevancia" automatically when `q` is active
-4. User can override sort to see results ordered by cierre date instead
-
-### UC-12 — Direct Proceso ID lookup
-
-**Precondition:** Pilot has a specific Proceso ID (e.g. from a colleague's email or SECOP UI).
-
-**Main Scenario:**
-1. User finds the "Buscar por ID" input at the bottom of the filter bar
-2. User types "CO1.BDOS.XXXXXXX" and clicks Buscar
-3. Frontend calls `GET /api/procesos/CO1.BDOS.XXXXXXX`
-4. If found: navigates to `/dashboard/upload?procesoId=CO1.BDOS.XXXXXXX`
-5. If 404: shows inline error "Proceso no encontrado en SECOP"
-
-**Alt — proceso is in local index:**
-- Same as main scenario; API returns immediately from `secop_procesos` (no SODA call)
+See [spec.md](./spec.md) for consolidated requirements covering both backend and frontend behavior.

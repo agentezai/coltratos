@@ -4,453 +4,217 @@ Write each failing test before implementing the corresponding behavior.
 
 ---
 
-## Phase T1: Types + Filter State
+## Phase B1: Schema + Env Confirmation
 
-### Behavior: serialize/deserialize round-trip (REQ-002)
+**Note:** B1 has no migration SQL. Its contract confirms that domain-model-mvp rev 3 has landed and env vars are present. No DB-authoring tests here.
 
-**Given** a `ProcesosFilterState` with `departamento: ['Bolívar', 'Cundinamarca']`, `q: 'software'`, `page: 2`
-**When** `serializeFilters(state)` then `deserializeFilters(result)`
-**Then** output deep-equals input
+### Behavior: procesos_index has required columns (domain-model-mvp rev 3 gate)
 
-**Test file:** `src/__tests__/filter-state.test.ts`
-**Framework:** vitest
+**Given** the domain-model-mvp rev 3 migration has been applied
+**When** `SELECT column_name FROM information_schema.columns WHERE table_name = 'procesos_index'`
+**Then** result set includes `numero_proceso`, `entidad`, `objeto_a_contratar`, `modalidad`, `cuantia_proceso`, `fecha_limite_de_recepcion`, `embedding`, `synced_at`, `socrata_id`, `unspsc`, `ciudad`, `embedded_at`
 
-### Behavior: empty arrays not serialized (REQ-003)
+**Test file:** `src/__tests__/b1-schema-gate.test.ts`
+**Framework:** vitest (integration — requires live Supabase connection)
 
-**Given** `ProcesosFilterState` with `departamento: []`
-**When** `serializeFilters(state)`
-**Then** result does not contain `departamento` key
+### Behavior: required env vars present in server context
 
-**Test file:** `src/__tests__/filter-state.test.ts`
-**Framework:** vitest
+**Given** the server environment is configured
+**When** `process.env.SECOP_SODA_DATASET_ID` and `process.env.SECOP_SODA_TOKEN` are read
+**Then** both are non-empty strings
 
-### Behavior: multi-value arrays as comma-sep (REQ-003)
-
-**Given** `departamento: ['Bolívar', 'Cundinamarca']`
-**When** `serializeFilters(state)`
-**Then** URLSearchParams has `departamento=Bolívar,Cundinamarca`
-
-**Test file:** `src/__tests__/filter-state.test.ts`
-**Framework:** vitest
-
-### Behavior: empty URLSearchParams returns defaults (REQ-004)
-
-**Given** `new URLSearchParams('')`
-**When** `deserializeFilters(params)`
-**Then** result deep-equals `DEFAULT_FILTER_STATE`
-
-**Test file:** `src/__tests__/filter-state.test.ts`
-**Framework:** vitest
-
-### Behavior: loadPreferences returns null on corrupt JSON (REQ-006)
-
-**Given** localStorage key contains `"{{broken json"`
-**When** `loadPreferences()`
-**Then** returns `null`; no throw
-
-**Test file:** `src/__tests__/filter-state.test.ts`
-**Framework:** vitest
-
-### Behavior: profile_match=false not serialized (REQ-021)
-
-**Given** `ProcesosFilterState` with `profile_match: false`
-**When** `serializeFilters(state)`
-**Then** result does not contain `profile_match` key
-
-**Test file:** `src/__tests__/filter-state.test.ts`
-**Framework:** vitest
-
-### Behavior: profile_match=true serialized as "1" (REQ-021)
-
-**Given** `ProcesosFilterState` with `profile_match: true`
-**When** `serializeFilters(state)`
-**Then** URLSearchParams has `profile_match=1`
-
-**Test file:** `src/__tests__/filter-state.test.ts`
-**Framework:** vitest
-
-### Behavior: unspsc multi-value serialized as comma-sep (REQ-022)
-
-**Given** `unspsc: ['43', '80']`
-**When** `serializeFilters(state)`
-**Then** URLSearchParams has `unspsc=43,80`
-
-**Test file:** `src/__tests__/filter-state.test.ts`
-**Framework:** vitest
-
-### Behavior: cuantia_min null not serialized
-
-**Given** `ProcesosFilterState` with `cuantia_min: null`
-**When** `serializeFilters(state)`
-**Then** result does not contain `cuantia_min` key
-
-**Test file:** `src/__tests__/filter-state.test.ts`
-**Framework:** vitest
-
-### Behavior: isDefaultState true for DEFAULT_FILTER_STATE
-
-**Given** `DEFAULT_FILTER_STATE` with all defaults
-**When** `isDefaultState(DEFAULT_FILTER_STATE)`
-**Then** returns `true`
-
-**Test file:** `src/__tests__/filter-state.test.ts`
+**Test file:** `src/__tests__/b1-env-gate.test.ts`
 **Framework:** vitest
 
 ---
 
-## Phase T2: Fetch Hook
+## Phase B2: SODA Client + Mapper
 
-### Behavior: isLoading true during fetch (REQ-014)
+### Behavior: mapper translates id_proceso → numero_proceso (REQ-001, RN-001)
 
-**Given** fetch pending
-**When** `useProcesosQuery(filters)` renders mid-fetch
-**Then** `isLoading=true`, `data=[]`, `error=null`
+**Given** a raw SODA row `{ id_proceso: 'CO1.BDOS.123', objeto_a_contratar: 'Software ERP', ... }`
+**When** `mapSodaRow(rawRow)` is called
+**Then** result has `numero_proceso: 'CO1.BDOS.123'` and no `id_proceso` key
 
-**Test file:** `src/__tests__/use-procesos-query.test.ts`
-**Framework:** vitest + React Testing Library
-
-### Behavior: isPaging true on page-only change (REQ-015)
-
-**Given** current filters `{ page: 1, departamento: ['Bolívar'] }`
-**When** `page` changes to `2` (same other fields)
-**Then** `isPaging=true`, `isLoading=false`
-
-**Test file:** `src/__tests__/use-procesos-query.test.ts`
+**Test file:** `src/__tests__/secop-mapper.test.ts`
 **Framework:** vitest
 
-### Behavior: in-flight request aborted on filter change
+### Behavior: mapper normalizes all required fields
 
-**Given** fetch in progress for filter state A
-**When** filters change to B before response
-**Then** AbortController signal is aborted; response A not applied to state
+**Given** a raw SODA row with all expected SODA fields populated
+**When** `mapSodaRow(rawRow)`
+**Then** result has `entidad`, `objeto_a_contratar`, `modalidad`, `cuantia_proceso` (numeric), `fecha_de_publicacion_del_proceso` (ISO string), `fecha_limite_de_recepcion` (ISO string), `ciudad`
 
-**Test file:** `src/__tests__/use-procesos-query.test.ts`
+**Test file:** `src/__tests__/secop-mapper.test.ts`
+**Framework:** vitest
+
+### Behavior: mapper handles missing optional fields without throwing
+
+**Given** a raw SODA row with `cuantia_proceso` absent
+**When** `mapSodaRow(rawRow)`
+**Then** result has `cuantia_proceso: null`; no throw
+
+**Test file:** `src/__tests__/secop-mapper.test.ts`
+**Framework:** vitest
+
+### Behavior: SODA client returns mapped rows on 200
+
+**Given** SODA API returns a 200 response with 3 rows
+**When** `fetchOpenProcesos()` is called
+**Then** returns an array of 3 mapped objects each with `numero_proceso` key
+
+**Test file:** `src/__tests__/secop-client.test.ts`
 **Framework:** vitest (mocked fetch)
 
-### Behavior: error state on non-200 (REQ-018)
+### Behavior: SODA client throws on non-200
 
-**Given** fetch returns 500
-**When** response processed
-**Then** `error` non-null; `data=[]`; `isLoading=false`
+**Given** SODA API returns 503
+**When** `fetchOpenProcesos()`
+**Then** throws with message including the status code
 
-**Test file:** `src/__tests__/use-procesos-query.test.ts`
+**Test file:** `src/__tests__/secop-client.test.ts`
+**Framework:** vitest (mocked fetch)
+
+### Behavior: SOQL builder produces correct open-Procesos filter
+
+**Given** no additional filter params
+**When** `buildOpenProcesosQuery()`
+**Then** returned SOQL string contains `estado = 'abierto'` or equivalent field filter per current dataset schema
+
+**Test file:** `src/__tests__/secop-soql.test.ts`
 **Framework:** vitest
-
-### Behavior: hasVectorSearch true when q non-empty (REQ-023)
-
-**Given** `filters.q = 'software ERP'`
-**When** fetch succeeds
-**Then** `hasVectorSearch=true`
-
-**Test file:** `src/__tests__/use-procesos-query.test.ts`
-**Framework:** vitest
-
-### Behavior: hasVectorSearch false when q empty (REQ-023)
-
-**Given** `filters.q = ''`
-**When** fetch succeeds
-**Then** `hasVectorSearch=false`
-
-**Test file:** `src/__tests__/use-procesos-query.test.ts`
-**Framework:** vitest
-
-### Behavior: searchId updated after successful fetch (REQ-024)
-
-**Given** initial `searchId = null`
-**When** fetch completes successfully
-**Then** `searchId` equals the UUID that was sent in `X-Search-Id` header
-
-**Test file:** `src/__tests__/use-procesos-query.test.ts`
-**Framework:** vitest
-
-### Behavior: X-Search-Id header present in fetch (REQ-024)
-
-**Given** any filter state
-**When** `useProcesosQuery` fires a fetch
-**Then** request headers include `X-Search-Id` with a valid UUID v4
-
-**Test file:** `src/__tests__/use-procesos-query.test.ts`
-**Framework:** vitest (mocked fetch, header inspection)
 
 ---
 
-## Phase T3: Table Redesign
+## Phase B3: Cron Sync
 
-### Behavior: skeleton on isLoading (REQ-014)
+### Behavior: cron route rejects missing CRON_SECRET (RN-006)
 
-**Given** `isLoading=true`
-**When** `ProcesosTable` renders
-**Then** 10 skeleton rows present; no real data rows
+**Given** POST to `/api/cron/sync-secop` without `Authorization: Bearer <CRON_SECRET>` header
+**When** handler executes
+**Then** 401 response; no SODA call made; `procesos_index` unchanged
 
-**Test file:** `src/__tests__/procesos-table.test.tsx`
-**Framework:** vitest + React Testing Library
+**Test file:** `src/__tests__/cron-sync.test.ts`
+**Framework:** vitest (mocked SODA client)
 
-### Behavior: sem pill for analyzed row (REQ-011)
+### Behavior: cron upserts without creating duplicates (NFR-05)
 
-**Given** row with `has_analisis=true, last_sem='verde'`
-**When** `ProcesoRow` renders
-**Then** `SemPill` with status `verde` visible
+**Given** `procesos_index` has a row with `numero_proceso='CO1.BDOS.X'`
+**When** cron runs with SODA returning the same `numero_proceso` again
+**Then** `procesos_index` still has exactly one row for `numero_proceso='CO1.BDOS.X'`
 
-**Test file:** `src/__tests__/procesos-table.test.tsx`
-**Framework:** vitest + React Testing Library
+**Test file:** `src/__tests__/cron-sync.test.ts`
+**Framework:** vitest (integration)
 
-### Behavior: grey dot for unanalyzed row (REQ-011)
+### Behavior: cron prunes closed Procesos
 
-**Given** row with `has_analisis=false`
-**When** `ProcesoRow` renders
-**Then** no `SemPill`; grey indicator visible
+**Given** `procesos_index` has a row with `fecha_limite_de_recepcion` = 30 days ago
+**When** cron sync runs (pruning step)
+**Then** that row is deleted; rows with future `fecha_limite_de_recepcion` are retained
 
-**Test file:** `src/__tests__/procesos-table.test.tsx`
-**Framework:** vitest + React Testing Library
+**Test file:** `src/__tests__/cron-sync.test.ts`
+**Framework:** vitest (integration)
 
-### Behavior: row click with analisis navigates to analisis (REQ-013, TC-008)
+### Behavior: cron returns 200 with summary on SODA error (RN-006)
 
-**Given** row with `has_analisis=true, last_analisis_id='ANA-123'`
-**When** user clicks row
-**Then** `router.push('/dashboard/analisis/ANA-123')` called
+**Given** SODA API throws a network error
+**When** cron handler catches the error
+**Then** response is 200 with `{ ok: false, error: '...' }`; no unhandled exception
 
-**Test file:** `src/__tests__/procesos-table.test.tsx`
-**Framework:** vitest + React Testing Library
-
-### Behavior: row click without analisis navigates to upload (REQ-013, TC-009)
-
-**Given** row with `has_analisis=false, id_proceso='CO1.BDOS.X'`
-**When** user clicks row
-**Then** `router.push('/dashboard/upload?procesoId=CO1.BDOS.X')` called
-
-**Test file:** `src/__tests__/procesos-table.test.tsx`
-**Framework:** vitest + React Testing Library
-
-### Behavior: empty state A when filters active (REQ-016, TC-011)
-
-**Given** `isEmpty=true, hasFilters=true`
-**When** `ProcesosTable` renders
-**Then** "Sin procesos con estos filtros" visible; "Limpiar filtros" button present
-
-**Test file:** `src/__tests__/procesos-table.test.tsx`
-**Framework:** vitest + React Testing Library
-
-### Behavior: empty state B when no filters (REQ-017, TC-012)
-
-**Given** `isEmpty=true, hasFilters=false`
-**When** `ProcesosTable` renders
-**Then** "Aún no hay procesos sincronizados" visible; no "Limpiar filtros" button
-
-**Test file:** `src/__tests__/procesos-table.test.tsx`
-**Framework:** vitest + React Testing Library
-
-### Behavior: match column visible when hasVectorSearch (REQ-023)
-
-**Given** `hasVectorSearch=true`, row with `match_score=0.87`
-**When** `ProcesosTable` renders
-**Then** match column header visible; "87% relevante" chip shown in row
-
-**Test file:** `src/__tests__/procesos-table.test.tsx`
-**Framework:** vitest + React Testing Library
-
-### Behavior: match column hidden when no vector search (REQ-023)
-
-**Given** `hasVectorSearch=false`
-**When** `ProcesosTable` renders
-**Then** match column header not in DOM; no match chip rendered
-
-**Test file:** `src/__tests__/procesos-table.test.tsx`
-**Framework:** vitest + React Testing Library
-
-### Behavior: onRowClick fires with position before navigation (REQ-024)
-
-**Given** row at position index 2
-**When** user clicks the row
-**Then** `onRowClick(row, 2)` called before `router.push`
-
-**Test file:** `src/__tests__/procesos-table.test.tsx`
-**Framework:** vitest + React Testing Library
+**Test file:** `src/__tests__/cron-sync.test.ts`
+**Framework:** vitest (mocked SODA client that throws)
 
 ---
 
-## Phase T4: Filter Bar
+## Phase B4: Embeddings
 
-### Behavior: chip toggle adds to multi-select (REQ-003)
+### Behavior: only un-embedded rows are processed
 
-**Given** `filters.departamento=[]`
-**When** user clicks "Bolívar" chip
-**Then** `onFiltersChange` called with `{ departamento: ['Bolívar'], page: 1 }`
+**Given** `procesos_index` has 3 rows: 1 with `embedded_at=null`, 1 with `embedded_at` 1 day ago (objeto unchanged), 1 with `embedded_at` 1 day ago (objeto changed)
+**When** `runEmbeddingSync()` executes
+**Then** exactly 2 rows processed (the null-embedded and the changed one); 1 row skipped
 
-**Test file:** `src/__tests__/procesos-filters.test.tsx`
-**Framework:** vitest + React Testing Library
+**Test file:** `src/__tests__/secop-embeddings.test.ts`
+**Framework:** vitest (mocked OpenAI client)
 
-### Behavior: chip toggle removes from multi-select
+### Behavior: embedding_events written per batch
 
-**Given** `filters.departamento=['Bolívar', 'Cundinamarca']`
-**When** user clicks "Bolívar" chip
-**Then** `onFiltersChange` called with `{ departamento: ['Cundinamarca'], page: 1 }`
+**Given** 5 rows to embed in one batch
+**When** `runEmbeddingSync()` completes
+**Then** one `embedding_events` row inserted: `use_case='sync'`, `company_id=null`, `input_tokens>0`, `cost_usd>0`, `model='text-embedding-3-small'`
 
-**Test file:** `src/__tests__/procesos-filters.test.tsx`
-**Framework:** vitest + React Testing Library
+**Test file:** `src/__tests__/secop-embeddings.test.ts`
+**Framework:** vitest (mocked OpenAI, mocked TelemetryLogger)
 
-### Behavior: restore prefs button hidden when no prefs (REQ-006)
+### Behavior: embedding failure does not delete existing vectors
 
-**Given** `hasPreferences=false`
-**When** `ProcesosFilters` renders
-**Then** "Restaurar preferencias" not visible
+**Given** a row with an existing `embedding` and `embedded_at`
+**When** OpenAI call fails for that row
+**Then** the existing `embedding` and `embedded_at` values are preserved; error logged to stderr
 
-**Test file:** `src/__tests__/procesos-filters.test.tsx`
-**Framework:** vitest + React Testing Library
-
-### Behavior: profile_match toggle activates badge (REQ-021)
-
-**Given** `filters.profile_match=false`
-**When** user activates the "Coincide con mi perfil" toggle
-**Then** `onFiltersChange` called with `{ profile_match: true, page: 1 }`; "Perfil activo" badge visible
-
-**Test file:** `src/__tests__/procesos-filters.test.tsx`
-**Framework:** vitest + React Testing Library
-
-### Behavior: profile_match off hides badge (REQ-021)
-
-**Given** `filters.profile_match=true`
-**When** user deactivates the toggle
-**Then** `onFiltersChange` called with `{ profile_match: false, page: 1 }`; "Perfil activo" badge not visible
-
-**Test file:** `src/__tests__/procesos-filters.test.tsx`
-**Framework:** vitest + React Testing Library
-
-### Behavior: UNSPSC chip toggle (REQ-022)
-
-**Given** `filters.unspsc=[]`
-**When** user clicks "43 - Tecnologías de la información" chip
-**Then** `onFiltersChange` called with `{ unspsc: ['43'], page: 1 }`
-
-**Test file:** `src/__tests__/procesos-filters.test.tsx`
-**Framework:** vitest + React Testing Library
-
-### Behavior: all 8 UNSPSC options rendered (REQ-022)
-
-**When** `ProcesosFilters` renders
-**Then** 8 UNSPSC chip buttons visible with codes 43, 72, 80, 81, 83, 84, 85, 92
-
-**Test file:** `src/__tests__/procesos-filters.test.tsx`
-**Framework:** vitest + React Testing Library
-
-### Behavior: fecha_cierre_from input fires change (REQ-020)
-
-**Given** `filters.fecha_cierre_from=null`
-**When** user sets date input to `"2026-06-01"`
-**Then** `onFiltersChange` called with `{ fecha_cierre_from: '2026-06-01', page: 1 }`
-
-**Test file:** `src/__tests__/procesos-filters.test.tsx`
-**Framework:** vitest + React Testing Library
+**Test file:** `src/__tests__/secop-embeddings.test.ts`
+**Framework:** vitest (mocked OpenAI that throws)
 
 ---
 
-## Phase T5: Page Wiring
+## Phase B5: `/api/procesos` Endpoint
 
-### Behavior: no mock import in bundle (NFR-03, TC-015)
+### Behavior: vector search path used when q non-empty
 
-**When** production build analyzed
-**Then** `@/lib/mock` not in procesos page JS chunk
+**Given** `GET /api/procesos?q=consultoría+TI`
+**When** handler executes
+**Then** OpenAI embedding called for query; pgvector `<=>` used in SQL; `match_score` present on each result row
 
-**Verification method:** `grep -r "lib/mock" .next/static` → 0 matches
+**Test file:** `src/__tests__/api-procesos.test.ts`
+**Framework:** vitest (mocked OpenAI + Supabase)
 
-### Behavior: URL params applied on load (REQ-002)
+### Behavior: structural path used when q absent
 
-**Given** URL `/dashboard/procesos?departamento=Bolívar`
-**When** `ProcesosPageClient` mounts
-**Then** `useProcesosQuery` called with `filters.departamento=['Bolívar']`
+**Given** `GET /api/procesos?modalidad=Licitación+Pública`
+**When** handler executes
+**Then** no OpenAI call made; plain SQL `WHERE modalidad = 'Licitación Pública'`; `match_score=null` on all rows
 
-**Test file:** `src/__tests__/procesos-page-client.test.tsx`
-**Framework:** vitest + React Testing Library (mocked `useSearchParams`)
+**Test file:** `src/__tests__/api-procesos.test.ts`
+**Framework:** vitest (mocked Supabase)
 
-### Behavior: profile_match URL param activates toggle on load (REQ-021)
+### Behavior: profile_match derives filters from company profile
 
-**Given** URL `/dashboard/procesos?profile_match=1`
-**When** `ProcesosPageClient` mounts
-**Then** `filters.profile_match=true`; profile_match toggle shown as active
+**Given** `GET /api/procesos?profile_match=true` by a user whose company profile has `alcance_comercial.unspsc=['43']`
+**When** handler executes
+**Then** query includes `unspsc` filter derived from profile; no explicit `unspsc` param required from client
 
-**Test file:** `src/__tests__/procesos-page-client.test.tsx`
-**Framework:** vitest + React Testing Library
+**Test file:** `src/__tests__/api-procesos.test.ts`
+**Framework:** vitest (mocked Supabase)
 
-### Behavior: row click fires POST fire-and-forget (REQ-024, REQ-025)
+### Behavior: search_events written on every request (REQ-004, RN-007)
 
-**Given** `query.searchId='uuid-abc'`, user clicks row at position 0
-**When** `handleRowClick(row, 0)` called
-**Then** `fetch('/api/search-events', { method: 'POST', body: JSON.stringify({ search_id: 'uuid-abc', id_proceso: row.id_proceso, position: 0 }) })` called; navigation proceeds regardless of POST result
+**Given** any request to `GET /api/procesos`
+**When** handler completes (success or partial)
+**Then** `logSearchEvent` called with `query_text`, `filters`, `result_count`; `clicked_ids=[]` (initial insert)
 
-**Test file:** `src/__tests__/procesos-page-client.test.tsx`
-**Framework:** vitest + React Testing Library (mocked fetch)
+**Test file:** `src/__tests__/api-procesos.test.ts`
+**Framework:** vitest (spy on TelemetryLogger)
 
-### Behavior: direct lookup navigates on 200 (REQ-025)
+### Behavior: logEmbeddingEvent written on vector search query
 
-**Given** `GET /api/procesos/CO1.BDOS.X` returns 200
-**When** user submits ID "CO1.BDOS.X" in `DirectProcesoLookup`
-**Then** `router.push('/dashboard/upload?procesoId=CO1.BDOS.X')` called
+**Given** `GET /api/procesos?q=software`
+**When** handler completes
+**Then** `logEmbeddingEvent` called with `use_case='search_query'`, `company_id=<authenticated company>`, `input_tokens>0`
 
-**Test file:** `src/__tests__/directo-proceso-lookup.test.tsx`
-**Framework:** vitest + React Testing Library
+**Test file:** `src/__tests__/api-procesos.test.ts`
+**Framework:** vitest (spy on TelemetryLogger)
 
-### Behavior: direct lookup shows 404 error (REQ-025)
+### Behavior: direct lookup returns 404 for unknown numero_proceso
 
-**Given** `GET /api/procesos/UNKNOWN` returns 404
-**When** user submits "UNKNOWN"
-**Then** "Proceso no encontrado en SECOP" visible inline; no navigation
+**Given** `GET /api/procesos/UNKNOWN-ID` — not in `procesos_index`; SODA returns 0 rows
+**When** handler executes
+**Then** response status 404; body `{ error: 'not_found' }`
 
-**Test file:** `src/__tests__/directo-proceso-lookup.test.tsx`
-**Framework:** vitest + React Testing Library
+**Test file:** `src/__tests__/api-procesos-lookup.test.ts`
+**Framework:** vitest (mocked Supabase + SODA)
 
 ---
 
-## Phase T6: Click Event Logging
+## Phases T1 through T6 (Frontend)
 
-### Behavior: POST logs click (REQ-024)
-
-**Given** authenticated session; valid `search_id` in `search_log`; `id_proceso='CO1.BDOS.X'`
-**When** `POST /api/search-events` with `{ search_id, id_proceso: 'CO1.BDOS.X', position: 2 }`
-**Then** response 200 `{ ok: true }`; `search_log.clicked_ids` contains `'CO1.BDOS.X'`
-
-**Test file:** `src/__tests__/search-events.test.ts`
-**Framework:** vitest
-
-### Behavior: POST without auth returns 401
-
-**Given** no authenticated session
-**When** `POST /api/search-events`
-**Then** 401 response; `search_log` unchanged
-
-**Test file:** `src/__tests__/search-events.test.ts`
-**Framework:** vitest
-
-### Behavior: POST with missing search_id returns 400
-
-**Given** authenticated session
-**When** `POST /api/search-events` with body `{ id_proceso: 'X', position: 0 }` (no search_id)
-**Then** 400 response
-
-**Test file:** `src/__tests__/search-events.test.ts`
-**Framework:** vitest
-
-### Behavior: POST with invalid UUID returns 400
-
-**Given** authenticated session
-**When** `POST /api/search-events` with `search_id: 'not-a-uuid'`
-**Then** 400 response
-
-**Test file:** `src/__tests__/search-events.test.ts`
-**Framework:** vitest
-
-### Behavior: duplicate click not added twice (REQ-024)
-
-**Given** `search_log.clicked_ids` already contains `'CO1.BDOS.X'`
-**When** `POST /api/search-events` with same `id_proceso='CO1.BDOS.X'`
-**Then** 200 `{ ok: true }`; `clicked_ids` still has exactly one entry for `'CO1.BDOS.X'`
-
-**Test file:** `src/__tests__/search-events.test.ts`
-**Framework:** vitest
-
-### Behavior: non-existent search_id silently succeeds
-
-**Given** authenticated session; `search_id` not in `search_log`
-**When** `POST /api/search-events` with that `search_id`
-**Then** 200 `{ ok: true }`; no error thrown; `search_log` unchanged
-
-**Test file:** `src/__tests__/search-events.test.ts`
-**Framework:** vitest
+The frontend TDD contracts from rev 2 (T1: Types + Filter State, T2: Fetch Hook, T3: Table Redesign, T4: Filter Bar, T5: Page Wiring, T6: Click Event Logging) remain valid and are not reproduced here. See the archived rev 2 contract section for full Given/When/Then details.
