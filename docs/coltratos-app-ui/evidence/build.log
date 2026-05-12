@@ -1,26 +1,38 @@
-Run: 2026-05-01
+Run: 2026-05-12
 Command: npm run build
 
 RESULT: PASS
 Errors: 0
 Warnings: 0
-TypeScript: PASS (0 errors)
+TypeScript: PASS (0 errors, tsc --noEmit clean)
 
 Output:
-✓ Compiled successfully in ~2s
+✓ Compiled successfully in 3.1s
 ✓ TypeScript clean
 ✓ 19/19 static pages generated
 
 Routes built:
+○ / (static)
+○ /_not-found (static)
+ƒ /api/analyses/[id]/pliego-url (dynamic)
+ƒ /api/analyses/[id]/status (dynamic)
+ƒ /auth/confirm (dynamic)
 ○ /dashboard (static)
 ○ /dashboard/alertas (static)
-ƒ /dashboard/analisis/[id] (dynamic)
 ○ /dashboard/analisis (static)
+ƒ /dashboard/analisis/[id] (dynamic — real-data SSR)
 ○ /dashboard/config (static)
 ○ /dashboard/creditos (static)
 ○ /dashboard/equipo (static)
 ○ /dashboard/procesos (static)
-○ /dashboard/upload (static — Suspense boundary added)
+○ /dashboard/upload (static)
+○ /forgot-password (static)
+○ /icon.svg (static)
+○ /login (static)
+○ /reset-password (static)
+○ /signup (static)
+○ /signup/check-email (static)
+ƒ Proxy (Middleware)
 
-Note: /dashboard/upload initially failed build with "useSearchParams() should be wrapped
-in a suspense boundary". Fixed by splitting into UploadInner + Suspense wrapper.
+NFR note: react-pdf is a client-only bundle inclusion — NFR-02 approved
+exception documented in src/__tests__/rsc-purity.test.ts.

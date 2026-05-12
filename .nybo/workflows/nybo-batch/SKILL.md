@@ -8,6 +8,9 @@ description: >-
   "parallel PRs", "/nybo-batch".
 ---
 
+> **Agent:** nybo-executor · **Model:** Sonnet 4.6 (`claude-sonnet-4-6`)
+> Switch now: `/model claude-sonnet-4-6`
+
 # nybo-batch
 
 Parallelize a wide change — rename, cross-file refactor, multi-file cleanup, codemod-style transformation — by decomposing it into **5–30 independent units**, getting human approval on the plan, then spawning **one Agent per unit in an isolated git worktree**. Each Agent implements its unit, runs tests, and opens a **draft PR**. Reuses `nybo-worktree` primitives for isolation.

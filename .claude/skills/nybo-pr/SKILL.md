@@ -10,6 +10,9 @@ description: >-
 <!-- Source: .nybo/ — run `nybo doctor --fix` to regenerate -->
 
 
+> **Agent:** nybo-executor · **Model:** Sonnet 4.6 (`claude-sonnet-4-6`)
+> Switch now: `/model claude-sonnet-4-6`
+
 # nybo-pr
 
 Create and publish a pull request after the spec has been verified. Closes the implementation lifecycle loop: plan → run → verify → **pr** → curate.
@@ -66,6 +69,8 @@ If `integrations.github.defaultBranch` is set in `nybo.config.yaml`, use it as t
 
 ## 5. Generate the PR
 
+**PR title MUST be Conventional Commits** — `<type>(<scope>): <description>`. Allowed types match the list in `.nybo/memory/domains/git.md`: `feat`, `fix`, `chore`, `refactor`, `docs`, `test`, `perf`, `build`, `ci`, `style`. The CI workflow `.github/workflows/pr-title-lint.yml` enforces this on every PR — bad titles block the merge button. Map `status.yaml.action_type` (`ADD`/`UPD`/`FIX`) → commit type per the table in `git.md`. release-please reads master commit subjects (which equal squash-merge PR titles) to compute version bumps; a `[ADD] ...` title silently breaks the next release.
+
 **Primary — GitHub MCP** (if `integrations.github.owner` and `integrations.github.repo` are configured):
 
 Use `mcp__github__createPullRequest` with:
@@ -73,7 +78,7 @@ Use `mcp__github__createPullRequest` with:
 - `repo`: from `integrations.github.repo`
 - `head`: current branch
 - `base`: target branch from step 4
-- `title`: derived from spec overview (first sentence) or task list summary
+- `title`: Conventional Commits subject derived from spec overview (e.g. `feat(skills): add nybo-build-log skill`)
 - `body`: PR body template below
 
 **Fallback — gh CLI** (if GitHub MCP unavailable):

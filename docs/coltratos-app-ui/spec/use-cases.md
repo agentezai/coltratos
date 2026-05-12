@@ -90,14 +90,78 @@
 
 ---
 
-### UC-06: Inspect Resultado del análisis
+### UC-06: Inspect Resultado del análisis (real-data)
 
 **Main Scenario**
 1. User lands on `/dashboard/analisis/[id]`
-2. System renders hero card with semáforo state + requisito summary
-3. User clicks a tab (e.g. "Jurídico") → tab content updates
-4. User clicks an accordion row → "¿Por qué?" reasoning text expands
-5. User clicks "Exportar PDF" → (stub, no-op in this spec)
+2. Server reads `analyses + verdicts + requisitos + pliego_uploads + procesos` (RLS-scoped via `auth.company_id()`)
+3. System renders the metadata header strip from `proceso_metadata_snapshot` (entidad, objeto, modalidad, valor estimado, fecha de cierre, "Ver en SECOP II" link)
+4. System renders the verdict banner with the overall verdict, count summary, and one-sentence narrative
+5. User clicks a tab (Resumen / Jurídico / Técnico / Financiero) → tab content updates with requisitos of that `tipo`
+6. User clicks an accordion row → row expands showing full requisito text, verdict reason, source-quote citation, "Abrir página en PDF" button
+7. User clicks "Abrir página en PDF" → see UC-09
+8. User clicks "Volver a analizar" → see UC-10
+9. User clicks "Exportar PDF" → trigger fires the `report-export` feature (out of this spec's implementation scope)
+10. User clicks thumbs-up or thumbs-down → see UC-11
+
+**Alternative — `proceso_lookup_status = unverified`**
+- Header strip renders an explicit "Datos ingresados manualmente" badge alongside the metadata fields. The "Ver en SECOP II" link is hidden or replaced with a "No disponible" state.
+
+**Alternative — partial extraction**
+- A warning banner above the verdict displays "X páginas no fueron legibles". User clicks "Ver detalles" to see the list of flagged pages.
+
+**Loading state**
+- While `extraction_status ∈ {pending, extracting}`, the page renders the step-tied loader (Extracción → Análisis → Evaluación → Validación) using `extraction_stage`.
+
+**Error**
+- Analysis not found / not owned by user's company → 404. Pliego file missing / signed URL fails → "Abrir página en PDF" disabled with tooltip "Documento no disponible".
+
+---
+
+### UC-09: Open source citation in PDF viewer
+
+**Main Scenario**
+1. User clicks "Abrir página en PDF" on an expanded requisito row
+2. Client opens the PdfViewer (modal on `< lg`, side panel on `≥ lg`)
+3. Server returns a fresh signed URL (15-min TTL) for `pliego_uploads.file_storage_key` after RLS check
+4. Viewer loads the PDF and navigates to `pagina_fuente`
+5. Viewer highlights `quote_fuente` (text-search strategy per S6 Flag F-2)
+6. User reviews the source quote, closes the viewer, returns to the result page
+
+**Alternative — quote not found in rendered text**
+- Viewer shows a "Cita no encontrada en esta página" chip; the page is still navigated to `pagina_fuente` so the user can locate the quote manually
+
+**Error**
+- Signed URL fails → toast "No pudimos abrir el documento. Intenta de nuevo." Viewer does not open.
+
+---
+
+### UC-10: Re-run analysis with current company profile
+
+**Main Scenario**
+1. User clicks "Volver a analizar" on the Resultado page
+2. Confirmation dialog: "Esto creará un nuevo análisis con tu perfil actual. El análisis original se mantendrá."
+3. User confirms → server action inserts a new `analyses` row with the same `pliego_upload_id` and the user's current company-profile snapshot
+4. Per S6 Flag F-3 (option b): user is navigated to `/dashboard/analisis/<new-id>` showing the loading state from REQ-028
+5. When the new analysis completes, the page renders the new verdict
+6. The original analysis remains accessible at its prior URL and in `/dashboard/analisis` history
+
+**Error**
+- Re-run insert fails (DB error, quota exceeded, etc.) → toast with the reason; user stays on the original analysis page.
+
+---
+
+### UC-11: Submit relevance feedback
+
+**Main Scenario**
+1. User clicks thumbs-up or thumbs-down on the hero verdict
+2. Optional one-line comment field appears
+3. User types up to 200 chars (or leaves empty) and submits
+4. Server action upserts a row in `analysis_feedback` keyed on `(analysis_id, user_id)`
+5. UI shows a confirmation chip ("Gracias por tu opinión")
+
+**Idempotency**
+- Re-clicking the same thumb removes the feedback (toggle). Clicking the opposite thumb updates the existing row.
 
 ---
 

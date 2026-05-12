@@ -10,6 +10,9 @@ description: >-
 <!-- Source: .nybo/ — run `nybo doctor --fix` to regenerate -->
 
 
+> **Agent:** nybo-executor · **Model:** Sonnet 4.6 (`claude-sonnet-4-6`)
+> Switch now: `/model claude-sonnet-4-6`
+
 # nybo-worktree
 
 Manage parallel development sessions using git worktrees. Each worktree is an isolated copy of the repo on its own branch, allowing multiple features to be developed simultaneously.

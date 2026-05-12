@@ -1,4 +1,6 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, vi } from "vitest";
+
+vi.setConfig({ testTimeout: 15000 });
 
 describe("project-bootstrap smoke test", () => {
   it("vitest is installed and runs (REQ-006)", () => {

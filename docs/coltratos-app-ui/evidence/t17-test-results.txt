@@ -1,0 +1,30 @@
+T17: Partial-extraction warning surface — Test Results
+======================================================
+Date: 2026-05-12
+Vitest v4.1.5
+
+Test file: src/__tests__/extraction-warning.test.tsx
+Test Files  1 passed (1)
+Tests       11 passed (11)
+
+Test breakdown:
+  WarningBanner — DS primitive (5 tests)
+    ✓ renders amber variant with title and description
+    ✓ renders red variant with correct data-variant attribute
+    ✓ renders optional action button when action prop provided
+    ✓ does not render close button when dismissible is false (default)
+    ✓ renders close button when dismissible=true
+
+  ExtractionWarning — T17 (RN-010, REQ-027) (6 tests)
+    ✓ renders amber banner when pages_flagged > 0
+    ✓ renders amber banner when extraction_status = partial (even if pages_flagged = 0)
+    ✓ renders nothing when status=completed and pages_flagged=0
+    ✓ banner has no dismiss button on partial branch (RN-010)
+    ✓ "Ver páginas afectadas" button opens drawer with flagged page list
+    ✓ failed state: red banner with "Volver a analizar" CTA
+
+Full unit suite: 179/179 tests pass (31 test files)
+Integration tests: skipped (require db:start — pre-existing constraint)
+TypeScript: tsc --noEmit clean
+Lint: 0 errors (20 pre-existing warnings)
+Build: npm run build clean

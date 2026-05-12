@@ -11,6 +11,9 @@ description: >-
 <!-- Source: .nybo/ — run `nybo doctor --fix` to regenerate -->
 
 
+> **Agent:** nybo-executor · **Model:** Sonnet 4.6 (`claude-sonnet-4-6`)
+> Switch now: `/model claude-sonnet-4-6`
+
 # nybo-insights
 
 Generate an interactive HTML report summarizing your Claude Code usage for this project over a configurable time window. Renders from the local session JSONL files at `~/.claude/projects/<slug>/*.jsonl` — no network, no external service.

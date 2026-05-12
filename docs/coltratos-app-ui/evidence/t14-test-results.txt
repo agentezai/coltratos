@@ -1,0 +1,14 @@
+
+> coltratos@0.1.0 test
+> vitest run --project unit --project types --project storybook --run src/__tests__/requisito-row.test.tsx
+
+
+ RUN  v4.1.5 /Users/carlosvilla/Documents/Proyectos/AI/coltratos
+
+
+ Test Files  1 passed (1)
+      Tests  16 passed (16)
+Type Errors  no errors
+   Start at  01:29:59
+   Duration  1.37s (transform 129ms, setup 0ms, import 200ms, tests 148ms, environment 822ms)
+

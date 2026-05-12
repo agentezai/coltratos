@@ -11,6 +11,9 @@ description: >-
   "write", or "fix" something in code.
 ---
 
+> **Agent:** nybo-executor · **Model:** Sonnet 4.6 (`claude-sonnet-4-6`)
+> Switch now: `/model claude-sonnet-4-6`
+
 # nybo-tdd
 
 Tests are specifications, not validation. A test written before any implementation
@@ -174,20 +177,12 @@ This pre-populates curation fodder. `nybo-curate` will pick up these entries fro
 
 Read the current trust level from **`.nybo/nybo.config.yaml`** (field `trust.level`) or **`.nybo/trust.yaml`** (field `level`). Adjust checkpoint frequency based on the level:
 
-### Full edition (L1–L4)
+### 3-tier trust model
 
-| Level | Slug | Behavior |
-|---|---|---|
-| L1 | observer | Pause at every phase (Red, Green, Refactor). Show full diff each time. |
-| L2 | collaborator | Pause after Red and after Green. Auto-proceed through Refactor if tests stay green. |
-| L3 | architect | Pause only after full cycle (Red+Green+Refactor). Human reviews outcome. |
-| L4 | autonomous | Auto-proceed through all phases. Only pause if tests fail unexpectedly. |
+| Level | Slug | Display | Behavior |
+|---|---|---|---|
+| L1 | supervised | Supervisado | Pause after Red and after Green. Auto-proceed through Refactor if tests stay green. |
+| L2 | semi-autonomous | Semi-autónomo | Pause only after full cycle (Red+Green+Refactor). Human reviews outcome. |
+| L3 | autonomous | Autónomo | Auto-proceed through all phases. Only pause if tests fail unexpectedly. |
 
-### Lite edition (supervised/autonomous)
-
-| Mode | Behavior |
-|---|---|
-| supervised | Pause at every phase — same as L1. |
-| autonomous | Auto-proceed through all phases — same as L4. |
-
-If the trust level is not set or unrecognised, default to **L1 / supervised** behavior (most conservative).
+If the trust level is not set or unrecognised, default to **L1 supervised** behavior (most conservative). Legacy slugs (`observer`, `collaborator` → L1; `architect` → L2) are coerced on read.

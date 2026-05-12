@@ -9,6 +9,14 @@ skills:
     extensions:
       - claude
     pinned: false
+  - name: nybo-build-log
+    source: builtin
+    pinned_version: 1.0.0
+    pinned_sha: null
+    checksum: sha256:83620270942ef6c9bb3350478b4e3e81cdf181f1e8440cd5066817d61f7b7661
+    scope: local
+    extensions: []
+    pinned: false
   - name: nybo-curate
     source: builtin
     pinned_version: 1.0.0
@@ -30,7 +38,7 @@ skills:
     source: builtin
     pinned_version: 1.0.0
     pinned_sha: null
-    checksum: sha256:f59ade9205badbc651e4febb828f8406ae631ee17f5a4366677ceac14ea6f302
+    checksum: sha256:c7b1a90092ad14224b779544c551f1ee8d58004e082f0af1f83e8802672e2b0c
     scope: local
     extensions: []
     pinned: false
@@ -38,7 +46,7 @@ skills:
     source: builtin
     pinned_version: 1.0.0
     pinned_sha: null
-    checksum: sha256:2b33ca8abd7f27f973cf4f730f565318ee71ded04075caf34959e72f27ce4e06
+    checksum: sha256:308dcb3a1768c49d296db8990b271d1225230b9060d216eed4e95f6c85f2019b
     scope: local
     extensions: []
     pinned: false
@@ -47,6 +55,23 @@ skills:
     pinned_version: 1.0.0
     pinned_sha: null
     checksum: sha256:a582f5128d784c5a1498885e9835b81e9c57d2024a00a3d2c65a213f40303f43
+    scope: local
+    extensions: []
+    pinned: false
+  - name: nybo-session-summary
+    source: builtin
+    pinned_version: 1.0.0
+    pinned_sha: null
+    checksum: sha256:06145e37b4acd06ef5cf3d9164b1281ccafbd9c03c30ee5b3483fb15b4a108e8
+    scope: local
+    extensions:
+      - claude
+    pinned: false
+  - name: nybo-ship
+    source: builtin
+    pinned_version: 1.0.0
+    pinned_sha: null
+    checksum: sha256:caf52fbcd88fb0f92e46a369536a691c3c482c94c582a1909d408d73826bbdc2
     scope: local
     extensions: []
     pinned: false

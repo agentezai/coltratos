@@ -10,9 +10,26 @@ description: >-
 <!-- Source: .nybo/ — run `nybo doctor --fix` to regenerate -->
 
 
+> **Agent:** nybo-executor · **Model:** Sonnet 4.6 (`claude-sonnet-4-6`)
+> Switch now: `/model claude-sonnet-4-6`
+
 # nybo-run
 
 Execute an approved spec: load context, verify approval, implement each task with TDD, update progress and evidence, then hand off to verification.
+
+---
+
+## Persona resolution
+
+Resolve persona before starting: `--persona=<id>` flag → invoking agent's `persona:` frontmatter → `default` in `.nybo/foundation/personas.yaml`. Apply during every task and every reply:
+
+- **`progress_style: silent`** → no narration; report only completion or blockers.
+- **`progress_style: bullet`** → one-line bullet update per task; no prose.
+- **`progress_style: narrative`** → describe what was done and why between tasks.
+- **`decision_style: auto`** → pick the obvious default for ambiguous choices and note the assumption.
+- **`decision_style: suggest`** → propose a default and proceed if the user does not push back.
+- **`decision_style: ask`** → pause for explicit confirmation on every ambiguous choice.
+- **`verbosity` / `tone`** → see `.claude/rules/nybo-personas.md` (or `.cursor/rules/nybo-personas.md`) for the full bullet list.
 
 ---
 
@@ -32,8 +49,8 @@ Execute an approved spec: load context, verify approval, implement each task wit
 
 ## 2. Verify preconditions
 
-- Read **`docs/status.yaml`** and look up the entry for `<n>` under `features:`.
-- If **`status`** is not **`approved`**, tell the user: "This spec is not approved yet. Approve it first (e.g. via nybo-plan checkpoint or by updating the `<n>` entry in `docs/status.yaml` to `status: approved`), then run nybo-run again."
+- Read **`docs/<n>/status.yaml`** for the spec's lifecycle state.
+- If **`status`** is not **`approved`**, tell the user: "This spec is not approved yet. Approve it first (e.g. via nybo-plan checkpoint or by setting `status: approved` in `docs/<n>/status.yaml`), then run nybo-run again."
 - Do not proceed with implementation until the spec is approved.
 
 ---
@@ -44,11 +61,11 @@ Work through the task list from **`docs/<n>/feat/99-progress.md`**. For **each t
 
 - **Project skills**: If a project skill applies (e.g. `create-service`, `create-api-route`), read it from **`.nybo/skills/<skill-name>.md`** and follow its template and validation steps. These are codebase-specific patterns extracted from completed features.
 - **Library docs**: For each external library used in this task, call `resolve-library-id` then `get-library-docs` via the **context7 MCP** to fetch current API docs. Use the returned docs as the authoritative reference — do not rely on training knowledge for library APIs. If the MCP call fails, note the failure in evidence and state the library version assumed.
-- **TDD execution**: For each task, read the relevant behavior(s) from **`docs/<n>/contract/contract.md`**. Use the **nybo-tdd** workflow skill to execute each behavior's Red → Green → Refactor cycle. Trust mode determines checkpoint frequency — see the nybo-tdd trust table (supports both L1-L4 and supervised/autonomous modes). Do not write implementation code before a failing test exists.
+- **TDD execution**: For each task, read the relevant behavior(s) from **`docs/<n>/contract/contract.md`**. Use the **nybo-tdd** workflow skill to execute each behavior's Red → Green → Refactor cycle. Trust mode determines checkpoint frequency — see the nybo-tdd trust table (3-tier: supervised, semi-autonomous, autonomous). Do not write implementation code before a failing test exists.
 - **File size**: Enforce the file size limit from conventions (e.g. file-size rule). If a file would exceed the limit, split into focused modules before committing.
 - **Lint and type-check**: Run the project's lint and type-check (e.g. `npm run lint`, `tsc --noEmit`) after each task. Fix any new issues.
 - **Progress**: Update **`docs/<n>/feat/99-progress.md`**: mark the task as `[x]` done and add brief notes if useful.
-- **Status**: Update the `<n>` entry in **`docs/status.yaml`** to `status: in-progress` (if not already).
+- **Status**: Update **`docs/<n>/status.yaml`** to `status: in-progress` (if not already).
 - **Event**: Log a `task_completed` event to `.nybo/events.jsonl` with: `spec` = `<n>`, `task_number`, `task_title`.
 
 If a task is blocked (e.g. missing API, decision needed), note it in `docs/<n>/feat/99-progress.md` and continue with the next unblocked task; inform the user about the block.
@@ -59,7 +76,7 @@ If a task is blocked (e.g. missing API, decision needed), note it in `docs/<n>/f
 
 - **Suggestions**: Generate **`docs/<n>/suggestions.md`** using the format in **`.nybo/workflows/nybo-run/references/suggestions-format.md`** (Quick Wins, Future Enhancements, Technical Debt, Questions for the Human; use `[S001]`-style IDs).
 - **Evidence**: Collect build output, test results, and coverage (and a short diff summary if helpful). Write them under **`docs/<n>/evidence/`** (e.g. `build.log`, `test-results.txt`, `coverage-summary.txt`, `diff-summary.md`). Create the directory if needed.
-- **Status**: Update the `<n>` entry in **`docs/status.yaml`** to `status: in-review`.
+- **Status**: Update **`docs/<n>/status.yaml`** to `status: in-review`.
 - **Event**: Log a `run_completed` event to `.nybo/events.jsonl` with: `spec` = `<n>`, `tasks_done` (count of completed tasks), `tasks_blocked` (count), `test_count` (from test results), `coverage_pct` (from coverage output, or null if unavailable).
 
 ---
@@ -85,14 +102,13 @@ If a task is blocked (e.g. missing API, decision needed), note it in `docs/<n>/f
 
 Read the current trust level from **`.nybo/nybo.config.yaml`** (field `trust.level`) or **`.nybo/trust.yaml`** (field `level`). Adjust checkpoint frequency based on the level:
 
-| Level | Slug | Behavior |
-|---|---|---|
-| L1 | observer | Pause after every file change. Present diff and ask human to confirm before proceeding. |
-| L2 | collaborator | Pause after each task (group of related file changes). Show summary and ask human to confirm. |
-| L3 | architect | Pause only at end (after all tasks complete). Human spot-checks the full result. |
-| L4 | autonomous | No pause, auto-proceed through all tasks. Only stop on errors or blocked tasks. |
+| Level | Slug | Display | Behavior |
+|---|---|---|---|
+| L1 | supervised | Supervisado | Pause after each task (group of related file changes). Show summary and ask human to confirm. |
+| L2 | semi-autonomous | Semi-autónomo | Pause only at end (after all tasks complete). Human spot-checks the full result. |
+| L3 | autonomous | Autónomo | No pause, auto-proceed through all tasks. Only stop on errors or blocked tasks. |
 
-If the trust level is not set or unrecognised, default to **L1** behavior (most conservative).
+If the trust level is not set or unrecognised, default to **L1 supervised** behavior (most conservative). Legacy slugs (`observer`, `collaborator` → L1; `architect` → L2) are coerced on read.
 
 
 ## Project Context
