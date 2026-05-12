@@ -1,7 +1,10 @@
-status: in-review
+status: confirmed
 created: "2026-04-28"
 approved_at: "2026-04-28"
 run_completed_at: "2026-04-28"
+verified_at: "2026-04-29"
+merged_at: "2026-04-29"
+pr_url: "https://github.com/agentezai/coltratos/pull/4"
 branch: "feat/design-system"
 action_type: FEATURE
 profile: code

@@ -97,41 +97,51 @@ features:
     action_type: FEATURE
     profile: code
   design-system:
-    status: in-review
+    status: confirmed
     created: "2026-04-28"
     approved_at: "2026-04-28"
     run_completed_at: "2026-04-28"
+    merged_at: "2026-04-29"
+    pr_url: "https://github.com/agentezai/coltratos/pull/4"
     branch: "feat/design-system"
     action_type: FEATURE
     profile: code
   auth-and-tenancy:
-    status: in-review
+    status: confirmed
     created: "2026-04-28"
     approved_at: "2026-04-28"
     run_completed_at: "2026-04-28"
+    merged_at: "2026-05-06"
+    pr_url: "https://github.com/agentezai/coltratos/pull/6"
     action_type: FEATURE
     profile: code
   auth-theme:
-    status: in-review
+    status: confirmed
     created: "2026-04-30"
     approved_at: "2026-04-30"
     run_completed_at: "2026-04-30"
+    merged_at: "2026-05-06"
+    pr_url: "https://github.com/agentezai/coltratos/pull/6"
     action_type: FEATURE
     profile: code
   coltratos-app-ui:
-    status: in-review
+    status: confirmed
     created: "2026-05-01"
     approved_at: "2026-05-01"
     run_completed_at: "2026-05-01"
+    merged_at: "2026-05-12"
+    pr_url: "https://github.com/agentezai/coltratos/pull/7"
     action_type: FEATURE
     profile: code
   fix-auth-confirm-pkce-2026-05-01:
-    status: in-review
+    status: confirmed
     action_type: FIX
     profile: code
     created: "2026-05-01"
     approved_at: "2026-05-01"
     run_completed_at: "2026-05-01"
+    merged_at: "2026-05-06"
+    pr_url: "https://github.com/agentezai/coltratos/pull/6"
     original_feature: auth-and-tenancy
   company-profiling-onboarding:
     status: approved

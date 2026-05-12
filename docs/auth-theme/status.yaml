@@ -1,5 +1,7 @@
-status: approved
+status: confirmed
 action_type: FEATURE
 profile: code
 created: "2026-04-30"
 approved_at: "2026-04-30"
+merged_at: "2026-05-06"
+pr_url: "https://github.com/agentezai/coltratos/pull/6"

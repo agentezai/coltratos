@@ -1,4 +1,6 @@
-status: in-review
+status: confirmed
+merged_at: "2026-05-06"
+pr_url: "https://github.com/agentezai/coltratos/pull/6"
 action_type: FEATURE
 profile: code
 created: "2026-04-30"
