@@ -1,0 +1,47 @@
+T11: Result real-data loader — Evidence
+========================================
+Date: 2026-05-12
+Branch: docs/spec-batch-2026-05-06
+
+Test Summary
+------------
+Test Files: 49 passed (49)
+Tests:      218 passed (218)
+Type Errors: none
+Build: clean (npm run build — 0 errors)
+Typecheck: clean (tsc --noEmit — 0 errors)
+
+T11-specific tests passing (unit)
+----------------------------------
+src/__tests__/analysis-detail.test.ts:
+  ✓ getAnalysisDetail — RLS isolation (NFR-07) > returns null when the analysis is not found (wrong company_id)
+  ✓ getAnalysisDetail — RLS isolation (NFR-07) > returns AnalysisDetail when analysis belongs to the correct company_id
+  ✓ getAnalysisDetail — RLS isolation (NFR-07) > returns feedbackByMe.rating when feedback exists
+  ✓ getAnalysisDetail — data mapping > maps flagged_pages_list from raw row
+
+T7 regression tests still passing (after result-tabs.tsx rewrite)
+-------------------------------------------------------------------
+src/__tests__/result-tabs.test.tsx:
+  ✓ ResultTabs — T7 (REQ-009) > accordion row toggles body text on click
+  ✓ ResultTabs — T7 (REQ-009) > tab switching changes active tab
+
+Files Changed
+-------------
+NEW:   src/types/domain/analysis.ts           — AnalysisDetail, RequisitoView, ProcesoMetadataSnapshot types
+NEW:   src/lib/queries/analysis-detail.ts     — getAnalysisDetail() query (Supabase PostgREST)
+NEW:   src/lib/server/auth-context.ts         — auth.company_id() server helper
+REWRITE: app/dashboard/analisis/[id]/page.tsx — real-data fetch, RLS-scoped, all extraction status branches
+REWRITE: app/dashboard/analisis/[id]/_components/result-tabs.tsx — accepts AnalysisDetail, citation placeholder
+EXTEND: src/components/page/sem-pill.tsx      — canonical verde/amarillo/rojo + legacy form
+UPDATE: src/lib/mock/index.ts                 — import LegacySemaforo (type compatibility)
+UPDATE: src/__tests__/result-tabs.test.tsx    — AnalysisDetail fixture replaces MockResultDetail
+NEW:   src/__tests__/analysis-detail.test.ts  — T11 unit tests (4 tests)
+NEW:   src/__tests__/analysis-detail-rls.integration.test.ts — Integration tests (require db:start)
+
+Done When Checklist (from plan)
+--------------------------------
+[x] getAnalysisDetail returns null for analyses owned by another company_id (RLS test — unit)
+[x] getAnalysisDetail returns the full aggregate in a single query for the happy path (unit test)
+[x] Page renders notFound() for missing IDs (null → notFound() in page)
+[x] Mock import in [id]/page.tsx is removed (removed, uses getAnalysisDetail)
+[x] npm run build no type errors (clean build)

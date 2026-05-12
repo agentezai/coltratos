@@ -1,0 +1,17 @@
+ ✓ |unit| src/__tests__/pliego-url-route.test.ts > POST /api/analyses/[id]/pliego-url (T15 — NFR-07) > returns 401 when session is missing (no company_id) 73ms
+ ✓ |unit| src/__tests__/pliego-url-route.test.ts > POST /api/analyses/[id]/pliego-url (T15 — NFR-07) > returns 404 when analysis is owned by another company (RLS) 1ms
+ ✓ |unit| src/__tests__/pliego-url-route.test.ts > POST /api/analyses/[id]/pliego-url (T15 — NFR-07) > returns { url } with 200 on success 2ms
+stderr | src/__tests__/pdf-viewer.test.tsx > PdfViewer (T15 — REQ-023) > renders "Cita no encontrada" chip when quote is not found in rendered text
+ ✓ |unit| src/__tests__/pdf-viewer.test.tsx > PdfViewer (T15 — REQ-023) > opens to initialPage 459ms
+ ✓ |unit| src/__tests__/pdf-viewer.test.tsx > PdfViewer (T15 — REQ-023) > renders "Cita no encontrada" chip when quote is not found in rendered text 13ms
+ ✓ |unit| src/__tests__/pdf-viewer.test.tsx > PdfViewer (T15 — REQ-023) > does NOT render quote-not-found chip when highlightQuote is null 8ms
+ ✓ |unit| src/__tests__/pdf-viewer.test.tsx > PdfViewer (T15 — REQ-023) > does not render anything when open=false 2ms
+ ✓ |unit| src/__tests__/rsc-purity.test.ts > RSC purity (NFR-05) > only allowlisted components carry "use client" inside src/components/ 4ms
+ ✓ |unit| src/__tests__/rsc-purity.test.ts > RSC purity (NFR-05) > src/lib/supabase/client.ts contains no server-only imports or service-role key (RN-001) 0ms
+ Test Files  54 passed (54)
+      Tests  256 passed (256)
+      Tests  256 passed (256)
+Type Errors  no errors
+   Start at  01:50:26
+   Duration  10.06s (transform 40.15s, setup 21.55s, import 45.04s, tests 29.64s, environment 9.13s, typecheck 1.80s)
+

@@ -109,3 +109,30 @@
 {"timestamp":"2026-05-06T23:03:01.489Z","type":"doctor_run","actor":"human","details":{"passing":12,"warnings":4,"failures":4,"total":20}}
 {"timestamp":"2026-05-06T23:03:01.522Z","type":"doctor_fix","actor":"human","details":{"fixesApplied":4,"fixesSkipped":0}}
 {"timestamp":"2026-05-06T23:03:01.529Z","type":"doctor_run","actor":"human","details":{"passing":16,"warnings":3,"failures":1,"total":20}}
+{"timestamp":"2026-05-06T23:25:21.702Z","type":"version_synced","actor":"human","details":{"from":"0.1.2","to":"0.11.0","applied":3,"skipped":0,"adaptersRegenerated":true}}
+{"timestamp":"2026-05-06T23:25:25.774Z","type":"doctor_run","actor":"human","details":{"passing":17,"warnings":2,"failures":1,"total":20}}
+{"timestamp":"2026-05-06T23:25:25.807Z","type":"doctor_fix","actor":"human","details":{"fixesApplied":1,"fixesSkipped":0}}
+{"timestamp":"2026-05-06T23:25:25.815Z","type":"doctor_run","actor":"human","details":{"passing":17,"warnings":2,"failures":1,"total":20}}
+{"timestamp":"2026-05-06T23:33:49.637Z","type":"doctor_run","actor":"human","details":{"passing":17,"warnings":2,"failures":1,"total":20}}
+{"timestamp":"2026-05-06T23:33:49.669Z","type":"doctor_fix","actor":"human","details":{"fixesApplied":1,"fixesSkipped":0}}
+{"timestamp":"2026-05-06T23:33:49.676Z","type":"doctor_run","actor":"human","details":{"passing":17,"warnings":2,"failures":1,"total":20}}
+{"timestamp":"2026-05-06T23:34:22.097Z","type":"skill_synced","actor":"human","details":{"applied":[{"name":"nybo-session-summary","kind":"register","to":"1.0.0"},{"name":"nybo-ship","kind":"register","to":"1.0.0"},{"name":"nybo-build-log","kind":"register","to":"1.0.0"}],"skipped":0,"adaptersRegenerated":false}}
+{"timestamp":"2026-05-06T23:34:43.351Z","type":"skill_synced","actor":"human","details":{"applied":[{"name":"nybo-batch","kind":"update","to":"1.0.0"},{"name":"nybo-curate","kind":"update","to":"1.0.0"},{"name":"nybo-insights","kind":"update","to":"1.0.0"},{"name":"nybo-plan","kind":"update","to":"1.0.0"},{"name":"nybo-pr","kind":"update","to":"1.0.0"},{"name":"nybo-run","kind":"update","to":"1.0.0"},{"name":"nybo-simplify","kind":"update","to":"1.0.0"},{"name":"nybo-sync-pr","kind":"update","to":"1.0.0"},{"name":"nybo-tdd","kind":"update","to":"1.0.0"},{"name":"nybo-verify","kind":"update","to":"1.0.0"},{"name":"nybo-worktree","kind":"update","to":"1.0.0"}],"skipped":0,"adaptersRegenerated":true}}
+{"timestamp":"2026-05-06T23:34:57.224Z","type":"doctor_run","actor":"human","details":{"passing":18,"warnings":1,"failures":1,"total":20}}
+{"event":"task_completed","timestamp":"2026-05-12T01:06:00Z","spec":"coltratos-app-ui","task_number":11,"task_title":"Result real-data loader — getAnalysisDetail Kysely + page rewrite"}
+{"event":"task_completed","timestamp":"2026-05-12T01:14:00Z","spec":"coltratos-app-ui","task_number":12,"task_title":"Proceso metadata header + SECOP II link — ProcesoHeader component"}
+{"event":"task_completed","timestamp":"2026-05-12T01:23:00Z","spec":"coltratos-app-ui","task_number":13,"task_title":"Verdict banner refinement — real-data VerdictBanner + canonical SemPill mapping"}
+{"event":"task_completed","timestamp":"2026-05-12T01:29:00Z","spec":"coltratos-app-ui","task_number":14,"task_title":"Requisito row + expand panel (citation block)"}
+{"event":"task_completed","timestamp":"2026-05-12T01:50:00Z","spec":"coltratos-app-ui","task_number":15,"task_title":"PDF viewer DS primitive + signed URL"}
+{"event":"run_completed","timestamp":"2026-05-12T01:52:00Z","spec":"coltratos-app-ui","tasks_done":1,"tasks_blocked":0,"test_count":256,"coverage_pct":null}
+{"event":"task_completed","timestamp":"2026-05-12T00:00:00Z","spec":"coltratos-app-ui","task_number":16,"task_title":"rerunAnalysis server action + RerunButton"}
+{"event":"task_completed","timestamp":"2026-05-12T02:17:00Z","spec":"coltratos-app-ui","task_number":17,"task_title":"ExtractionWarning + WarningBanner DS primitive"}
+{"event":"run_completed","timestamp":"2026-05-12T02:18:00Z","spec":"coltratos-app-ui","tasks_done":1,"tasks_blocked":0,"test_count":179,"coverage_pct":null}
+{"event":"task_completed","spec":"coltratos-app-ui","task_number":18,"task_title":"Relevance feedback action + storage","timestamp":"2026-05-12T02:30:00Z"}
+{"event":"task_completed","timestamp":"2026-05-12T02:35:00Z","spec":"coltratos-app-ui","task_number":19,"task_title":"Export trigger button"}
+{"event":"task_completed","spec":"coltratos-app-ui","task_number":20,"task_title":"Loading states tied to real progress","timestamp":"2026-05-12T02:39:00Z"}
+{"event":"run_completed","spec":"coltratos-app-ui","tasks_done":1,"tasks_blocked":0,"test_count":306,"coverage_pct":null,"timestamp":"2026-05-12T02:39:00Z"}
+{"event":"status_advanced","timestamp":"2026-05-12T00:00:00Z","spec":"coltratos-app-ui","from":"in-review","to":"pr-ready","trigger":"nybo-pr","pr_url":"https://github.com/agentezai/coltratos/pull/7"}
+{"event":"pr_created","timestamp":"2026-05-12T17:44:00Z","spec":"coltratos-app-ui","pr_url":"https://github.com/agentezai/coltratos/pull/7","pr_number":7,"branch":"docs/spec-batch-2026-05-06","base":"main","ci_fix":"bumped Node 20→22 for react-pdf v9 Promise.withResolvers compatibility"}
+{"event":"spec_shipped","timestamp":"2026-05-12T17:47:00Z","spec":"coltratos-app-ui","pr_url":"https://github.com/agentezai/coltratos/pull/7","ci_run":"https://github.com/agentezai/coltratos/actions/runs/25751861154","ci_conclusion":"success","branch":"docs/spec-batch-2026-05-06","tasks_completed":"T11-T20"}
+{"event":"spec_shipped","timestamp":"2026-05-12T17:50:00Z","spec":"coltratos-app-ui","build_log_path":"docs/coltratos-app-ui/feat/11-build-log.md","pr_url":"https://github.com/agentezai/coltratos/pull/7","pr_number":7,"shipped_at":"2026-05-12T17:47:00Z"}

@@ -34,14 +34,29 @@ function walk(dir: string, acc: string[] = []): string[] {
   return acc;
 }
 
+/**
+ * NFR-02 approved exception: src/components/ui/pdf-viewer.tsx carries
+ * "use client" because react-pdf requires a browser environment (canvas,
+ * Worker). This exception is confirmed and flagged for /nybo-verify.
+ *
+ * T18 exception: src/components/ui/feedback-thumbs.tsx carries "use client"
+ * per NFR-01 (REQ-026 explicitly lists the feedback control as a Client
+ * Component). This exception is intentional.
+ */
+const USE_CLIENT_ALLOWLIST = new Set([
+  "src/components/shell/sidebar.tsx",
+  "src/components/ui/feedback-thumbs.tsx",
+  "src/components/ui/pdf-viewer.tsx",
+]);
+
 describe('RSC purity (NFR-05)', () => {
-  it('only src/components/shell/sidebar.tsx carries "use client" inside src/components/', () => {
+  it('only allowlisted components carry "use client" inside src/components/', () => {
     const files = walk(COMPONENTS).filter((f) => {
       const head = readFileSync(f, "utf-8").slice(0, 200);
       return USE_CLIENT_RE.test(head);
     }).map((f) => relative(ROOT, f)).sort();
 
-    expect(files).toEqual(["src/components/shell/sidebar.tsx"]);
+    expect(files).toEqual([...USE_CLIENT_ALLOWLIST].sort());
   });
 
   it('src/lib/supabase/client.ts contains no server-only imports or service-role key (RN-001)', () => {

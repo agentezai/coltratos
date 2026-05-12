@@ -1,0 +1,42 @@
+T18: Relevance feedback action + storage
+========================================
+Run date: 2026-05-12
+
+Test suite: 294/294 passed (59 test files)
+Type errors: 0
+Lint errors: 0
+Build: clean
+
+New tests added (17):
+  submit-feedback.test.ts (8 tests):
+    ✓ calls upsert when rating = "up"
+    ✓ calls upsert when rating = "down"
+    ✓ includes optional comment in the upsert payload
+    ✓ sets updated_at in the upsert payload
+    ✓ calls DELETE when rating = null (toggle-off)
+    ✓ does NOT call upsert when rating = null
+    ✓ throws NotFoundError when company_id is null (RLS gate)
+    ✓ does not call supabase.from when not authenticated
+
+  feedback-thumbs.test.tsx (9 tests):
+    ✓ renders thumbs-up and thumbs-down buttons
+    ✓ marks thumbs-up as active when initialRating = "up"
+    ✓ marks thumbs-down as active when initialRating = "down"
+    ✓ shows comment input after clicking thumbs-up
+    ✓ enforces maxLength=200 on the comment input
+    ✓ calls onSubmit with rating and comment when Enviar clicked
+    ✓ calls onSubmit with null comment when no comment entered
+    ✓ calls onSubmit(null, null) when active thumb is re-clicked (toggle-off)
+    ✓ shows "Gracias por tu opinión" toast after successful submit
+
+Files created/modified:
+  NEW  supabase/migrations/20260512000000_create_analysis_feedback.sql
+  NEW  app/dashboard/analisis/[id]/_actions/submit-feedback.ts
+  NEW  src/components/ui/feedback-thumbs.tsx
+  NEW  app/dashboard/analisis/[id]/_components/feedback-thumbs.tsx
+  NEW  src/__tests__/submit-feedback.test.ts
+  NEW  src/__tests__/feedback-thumbs.test.tsx
+  MOD  src/components/ui/index.ts (FeedbackThumbs exported)
+  MOD  app/dashboard/analisis/[id]/_components/verdict-banner.tsx (T18 placeholder replaced)
+  MOD  src/__tests__/rsc-purity.test.ts (feedback-thumbs added to allowlist)
+  MOD  docs/coltratos-app-ui/feat/99-progress.md (T18 marked complete)

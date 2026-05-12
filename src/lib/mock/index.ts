@@ -1,4 +1,4 @@
-import type { Semaforo } from "@/components/page/sem-pill";
+import type { LegacySemaforo as Semaforo } from "@/components/page/sem-pill";
 
 export interface MockAnalisis {
   id: string;

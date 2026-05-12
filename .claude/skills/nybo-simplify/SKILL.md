@@ -11,6 +11,9 @@ description: >-
 <!-- Source: .nybo/ — run `nybo doctor --fix` to regenerate -->
 
 
+> **Agent:** nybo-executor · **Model:** Sonnet 4.6 (`claude-sonnet-4-6`)
+> Switch now: `/model claude-sonnet-4-6`
+
 # nybo-simplify
 
 Post-ship code review for a recently-shipped feature. Spawn three parallel subagent reviews — **reuse**, **quality**, **efficiency** — aggregate their findings into a prioritized list, and offer approval-gated patches for the items the human accepts.

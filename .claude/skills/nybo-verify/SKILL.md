@@ -9,11 +9,25 @@ description: >-
 <!-- Source: .nybo/ — run `nybo doctor --fix` to regenerate -->
 
 
+> **Agent:** nybo-executor · **Model:** Sonnet 4.6 (`claude-sonnet-4-6`)
+> Switch now: `/model claude-sonnet-4-6`
+
 # nybo-verify
 
 Gather objective evidence about the current state of the implementation
 and present it for human evaluation. This skill does NOT make judgments —
 it collects facts and lets the human decide.
+
+---
+
+## Persona resolution
+
+Resolve persona: `--persona=<id>` → invoking agent's `persona:` → catalog default. Apply to the evidence report:
+
+- **`verbosity: minimal`** → table-only summary; no prose between sections.
+- **`verbosity: balanced`** → table summary plus a one-paragraph commentary.
+- **`verbosity: thorough`** → full prose walkthrough with cross-references.
+- **`progress_style: silent`** → suppress per-step narration while gathering evidence.
 
 ---
 
@@ -70,8 +84,8 @@ the human marks each item as acceptable or flags concerns.
 - Wait for the human to review each finding.
 - If the human flags a concern, note it and suggest next steps
   (e.g. "fix failing tests", "increase coverage for X module").
-- If all items are accepted, update the `<feature>` entry in **`docs/status.yaml`**:
-  `status: confirmed`, `verified_at: <ISO date>`.
+- If all items are accepted, update **`docs/<feature>/status.yaml`**:
+  `status: verified`, `verified_at: <ISO date>`.
 - **Record the outcome via the CLI (preferred):**
   - **Pass** → run `nybo verify --record pass --feature <feature>` (emits `verify_passed` + `curate_needed` in one call).
   - **Fail** → run `nybo verify --record fail --feature <feature> --reason "<short reason>"` (emits `verify_failed`; no `curate_needed`).
@@ -102,7 +116,7 @@ Write `docs/<feature>/evidence/verification-report.md` with:
 ## File Locations
 
 - **Evidence directory:** `docs/<feature>/evidence/`
-- **Status file:** `docs/status.yaml` (root-level, keyed by feature name)
+- **Status file:** `docs/<feature>/status.yaml` (per-spec, flat YAML)
 - **Event log:** `.nybo/events.jsonl`
 
 ---

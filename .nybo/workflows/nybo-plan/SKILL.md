@@ -10,6 +10,9 @@ description: >-
   "/nybo-plan fix", or "/nybo-plan audit".
 ---
 
+> **Agent:** nybo-planning · **Model:** Opus 4.7 (`claude-opus-4-7`)
+> Switch now: `/model claude-opus-4-7`
+
 # nybo-plan
 
 A single planning skill with five modes. Each mode contains the complete workflow from its corresponding full-edition skill.
@@ -32,6 +35,8 @@ If the mode is ambiguous, ask: "Which planning mode? create / edit / design / fi
 
 Then execute the corresponding section below in full.
 
+**Persona:** resolve `--persona=<id>` → invoking agent's `persona:` frontmatter → catalog default at `.nybo/foundation/personas.yaml`. Apply the knobs (interview depth, spec sections, diagrams, task granularity, verbosity, tone) to every step below — full table at `.claude/rules/nybo-personas.md`.
+
 ---
 
 ## Agent Role
@@ -47,7 +52,7 @@ nybo-plan is the **Planning Agent** in the AI-First SDLC:
 
 **Key SDLC rules:**
 - SDDs are immutable once approved — changes create a new version, not edits
-- Every requirement traces: `US-XX → REQ-XXX (enforces RN-XXX) → TC-XXX (verifies RN-XXX)`
+- Every requirement traces: `F-xx (requirement.md) → AC-xxx (requirement.md) → TC-xxx (spec.md)`
 - Performance goals are gate criteria — measurable and verified during the Guardian phase
 - Specs must be complete enough for an Executor Agent to pick up without asking questions
 
@@ -72,7 +77,13 @@ Create a feature specification: load context, run discovery, generate the spec w
 - Read `.nybo/foundation/integrations.yaml` if it exists. For each MCP entry relevant to this feature's domain, list it in the spec's Dependencies under a `- **MCPs**:` bullet. Omit the bullet if no relevant MCPs exist.
 - **Check ADRs:** Read ACCEPTED ADRs from `.nybo/foundation/adrs/` (if the directory exists and contains files). Flag any ADR whose decision or context is relevant to the feature being planned. If an ADR might constrain the technical approach, surface it to the user before proceeding with design.
 
+### create / 2b. Scan for project-level requirement doc
+
+Glob repo root (case-insensitive) for `requirement.md`, `requirements.md`, `prd.md`, `PRD.md`, or `requirements/requirement.md`. If found: read it, extract features from `##` sections or `F-xx` entries (each = one candidate), present ordered list — *"Found `<file>`. I see N features: [slug — summary …]. Plan in this order? Adjust or exclude before we start."* — wait for confirmation, store the queue, **set multi-feature mode: active**. If not found: skip to step 3.
+
 ### create / 3. Discovery interview
+
+**If multi-feature mode is active** (step 2b): skip this interview — use the requirement doc section as source, jump to step 3b.
 
 Ask the human (concise; can be one message with bullets):
 
@@ -80,46 +91,56 @@ Ask the human (concise; can be one message with bullets):
 - **Who benefits**: Who benefits, and what does success look like?
 - **Constraints and edge cases**: What are the constraints (performance, compliance, integrations) and important edge cases?
 - **Design references**: Are there Figma designs, user journeys, or other references to align with?
+- **Atomic increments**: Can any part ship independently? Are there distinct phases (e.g. data model first, then UI)?
 
 Incorporate their answers into the spec. If they skip a question, infer where reasonable and call out assumptions.
 
-### create / 4. Generate `docs/<feature>/spec/spec.md`
+### create / 3b. Atomic spec design
 
-Follow the template at **`.nybo/templates/spec/spec.md`**. Fill every section; do not leave placeholders unless the user explicitly defers.
+**A feature can and should have multiple specs.** Each spec must be atomic: small, independently reviewable, implementable, and verifiable in isolation. Before generating files, ask: Do distinct parts ship independently? Are there phases (foundation → UI)? Different actors? Default to splitting when: feature count > 2, estimated tasks > 6, scope spans independent actors/axes, or > 2 screens. Show proposed splits with dependency order: "I see N atomic specs — [list]. Proceed or adjust?"
 
-- **Intention** — 2-3 sentences: what it does, who uses it, business outcome.
-- **Use Cases** — table linking to `use-cases.md` (UC-XX format).
-- **Functional Requirements** — numbered `REQ-XXX`, each referencing user stories and business rules.
-- **Non-Functional Requirements** — numbered `NFR-XX`, categorized (Performance, Security, etc.).
-- **Business Rules** — numbered `RN-XXX` constraints that govern system behavior.
-- **Test Cases** — numbered `TC-XXX` in Given/When/Then format, mapped to requirements and rules.
-- **UX/UI** — Figma links, wireframes, or "Design references pending."
-- **Architecture** — six subsections: ADRs, Tradeoffs, Performance Goals & Metrics, Data Model (Mermaid ER), API / Data Contracts, Service Integrations (Mermaid flowchart).
+**On split**: full directory per spec (spec/, feat/, contract/, status.yaml — step 11). Wire `dependencies.blocking`/`dependencies.blocks` across specs.
+**On single spec**: confirm it's genuinely atomic. Note reason in `status.yaml` `notes`.
 
-Add **Mermaid diagrams**: flowchart for architecture/data flow, sequence for multi-actor interactions, ER for data model changes, class diagram for service relationships.
+### create / 3c. Compact spec principle
 
-**Decomposition**: Break into tasks respecting SRP and file-size limits from `.nybo/foundation/conventions.yaml` (default 500 lines).
+Each spec is one atomic increment — small enough to review in one sitting. Skip requirement.md sections unless clearly needed: S2 only if ≥ 2 features; Gantt only if parallel delivery constraints; state/flow diagrams only if ≥ 3 states or ≥ 4-step automation; exception scenarios only for security/financial/compliance; S5 only if UI exists; S6 only if blockers exist. Target: requirement.md ≤ 120 lines · spec.md ≤ 80 lines. Delete empty sections.
 
-### create / 4b. Generate `docs/<feature>/spec/use-cases.md`
+### create / 3d. Multi-feature sequencing (one at a time)
 
-Follow the template at **`.nybo/templates/spec/use-cases.md`**. Fill in:
+Active only when multi-feature mode is on (step 2b). For each feature in the confirmed queue: (1) announce *"Planning N of total: `{slug}` — {summary}"*; (2) run steps 4–13 in full using the requirement doc section as source (step 3 Q&A skipped); (3) after step 12 approval, if more remain ask *"`{slug}` approved. Next: `{next-slug}` — {summary}. Continue? (yes / stop)"* — loop on yes, exit on stop; (4) after the last feature (or on stop) present a summary table: slug · `docs/<slug>/spec/spec.md` · status · task count. Close with: *"All specs approved. Say 'implement' to start with `{first-slug}`."*
 
-- **Actors** — table of roles and descriptions.
-- **User Stories** — `US-XX` in "As a / I want / So that" format.
-- **Use Case Scenarios** — `UC-XX` with Main Scenario, Alternative Scenarios, and Error Scenarios.
+### create / 4. Generate `docs/<feature>/spec/requirement.md`
 
-### create / 5. Generate `docs/<feature>/feat/00-overview.md`
+Follow the template at **`.nybo/workflows/nybo-plan/references/requirement-template.md`**. This is the source of truth for all product/business information; spec.md points to it.
 
-Follow the template at **`.nybo/templates/feature-plan/00-overview.md`**. Fill in:
+- **S1 — Overview** — *(required)* 2-3 sentence summary + axes table (what/for whom).
+- **S2 — Dependency Map** — *(only if ≥ 2 features)* Mermaid flowchart (color-coded) + Gantt only if parallel delivery time constraints exist + critical path table.
+- **S3 — Features** — *(required)* per F-xx: description, actor, priority, screen ref, BR-xxx table, AC-xxx table, optional diagrams.
+- **S4 — NFRs** — *(only if non-obvious constraints)* product NFRs with measurable thresholds. Skip if covered by global standards.
+- **S5 — Screens** — *(only if UI exists)* Mermaid wireframe + visual description. Skip entirely for backend/API-only features.
+- **S6 — Flags** — *(only if blocking items exist)* open decisions blocking dev. Skip if none.
 
-- Spec reference link (points to `../../spec/<feature>/spec.md`).
-- Problem + Solution (2-4 bullets).
-- Architecture Diagram (Mermaid flowchart).
-- Data Model (Mermaid class diagram, if new entities exist).
-- Task Index table with task number, file link, description, and dependencies.
-- Dependency Graph (Mermaid flowchart).
+### create / 5. Generate `docs/<feature>/spec/spec.md`
 
-### create / 6. Generate `docs/<feature>/feat/01-plan-NN-<task>.md` (one per task)
+Follow the template at **`.nybo/templates/spec/spec.md`**. This is a lean SDD — it references requirement.md; do not repeat business rules, acceptance criteria, or screen descriptions.
+
+- **Source** — link to `requirement.md`.
+- **Intention** — 1-2 sentences: what it does, who uses it, business outcome.
+- **Use Cases** — table linking to `use-cases.md` (UC-XX format), referencing AC-xxx from requirement.md.
+- **Technical Requirements** — implementation constraints not in requirement.md (bundle size, coverage, compatibility). Omit if all constraints are in requirement.md.
+- **Test Cases** — numbered `TC-XXX` in Given/When/Then format, referencing AC-xxx.
+- **Architecture** — four subsections (omit if not applicable): ADRs, Tradeoffs, Data Model (Mermaid ER), API / Data Contracts, Service Integrations (Mermaid flowchart).
+
+Keep spec.md under **120 lines** — move excess detail to requirement.md or task plan files. Add Mermaid diagrams only when architecture changes.
+
+**Also generate** `docs/<feature>/spec/use-cases.md` (template: `.nybo/templates/spec/use-cases.md`): Actors table, `US-XX` user stories, `UC-XX` scenarios (Main / Alternative / Error).
+
+### create / 6. Generate `docs/<feature>/feat/00-overview.md`
+
+Follow the template at **`.nybo/templates/feature-plan/00-overview.md`**: spec ref link, problem + solution (2-4 bullets), architecture diagram, data model (if new entities), task index table, dependency graph.
+
+### create / 7. Generate `docs/<feature>/feat/01-plan-NN-<task>.md` (one per task)
 
 Follow the template at **`.nybo/templates/feature-plan/01-plan-XX-task.md`**. For each task:
 
@@ -131,16 +152,11 @@ Follow the template at **`.nybo/templates/feature-plan/01-plan-XX-task.md`**. Fo
 
 Keep each task file under 160 lines. Split if it exceeds this. Task dependency order: **Schema → Services → API Routes → UI → End-to-End**.
 
-### create / 7. Generate `docs/<feature>/feat/10-verify.md`
+### create / 8. Generate `docs/<feature>/feat/10-verify.md`
 
-Follow the template at **`.nybo/templates/feature-plan/10-verify.md`**. For each task:
+Follow the template at **`.nybo/templates/feature-plan/10-verify.md`**: per task — Test Scenarios (happy path, edges, errors) and Gate Criteria. End with an End-to-End Verification section (numbered acceptance steps + final gate).
 
-- **Test Scenarios** — happy path, edge cases, error scenarios.
-- **Gate Criteria** — 1-2 sentences stating what must pass for the task to be verified.
-
-End with an **End-to-End Verification** section: numbered acceptance steps + final gate criteria.
-
-### create / 8. Generate `docs/<feature>/feat/99-progress.md`
+### create / 9. Generate `docs/<feature>/feat/99-progress.md`
 
 Follow the template at **`.nybo/templates/feature-plan/99-progress.md`**. For each task include two sub-items:
 
@@ -150,7 +166,7 @@ Follow the template at **`.nybo/templates/feature-plan/99-progress.md`**. For ea
 - [ ] Verify Task N: {brief description of verification}
 ```
 
-### create / 9. Generate `docs/<feature>/contract/contract.md`
+### create / 10. Generate `docs/<feature>/contract/contracts.md`
 
 Write a **Markdown TDD guide** — not actual test files. `nybo-run` reads this to write failing tests before implementing each task.
 
@@ -176,15 +192,14 @@ For each behavior that must be tested, write a section with:
 
 Respect `.nybo/foundation/security.yaml`: no sensitive data in contracts.
 
-### create / 10. Write to disk
+### create / 11. Write to disk
 
 ```
-docs/
-├── status.yaml                          ← Add entry: <feature>: { status: draft, created: <ISO date> }
-└── <feature>/
-    ├── status.yaml                      ← { status: draft, created: <ISO date> }
+docs/<feature>/
+    ├── status.yaml                      ← { feature: <feature>, status: draft, profile: code, action_type: ADD, created_at: <ISO date> }
     ├── spec/
-    │   ├── spec.md
+    │   ├── requirement.md               ← Product requirement (F-xx, BR-xxx, AC-xxx, SCR-xxx)
+    │   ├── spec.md                      ← Lean SDD referencing requirement.md
     │   └── use-cases.md
     ├── feat/
     │   ├── 00-overview.md
@@ -192,21 +207,38 @@ docs/
     │   ├── 10-verify.md
     │   └── 99-progress.md
     └── contract/
-        └── contract.md                  ← Markdown TDD guide for nybo-run
+        └── contracts.md                 ← Markdown TDD guide for nybo-run
 ```
 
-Use a feature name that is URL/filesystem-safe (lowercase, hyphens, no spaces). Create directories as needed. If `docs/status.yaml` doesn't exist, create it with an empty `features:` map. The per-feature `docs/<feature>/status.yaml` is a flat YAML (no nesting) — the dashboard reads this file directly.
+Use a feature name that is URL/filesystem-safe (lowercase, hyphens, no spaces). Create directories as needed. The per-feature `docs/<feature>/status.yaml` is a flat YAML (no nesting) — the dashboard reads this file directly. **There is no aggregator `docs/status.yaml`**: lifecycle state lives only in the per-feature file.
 
-### create / 11. Checkpoint
+### create / 12. Checkpoint
 
 - Present the spec to the human (summary + link to `docs/<feature>/spec/spec.md` and key diagrams).
 - Ask: **"Does this spec look right? Say 'approved' to proceed or tell me what to change."**
 - If they request changes: update the relevant files, then ask again.
-- When approved: update **both** status files:
-  - `docs/status.yaml` entry for `<feature>`: `status: approved`, `approved_at: <ISO date>`
-  - `docs/<feature>/status.yaml`: `status: approved`, `approved_at: <ISO date>`
+- When approved: update `docs/<feature>/status.yaml` to `status: approved`, `approved_at: <ISO date>`.
 
 Log a `spec_created` event to `.nybo/events.jsonl` with: `spec` = `<feature>`, `task_count`, `domains_referenced` (array of domain file names read in Step 2).
+
+**If multi-feature mode is active:** after logging the event, proceed to step 3d (offer next feature).
+
+### create / 13. Optional: push tasks to Jira
+
+If `.nybo/foundation/integrations.yaml` configures an Atlassian MCP whose `config.jira_project_key` is set, offer to create one Jira issue per task in the Feature Plan. **Opt-in only** — if the human declines, log nothing and continue.
+
+When the human accepts:
+
+1. Read each `docs/<feature>/feat/01-plan-NN-<task>.md` file. The title is the H1; the body is the rendered task content (Scope / Changes / Done When sections).
+2. Build a `PlanTask[]` with `{ ordinal, title, body, dependencies }` for each task.
+3. Call `recordIssueCreationIntents(rootDir, { specName, actionType, epicKey, tasks }, appendLine)` from `src/services/integrations/jira-issue-creator.ts`. Pass `epicKey` if the spec mentions a parent epic in its frontmatter or summary; otherwise omit.
+4. The service writes one `jira_issue_create_attempted` intent line per task into `.nybo/events.jsonl`. Each intent carries: `taskOrdinal`, `projectKey`, `issueType`, `summary`, `labels`, `parentEpicKey`, `mcp`.
+5. For each intent, invoke `mcp__atlassian__createJiraIssue` with the prepared payload. Use the summary, description (the task body), `projectKey`, `issueType`, and `labels` from the intent. If the MCP call returns the new issue key, append a follow-up note to the task file: `<!-- Jira: <ISSUE-KEY> -->`.
+6. If the MCP call fails for a task, leave the intent in events.jsonl as the durable record and warn the human; do not retry inside this step.
+
+If the Atlassian MCP is absent, the project key is unset, or `recordIssueCreationIntents` returns an empty array, this step is a silent no-op — no events emitted, no warnings.
+
+Required Atlassian token scopes: `read:jira-work`, `write:jira-work`, `create:jira-work`. Document this once in `wiki/agents-and-skills.md` under the Planning agent.
 
 ### create / Next Steps
 
@@ -246,7 +278,7 @@ Update `docs/<feature>/spec/spec.md`:
 - **Pending tasks**: modify, reorder, add, or remove as needed.
 - **Dependency graph**: update if task ordering changed.
 
-Updates may also touch `docs/<feature>/feat/` task files and `docs/<feature>/contract/contract.md`.
+Updates may also touch `docs/<feature>/feat/` task files and `docs/<feature>/contract/contracts.md`.
 
 Add/append a revision log row:
 
@@ -259,9 +291,7 @@ Add/append a revision log row:
 
 ### edit / 5. Update metadata
 
-Update **both** status files:
-- `docs/status.yaml` entry for `<feature>`
-- `docs/<feature>/status.yaml`
+Update `docs/<feature>/status.yaml`:
 
 ```yaml
 updated: <ISO date>
@@ -276,20 +306,15 @@ Append a new delta entry to `docs/<feature>/deltas.md` (create if absent). Use t
 
 ```
 ## Delta YYYY-MM-DD — edit | <short summary>
-
 **Mode:** edit
 **Rationale:** <user's stated reason from Step 2, verbatim or faithfully paraphrased>
 **Affected domains:** <comma-separated domain names inferred from changed task file paths vs .nybo/foundation/domains.yaml>
-
 ### Tasks added
 - TN: <title>  (omit section if none)
-
 ### Tasks modified
 - TN: <what changed>  (omit section if none)
-
 ### Tasks removed
 - TN: <reason>  (omit section if none)
-
 ### Impact on memory
 <!-- Flag if a previously-curated convention in the affected domains might be stale given this change -->
 - None identified
@@ -334,7 +359,7 @@ Add a `## Design Context` section to `docs/<feature>/spec/spec.md` with:
 - Component mappings
 - Acceptance criteria per screen or flow
 
-Update `docs/<feature>/contract/contract.md` if new acceptance criteria imply new behaviors.
+Update `docs/<feature>/contract/contracts.md` if new acceptance criteria imply new behaviors.
 
 ### design / 4. Checkpoint
 
@@ -429,15 +454,16 @@ If no file paths given, scan `src/` and propose scope from naming and imports.
 
 ### audit / 5. Generate spec artifacts
 
-Same output as create steps 4–9, **reverse-engineered from code**:
+Same output as create steps 4–10, **reverse-engineered from code**:
+- `docs/<feature>/spec/requirement.md` — inferred features, business rules, AC from code/tests.
 - `docs/<feature>/spec/spec.md` — inferred requirements. Intention starts with: *"Retroactively documented from shipped code."*
 - `docs/<feature>/spec/use-cases.md` — inferred from routes, handlers, UI flows.
 - `docs/<feature>/feat/00-overview.md` — architecture as-built.
 - `docs/<feature>/feat/01-plan-NN-<task>.md` — logical groupings of what was built.
 - `docs/<feature>/feat/10-verify.md` — existing coverage + gaps.
 - `docs/<feature>/feat/99-progress.md` — **all tasks `[x]`** (already shipped).
-- `docs/<feature>/contract/contract.md` — contracts from existing tests.
-- `docs/status.yaml` — entry: `<feature>: { status: approved, action_type: AUDIT, audited_at: <ISO date> }`
+- `docs/<feature>/contract/contracts.md` — contracts from existing tests.
+- `docs/<feature>/status.yaml` — `status: approved, action_type: AUDIT, audited_at: <ISO date>`
 
 Use create templates. Infer from code; call out assumptions.
 
@@ -449,7 +475,7 @@ Categorized improvement ideas: `[QUALITY]`, `[PERFORMANCE]`, `[SECURITY]`, `[REF
 
 **CHECKPOINT:** "Does this accurately reflect the implementation? Approve or adjust."
 
-On approval: update `docs/status.yaml` to `status: approved`, log `spec_audited` event with `spec`, `task_count`, `suggestion_count`, `domains_referenced`. Confirm: "Audit spec saved. Use `/nybo-plan create` or `/nybo-plan fix` to act on suggestions."
+On approval: update `docs/<feature>/status.yaml` to `status: approved`, log `spec_audited` event with `spec`, `task_count`, `suggestion_count`, `domains_referenced`. Confirm: "Audit spec saved. Use `/nybo-plan create` or `/nybo-plan fix` to act on suggestions."
 
 ---
 
@@ -462,17 +488,19 @@ Read the current trust level from **`.nybo/nybo.config.yaml`** (field `trust.lev
 | supervised | Always checkpoint — present full output, wait for explicit approval before proceeding. Applies to all five modes. |
 | autonomous | Auto-approve after generation for create mode. For edit, design, fix, and audit modes: still checkpoint (these are inherently collaborative and require human judgment), but use a streamlined summary rather than full output. |
 
-If the trust level is not set or unrecognised, default to **supervised** behavior (most conservative).
+If the trust level is not set or unrecognised, default to **supervised** behavior (most conservative). Legacy slugs (`observer`, `collaborator` → supervised; `architect` → semi-autonomous) are coerced on read.
 
 ---
 
 ## File Locations
 
-- **SDD (spec + use cases):** `docs/<feature>/spec/` (spec.md, use-cases.md)
+- **Product requirement (PRD):** `docs/<feature>/spec/requirement.md` (F-xx, BR-xxx, AC-xxx, SCR-xxx)
+- **SDD (spec + use cases):** `docs/<feature>/spec/` (spec.md, use-cases.md) — references requirement.md
 - **Feature plan:** `docs/<feature>/feat/` (00-overview.md, 01-plan-NN-*.md, 10-verify.md, 99-progress.md, evidence/, suggestions.md)
-- **TDD contracts:** `docs/<feature>/contract/contract.md`
-- **Status tracking:** `docs/status.yaml` (root-level, keyed by feature name)
+- **TDD contracts:** `docs/<feature>/contract/contracts.md`
+- **Status tracking:** `docs/<feature>/status.yaml` (per-feature file)
 - **Templates:** `.nybo/templates/spec/`, `.nybo/templates/feature-plan/`, `.nybo/templates/contract/`
+- **Requirement template:** `.nybo/workflows/nybo-plan/references/requirement-template.md`
 - **Domain files:** `.nybo/memory/domains/`
 - **Config:** `.nybo/nybo.config.yaml`, `.nybo/trust.yaml`
 - **Foundation:** `.nybo/foundation/`

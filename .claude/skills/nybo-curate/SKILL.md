@@ -13,10 +13,20 @@ description: >-
 <!-- Source: .nybo/ — run `nybo doctor --fix` to regenerate -->
 
 
+> **Agent:** nybo-curator · **Model:** Sonnet 4.6 (`claude-sonnet-4-6`)
+> Switch now: `/model claude-sonnet-4-6`
+
 # nybo-curate
 
-Unified curation skill for the nybble-lite edition. All knowledge management
+Unified curation skill for the nybo-lite edition. All knowledge management
 operations are accessible through **modes**.
+
+---
+
+## Walkthrough entry
+
+New to nybo-curate? Run `nybo curate --walkthrough` for a 2-minute tour of the 6 modes.
+Each mode is explained with a one-liner purpose, a "use me when" hint, and an example invocation.
 
 ---
 
@@ -34,6 +44,19 @@ Determine which mode to activate based on the user's request:
 | **changelog** | "generate changelog", "sprint changelog", "what shipped" | — (new) |
 
 If the mode is ambiguous, ask: "Which mode? curate / extract / conventions / domains / adr / changelog"
+
+---
+
+## Persona resolution
+
+Resolve persona: `--persona=<id>` → invoking agent's `persona:` → catalog default. Apply to every mode below:
+
+- **`verbosity: minimal`** → propose patches as diffs only; skip explanation paragraphs.
+- **`verbosity: thorough`** → include reasoning and cross-links for each patch.
+- **`decision_style: auto`** → apply obvious patches without asking; flag edge cases.
+- **`decision_style: ask`** → confirm every patch before applying.
+
+Full bullet list at `.claude/rules/nybo-personas.md` (or `.cursor/rules/nybo-personas.md`).
 
 ---
 
@@ -178,7 +201,7 @@ when the PR merges.
 ### curate — What This Mode Does NOT Do
 
 - **Generate feedback** — feedback comes from human review or the
-  execution agent's suggestions.md output.
+  executor agent's suggestions.md output.
 - **Create skills directly** — it identifies candidates; use the
   extract mode to create the actual skill files.
 - **Auto-apply patches** — every change requires human approval.
@@ -194,7 +217,7 @@ Analyze a completed implementation to identify reusable patterns and capture the
 ### extract — 1. Load context
 
 - Resolve the **feature name** `<n>` from the user.
-- Read **`docs/<n>/spec/spec.md`**. If not found, check `docs/status.yaml` for the feature and warn.
+- Read **`docs/<n>/spec/spec.md`**. If not found, check `docs/<n>/status.yaml` and warn.
 - Read **`feedback.md`** in `docs/<n>/feat/` for lessons captured.
 - Read all files under **`docs/<n>/evidence/`**.
 - Read **`docs/<n>/suggestions.md`** for follow-up items.
@@ -376,7 +399,7 @@ Generate a changelog from completed specs and events.
 **Steps:**
 1. Read `.nybo/events.jsonl`, filter by date range, group by spec.
 2. For each spec: extract title, action type (ADD/FIX/UPD), PR URL.
-3. Read `docs/status.yaml` and check for `release_version` fields on shipped specs. If release versions are present, group changelog entries by version (e.g. "## v1.2.3"). If no release versions are set, fall back to date-range grouping.
+3. Walk `docs/<feature>/status.yaml` for every shipped feature; collect `release_version` fields when present. If release versions are present, group changelog entries by version (e.g. "## v1.2.3"). If no release versions are set, fall back to date-range grouping.
 4. Include deployment status (`deployed_to`) as a badge next to each entry when available.
 5. Format as changelog grouped by Features / Fixes / Updates with stats (specs completed, PRs merged, conventions added).
 6. On approval, write to `docs/changelog/<date-range>.md`. Log `changelog_generated` event.
@@ -396,7 +419,7 @@ Read the current trust level from **`.nybo/nybo.config.yaml`** (field `trust.lev
 
 **Note:** The curate mode is always interactive regardless of trust level — knowledge curation is too important to automate.
 
-If the trust level is not set or unrecognised, default to **supervised** behavior (most conservative).
+If the trust level is not set or unrecognised, default to **supervised** behavior (most conservative). Legacy slugs (`observer`, `collaborator` → supervised; `architect` → semi-autonomous) are coerced on read.
 
 ---
 

@@ -18,6 +18,7 @@ paths:
 - **MUST** retain pliego files in Supabase storage with a per-tenant prefix (e.g. `companies/<company_id>/pliegos/<sha256>.pdf`) and auto-delete after 90 days unless the user pins them. Source: docs/mvp-definition.md §5 (Storage).
 - **MUST** retain rows in `analyses` indefinitely — the JSONB snapshot is what makes the verdict reproducible after the file is gone. Source: docs/mvp-definition.md §5 (Audit trail).
 - **MUST** insert a new `analyses` row on re-run, never mutate the existing one — verdict history is part of the audit trail. Source: docs/mvp-definition.md §3 step 9, §5.
+- **MUST** apply all pending Supabase migrations before deploying any code that depends on them — tables, columns, and RLS policies do not exist in the database until the migration runs, so deploying application code first will cause runtime failures. Example: `supabase/migrations/20260512000000_create_analysis_feedback.sql` must be applied before the `analysis_feedback` table and its RLS policies are live.
 
 ## Patterns
 

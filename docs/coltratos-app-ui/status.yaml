@@ -1,5 +1,11 @@
-status: in-review
+status: pr-ready
 action_type: FEATURE
 profile: code
 created: "2026-05-01"
 approved_at: "2026-05-01"
+updated: "2026-05-12"
+revision_count: 1
+last_revision: "2026-05-06 — Resultado del análisis real-data wiring: REQ-022–029, RN-006–010, NFR-06–07, T11–T20 added. Citations + in-app PDF viewer + re-run + partial-extraction warning + relevance feedback + export trigger + loading states tied to real progress. T1–T10 unchanged."
+pr_url: "https://github.com/agentezai/coltratos/pull/7"
+pr_status: open
+pr_opened_at: "2026-05-12"

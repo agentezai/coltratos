@@ -10,6 +10,9 @@ description: >-
   a link.
 ---
 
+> **Agent:** nybo-executor · **Model:** Sonnet 4.6 (`claude-sonnet-4-6`)
+> Switch now: `/model claude-sonnet-4-6`
+
 # nybo-sync-pr
 
 Backfills PR metadata on specs that shipped before PR tracking was wired up,
