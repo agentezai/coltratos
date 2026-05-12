@@ -133,3 +133,6 @@
 {"event":"task_completed","spec":"coltratos-app-ui","task_number":20,"task_title":"Loading states tied to real progress","timestamp":"2026-05-12T02:39:00Z"}
 {"event":"run_completed","spec":"coltratos-app-ui","tasks_done":1,"tasks_blocked":0,"test_count":306,"coverage_pct":null,"timestamp":"2026-05-12T02:39:00Z"}
 {"event":"status_advanced","timestamp":"2026-05-12T00:00:00Z","spec":"coltratos-app-ui","from":"in-review","to":"pr-ready","trigger":"nybo-pr","pr_url":"https://github.com/agentezai/coltratos/pull/7"}
+{"event":"pr_created","timestamp":"2026-05-12T17:44:00Z","spec":"coltratos-app-ui","pr_url":"https://github.com/agentezai/coltratos/pull/7","pr_number":7,"branch":"docs/spec-batch-2026-05-06","base":"main","ci_fix":"bumped Node 20→22 for react-pdf v9 Promise.withResolvers compatibility"}
+{"event":"spec_shipped","timestamp":"2026-05-12T17:47:00Z","spec":"coltratos-app-ui","pr_url":"https://github.com/agentezai/coltratos/pull/7","ci_run":"https://github.com/agentezai/coltratos/actions/runs/25751861154","ci_conclusion":"success","branch":"docs/spec-batch-2026-05-06","tasks_completed":"T11-T20"}
+{"event":"spec_shipped","timestamp":"2026-05-12T17:50:00Z","spec":"coltratos-app-ui","build_log_path":"docs/coltratos-app-ui/feat/11-build-log.md","pr_url":"https://github.com/agentezai/coltratos/pull/7","pr_number":7,"shipped_at":"2026-05-12T17:47:00Z"}
