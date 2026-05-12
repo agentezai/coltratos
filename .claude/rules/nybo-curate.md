@@ -13,3 +13,4 @@
 - **audit-gate-high-only**: CI audit gate is npm audit --audit-level=high; medium/low findings tracked in docs/<feature>/evidence/audit-known-issues.md with re-eval cadence
 - **tsconfig-drift-watch**: After every Next.js major / minor upgrade, diff tsconfig.json — Next silently rewrites compiler options during next build (e.g., jsx preserve → react-jsx); accept or revert deliberately
 - **scope-deferral-verify-gate**: When a spec defers a config decision to a downstream spec, surface the deferral during /nybo-verify (as a Q-question); flipping a config flag now is usually cheaper than re-bootstrapping later
+- **ds-extension-over-inline**: Any new primitive on the Resultado del análisis surface MUST be added to `src/components/ui/` as a DS primitive rather than inlined in a page component. Established DS primitives: `PdfViewer`, `Quote`, `WarningBanner`, `FeedbackThumbs`. Source: coltratos-app-ui T14/T15/T17/T18.

@@ -22,6 +22,10 @@ The shared vocabulary of Colombian public procurement as it applies to COLTRATOS
 <!-- added: 2026-04-28 | feature: mvp-baseline | confidence: high -->
 - **MUST NOT** over-validate `numero_proceso` format on input — formats vary across modalidades and years; let the datos.gov.co lookup be the validator and fall back to manual entry on miss. Source: docs/mvp-definition.md §3 step 5.
 <!-- added: 2026-04-28 | feature: mvp-baseline | confidence: high -->
+- **MUST** extend the design system (`src/components/ui/`) rather than inline a primitive when adding new UI to the Resultado del análisis surface. Established DS primitives: `PdfViewer`, `Quote`, `WarningBanner`, `FeedbackThumbs`. Source: coltratos-app-ui T14/T15/T17/T18.
+<!-- added: 2026-05-12 | feature: coltratos-app-ui | confidence: high | verified: 2026-05-12 -->
+- **MUST NOT** render any edit affordance on the verdict banner or requisito rows — no `<select>`, `role="textbox"`, `role="combobox"`, `role="slider"`, or `data-verdict-edit` in the DOM. Re-runs create a new `analyses` row; the existing verdict is never mutated in place. Source: coltratos-app-ui RN-006.
+<!-- added: 2026-05-12 | feature: coltratos-app-ui | confidence: high | verified: 2026-05-12 -->
 
 ## Patterns
 
@@ -47,6 +51,9 @@ The shared vocabulary of Colombian public procurement as it applies to COLTRATOS
 
 **Two paths to a Proceso: Discovery (primary) and Lookup (fallback).** Discovery queries `procesos_index` via semantic search and structured filters — the user does not need to know the `numero_proceso` in advance. Direct Lookup by `numero_proceso` is the fallback for Procesos the user already holds from SECOP II or that are not yet in the index. Source: 2026-05-04 pilot-research conversation
 <!-- updated: 2026-05-04 | feature: discovery-pivot | confidence: high -->
+
+**Unverified-status badge (proceso_lookup_status = 'unverified').** When `proceso_lookup_status = 'unverified'`, surface it as a first-class state — not a degraded mode. Implementation pattern: amber `Chip` with label "Datos ingresados manualmente" in the Proceso metadata strip; replace the SECOP II link with "No disponible" static text. Never hide, downplay, or omit the unverified indicator. Source: coltratos-app-ui T12, RN-006 context.
+<!-- added: 2026-05-12 | feature: coltratos-app-ui | confidence: high | verified: 2026-05-12 -->
 
 ## Gotchas
 

@@ -42,6 +42,9 @@ The four external integrations the COLTRATOS MVP depends on, with the constraint
 
 **Anthropic prompt-caching layout.** The cacheable prefix is (a) the system prompt and (b) the extracted document content; the instruction tail varies per analysis. Cache hits on the document body across re-runs (user re-runs after profile edit, journey step 9) must be observable in the per-analysis cost log so regressions are visible.
 
+**PDF citation fallback (text-search miss).** When text-search highlight fails to locate an extracted quote in the rendered PDF, surface an amber "Cita no encontrada en el texto del PDF" chip rather than silently missing. Never drop the citation silently. This is the documented fallback when extracted text differs from rendered text. Source: coltratos-app-ui T15, S6 Flag F-2.
+<!-- added: 2026-05-12 | feature: coltratos-app-ui | confidence: high | verified: 2026-05-12 -->
+
 ## Gotchas
 
 **datos.gov.co lag and purges.** Recently-closed Procesos can be purged or re-keyed without notice; recently-published Procesos can take hours to appear. The fallback path (manual entry, `proceso_lookup_status = unverified`) is not a degraded mode — it is a first-class flow that must work end-to-end.
