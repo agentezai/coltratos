@@ -132,3 +132,4 @@
 {"event":"task_completed","timestamp":"2026-05-12T02:35:00Z","spec":"coltratos-app-ui","task_number":19,"task_title":"Export trigger button"}
 {"event":"task_completed","spec":"coltratos-app-ui","task_number":20,"task_title":"Loading states tied to real progress","timestamp":"2026-05-12T02:39:00Z"}
 {"event":"run_completed","spec":"coltratos-app-ui","tasks_done":1,"tasks_blocked":0,"test_count":306,"coverage_pct":null,"timestamp":"2026-05-12T02:39:00Z"}
+{"event":"status_advanced","timestamp":"2026-05-12T00:00:00Z","spec":"coltratos-app-ui","from":"in-review","to":"pr-ready","trigger":"nybo-pr","pr_url":"https://github.com/agentezai/coltratos/pull/7"}
