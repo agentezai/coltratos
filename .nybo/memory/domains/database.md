@@ -24,6 +24,8 @@ Cross-cutting data-model conventions for COLTRATOS that apply to every table and
 <!-- added: 2026-04-28 | feature: mvp-baseline | confidence: high -->
 - **MUST** insert a new `analyses` row on re-run, never mutate the existing one — verdict history is part of the audit trail. Source: docs/mvp-definition.md §3 step 9, §5.
 <!-- added: 2026-04-28 | feature: mvp-baseline | confidence: high -->
+- **MUST** apply all pending Supabase migrations before deploying any code that depends on them — tables, columns, and RLS policies do not exist in the database until the migration runs, so deploying application code first will cause runtime failures. Example: `supabase/migrations/20260512000000_create_analysis_feedback.sql` must be applied before the `analysis_feedback` table and its RLS policies are live.
+<!-- added: 2026-05-12 | feature: relevance-feedback | confidence: high | verified: 2026-05-12 -->
 
 ## Patterns
 
